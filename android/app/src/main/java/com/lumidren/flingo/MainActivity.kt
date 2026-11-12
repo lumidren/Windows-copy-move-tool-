@@ -113,6 +113,7 @@ class MainActivity : Activity() {
             setPadding(dpi(14f), dpi(8f), dpi(14f), dpi(8f))
             minHeight = dpi(40f)
             gravity = Gravity.CENTER
+            setOnClickListener { showPairDialog() }
         }
         header.addView(chip)
         header.addView(TextView(this).apply {
@@ -365,6 +366,82 @@ class MainActivity : Activity() {
                 showStatus("Couldn't reach ${prefs.pcName}. Is Flingo open on the PC, on the same Wi-Fi?")
             }
         }
+    }
+
+    // ---------- pairing ----------
+    private fun showPairDialog() {
+        val searching = AlertDialog.Builder(this)
+            .setTitle("Looking for your PC…")
+            .setMessage("Open Flingo on your PC. Both devices need to be on the same Wi-Fi.")
+            .setNegativeButton("Cancel", null)
+            .show()
+        scope.launch {
+            val pcs = withContext(Dispatchers.IO) { runCatching { Net.discover() }.getOrDefault(emptyList()) }
+            if (!searching.isShowing) return@launch
+            searching.dismiss()
+            val builder = AlertDialog.Builder(this@MainActivity)
+                .setNegativeButton("Cancel", null)
+            if (pcs.isEmpty()) {
+                builder.setTitle("No PC found")
+                    .setMessage("Check that Flingo is open on the PC, both devices are on the same Wi-Fi, and Windows Firewall allowed Flingo.")
+                    .setPositiveButton("Search again") { _, _ -> showPairDialog() }
+            } else {
+                builder.setTitle("Choose your PC")
+                    .setItems(pcs.map { it.name }.toTypedArray()) { _, i -> showCodeDialog(pcs[i]) }
+            }
+            builder.show()
+        }
+    }
+
+    private fun input(hintText: String, numeric: Boolean): Pair<FrameLayout, EditText> {
+        val field = EditText(this).apply {
+            hint = hintText
+            maxLines = 1
+            if (numeric) {
+                inputType = InputType.TYPE_CLASS_NUMBER
+                filters = arrayOf(InputFilter.LengthFilter(6))
+                textSize = 24f
+                letterSpacing = 0.3f
+                gravity = Gravity.CENTER
+            } else {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            }
+        }
+        val box = FrameLayout(this).apply { setPadding(dpi(22f), dpi(8f), dpi(22f), 0) }
+        box.addView(field, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        return box to field
+    }
+
+    private fun showCodeDialog(pc: Pc) {
+        val (box, field) = input("000000", numeric = true)
+        AlertDialog.Builder(this)
+            .setTitle("Pair with ${pc.name}")
+            .setMessage("Type the 6-digit code shown in Flingo on the PC.")
+            .setView(box)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Pair") { _, _ ->
+                val code = field.text.toString().trim()
+                scope.launch {
+                    try {
+                        val token = withContext(Dispatchers.IO) { Net.pair(pc, code, Build.MODEL ?: "Android phone") }
+                        prefs.savePairing(pc, token)
+                        updateChip()
+                        showStatus("Paired with ${pc.name} ✓")
+                        if (pendingShare.isNotEmpty()) {
+                            val uris = pendingShare
+                            pendingShare = emptyList()
+                            send(uris, 0.5f)
+                        }
+                    } catch (e: WrongCodeException) {
+                        Toast.makeText(this@MainActivity, e.message, Toast.LENGTH_SHORT).show()
+                        showCodeDialog(pc)
+                    } catch (_: Exception) {
+                        showStatus("Couldn't reach ${pc.name}.")
+                    }
+                }
+            }
+            .show()
+        field.requestFocus()
     }
 
 }
