@@ -81,3 +81,32 @@ Let go anywhere else and the photo snaps back. The send zone covers the top 10â€
 
 Flingo is also a **share target**: from any app, *Share â†’ Flingo* sends files of any type.
 
+## How it works
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as Android phone
+    participant W as Windows PC
+
+    Note over P,W: Discovery
+    P-->>W: UDP broadcast :47800 "FLINGO_DISCOVER"
+    W-->>P: { id, name, port }
+
+    Note over P,W: Pairing (once)
+    W->>W: show random 6-digit code
+    P->>W: POST /pair { code, deviceName }
+    W->>P: 256-bit token (PC keeps only its SHA-256)
+
+    Note over P,W: Every flick
+    P->>W: POST /send?x=0.62 (Bearer token, raw file body)
+    W->>W: stream to .part file, rename when complete
+    W->>P: 200 OK
+    W->>W: play arrival effect, add to Received
+```
+
+- **Discovery.** The phone broadcasts one small UDP datagram on each network interface. Any PC running Flingo answers with its name and port.
+- **Pairing.** The PC shows a random 6-digit code. Each code works for one phone, then rotates. Five wrong guesses from one address lock it out for a minute.
+- **Sending.** The file is streamed as the raw request body, so memory stays flat even for long videos. A dropped connection never leaves a half-written file.
+- **Arrival.** The flick's horizontal position travels with the upload, so the photo enters the PC screen where you aimed it.
+
