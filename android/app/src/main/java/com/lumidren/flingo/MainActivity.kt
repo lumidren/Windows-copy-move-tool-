@@ -80,6 +80,7 @@ class MainActivity : Activity() {
         prefs = Prefs(this)
         buildUi()
         updateChip()
+        if (hasMediaPermission()) loadGallery() else requestMediaPermission()
     }
 
     override fun onDestroy() {
@@ -149,6 +150,7 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor("#C5CAD8"))
             setPadding(dpi(32f), dpi(32f), dpi(32f), dpi(32f))
             visibility = View.GONE
+            setOnClickListener { requestMediaPermission() }
         }
         root.addView(empty, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.CENTER))
 
@@ -200,6 +202,43 @@ class MainActivity : Activity() {
         if (!sticky) statusJob = scope.launch {
             delay(2600)
             status.visibility = View.GONE
+        }
+    }
+
+    // ---------- gallery + permission ----------
+    private fun mediaPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+        else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+
+    private fun hasMediaPermission(): Boolean {
+        if (mediaPermissions().any { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) return true
+        // Android 14+: the user may have granted access to selected photos only.
+        return Build.VERSION.SDK_INT >= 34 &&
+            checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestMediaPermission() {
+        val perms = mediaPermissions().toMutableList()
+        if (Build.VERSION.SDK_INT >= 34) perms.add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+        requestPermissions(perms.toTypedArray(), 1)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (hasMediaPermission()) {
+            loadGallery()
+        } else {
+            empty.text = "Flingo needs access to your photos to show them here.\n\nTap to allow."
+            empty.visibility = View.VISIBLE
+        }
+    }
+
+    private fun loadGallery() {
+        scope.launch {
+            val items = withContext(Dispatchers.IO) { Gallery.load(this@MainActivity) }
+            adapter.submit(items)
+            empty.text = "No photos or videos on this phone yet."
+            empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
