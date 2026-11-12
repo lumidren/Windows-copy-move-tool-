@@ -96,7 +96,10 @@ function createMainWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   mainWin.loadFile(path.join(__dirname, 'index.html'));
-  mainWin.once('ready-to-show', () => { if (!startHidden) mainWin.show(); });
+  mainWin.once('ready-to-show', () => {
+    if (!startHidden) mainWin.show();
+    else if (isLinux) { mainWin.show(); mainWin.minimize(); } // no tray to reopen from
+  });
   if (process.env.FLINGO_DEBUG_MAIN) {
     mainWin.webContents.on('console-message', (_e, _l, msg) => console.log('[renderer]', msg));
     setInterval(async () => {
@@ -106,7 +109,9 @@ function createMainWindow() {
   mainWin.on('close', (e) => {
     if (quitting) return;
     e.preventDefault();
-    mainWin.hide(); // keep receiving from the tray
+    // GNOME shows no tray icons by default, so a hidden window would be unreachable there.
+    if (isLinux) mainWin.minimize();
+    else mainWin.hide(); // keep receiving from the tray
   });
 }
 
