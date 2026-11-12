@@ -10,6 +10,7 @@ const EFFECTS = ['comet', 'ripple', 'confetti', 'aurora'];
 const startHidden = process.argv.includes('--hidden');
 
 let mainWin = null;
+let overlayWin = null;
 let tray = null;
 let quitting = false;
 let pairCode = newCode();
@@ -70,6 +71,22 @@ function createMainWindow() {
   });
 }
 
+function createOverlay() {
+  const { bounds } = screen.getPrimaryDisplay();
+  overlayWin = new BrowserWindow({
+    x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
+    show: false, frame: false, transparent: true, resizable: false, movable: false,
+    skipTaskbar: true, focusable: false, hasShadow: false, alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  overlayWin.setIgnoreMouseEvents(true);
+  overlayWin.loadFile(path.join(__dirname, 'overlay.html'));
+}
+
 function showMain() {
   if (!mainWin || mainWin.isDestroyed()) createMainWindow();
   mainWin.show();
@@ -98,8 +115,10 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     loadSettings();
     createMainWindow();
+    createOverlay();
     createTray();
 
+    ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
 
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
