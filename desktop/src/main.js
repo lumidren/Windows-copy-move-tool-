@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
+const { pathToFileURL } = require('url');
 const { startServer, HTTP_PORT } = require('./server');
 
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
@@ -50,6 +51,25 @@ function lanAddresses() {
     for (const a of list || []) if (a.family === 'IPv4' && !a.internal) out.push(a.address);
   }
   return out;
+}
+
+function publicState() {
+  return {
+    name: settings.name,
+    code: pairCode,
+    addresses: lanAddresses(),
+    port: HTTP_PORT,
+    saveDir: settings.saveDir,
+    effect: settings.effect,
+    effects: EFFECTS,
+    showOverlay: settings.showOverlay,
+    launchAtLogin: settings.launchAtLogin,
+    devices: settings.devices.map(({ id, name, added }) => ({ id, name, added })),
+    history: history.filter((h) => fs.existsSync(h.path)).map((h) => ({ ...h, url: pathToFileURL(h.path).href })),
+  };
+}
+function pushState() {
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('state', publicState());
 }
 
 // ---------- windows ----------
@@ -178,6 +198,7 @@ if (!app.requestSingleInstanceLock()) {
       onFile: handleFile,
     });
 
+    ipcMain.handle('get-state', () => publicState());
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
 
