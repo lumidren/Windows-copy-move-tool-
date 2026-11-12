@@ -16,6 +16,7 @@ import java.net.URLEncoder
 
 data class Pc(val id: String, val name: String, val host: String, val port: Int)
 
+class WrongCodeException(message: String) : Exception(message)
 
 /** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
 object Net {
@@ -85,5 +86,22 @@ object Net {
             conn.disconnect()
         }
     }.getOrNull()
+
+    /** Returns the token to store. */
+    fun pair(pc: Pc, code: String, deviceName: String): String {
+        val conn = open(pc.host, pc.port, "/pair")
+        try {
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            val payload = JSONObject().put("code", code).put("deviceName", deviceName).toString().toByteArray()
+            conn.outputStream.use { it.write(payload) }
+            val json = runCatching { JSONObject(conn.body()) }.getOrDefault(JSONObject())
+            if (conn.responseCode != 200) throw WrongCodeException(json.optString("error", "Pairing failed"))
+            return json.getString("token")
+        } finally {
+            conn.disconnect()
+        }
+    }
 
 }
