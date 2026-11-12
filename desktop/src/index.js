@@ -26,6 +26,12 @@ function render(s) {
     return b;
   }));
 
+  $('devices').replaceChildren(...(s.devices.length ? s.devices.map((d) => {
+    const rm = el('button', { className: 'ghost', textContent: 'Remove' });
+    rm.onclick = async () => render(await api.removeDevice(d.id));
+    return el('li', {}, [el('span', { textContent: d.name }), rm]);
+  }) : [el('li', { className: 'none', textContent: 'No phones paired yet.' })]));
+
 }
 
 $('new-code').onclick = async () => render(await api.newCode());
