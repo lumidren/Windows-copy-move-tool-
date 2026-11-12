@@ -47,8 +47,15 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 function lanAddresses() {
   const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) out.push(a.address);
+  // Virtual adapters (VM hosts, WSL, VPNs) are never the address a phone can reach.
+  const virtual = /vmware|virtualbox|vethernet|hyper-v|wsl|docker|loopback|tailscale|zerotier/i;
+  // VirtualBox, VMware and Hyper-V host adapters, by MAC vendor prefix.
+  const virtualMac = /^(0a:00:27|08:00:27|00:50:56|00:0c:29|00:05:69|00:15:5d)/i;
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
+    if (virtual.test(name)) continue;
+    for (const a of list || []) {
+      if (a.family === 'IPv4' && !a.internal && !virtualMac.test(a.mac || '')) out.push(a.address);
+    }
   }
   return out;
 }
