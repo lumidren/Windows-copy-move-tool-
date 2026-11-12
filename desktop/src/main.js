@@ -36,6 +36,14 @@ function saveSettings() { fs.writeFileSync(settingsFile(), JSON.stringify(settin
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
+function lanAddresses() {
+  const out = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) out.push(a.address);
+  }
+  return out;
+}
+
 // ---------- windows ----------
 function createMainWindow() {
   mainWin = new BrowserWindow({
