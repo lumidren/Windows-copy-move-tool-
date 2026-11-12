@@ -117,6 +117,32 @@ function createTray() {
   tray.on('click', showMain);
 }
 
+// ---------- receiving ----------
+function isImage(mime, name) {
+  return /^image\//.test(mime) || /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
+}
+
+function handleFile(file) {
+  const entry = {
+    path: file.path, name: file.name, size: file.size, from: file.from,
+    image: isImage(file.mime, file.name), at: Date.now(),
+  };
+  history.unshift(entry);
+  history = history.slice(0, 60);
+  saveHistory();
+  pushState();
+  if (settings.showOverlay) {
+    playOverlay({
+      url: entry.image ? pathToFileURL(entry.path).href : null,
+      name: entry.name, from: entry.from, x: file.x, effect: settings.effect,
+    });
+  } else if (Notification.isSupported()) {
+    const n = new Notification({ title: 'Flingo', body: `${entry.name} received from ${entry.from}`, icon: ICON });
+    n.on('click', () => shell.showItemInFolder(entry.path));
+    n.show();
+  }
+}
+
 // ---------- app ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
