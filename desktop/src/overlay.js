@@ -102,10 +102,32 @@ function drawFlight(f, now) {
   ctx.restore();
 }
 
+function drawParticles(now) {
+  particles = particles.filter((q) => now - q.born < q.life);
+  for (const q of particles) {
+    const t = (now - q.born) / q.life;
+    q.x += q.vx; q.y += q.vy;
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    ctx.fillStyle = q.color;
+    if (q.kind === 'confetti') {
+      q.vy += 0.32; q.vx *= 0.985; q.rot += q.vr;
+      ctx.translate(q.x, q.y); ctx.rotate(q.rot);
+      ctx.fillRect(-q.size / 2, -q.size / 4, q.size, q.size / 2);
+    } else {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.shadowColor = q.color; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1 - t * 0.7), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
 function frame(now) {
   ctx.clearRect(0, 0, W, H);
   flights = flights.filter((f) => now - f.t0 < TOTAL);
   for (const f of flights) drawFlight(f, now);
+  drawParticles(now);
   if (flights.length || particles.length || rings.length) {
     requestAnimationFrame(frame);
   } else {
