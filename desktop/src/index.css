@@ -50,3 +50,23 @@ button.ghost { background: var(--panel-2); border: 1px solid var(--line); }
 button.ghost:hover { border-color: var(--accent); }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.effects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.effect {
+  position: relative; height: 68px; border-radius: 10px; border: 2px solid transparent;
+  padding: 0 10px 8px; display: flex; align-items: flex-end; text-align: left;
+  font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,.6);
+}
+.effect.active { border-color: #fff; }
+.effect.active::after { content: "✓"; position: absolute; top: 6px; right: 8px; }
+.effect[data-effect="comet"] { background: radial-gradient(circle at 70% 20%, #9db3ff 0, #3b4fd1 30%, #151a3a 75%); }
+.effect[data-effect="ripple"] { background: repeating-radial-gradient(circle at 50% 120%, #1c3f7a 0 8px, #2d6fd0 8px 12px); }
+.effect[data-effect="confetti"] {
+  background:
+    radial-gradient(circle at 20% 30%, #ff6bb5 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 25%, #ffb84d 0 4px, transparent 5px),
+    radial-gradient(circle at 45% 60%, #4de1c1 0 4px, transparent 5px),
+    radial-gradient(circle at 85% 65%, #6c8cff 0 4px, transparent 5px),
+    #2a2140;
+}
+.effect[data-effect="aurora"] { background: linear-gradient(180deg, #10142a 0, #2a3f9a 45%, #ff6bb5 80%, #ffb84d 100%); }
+
