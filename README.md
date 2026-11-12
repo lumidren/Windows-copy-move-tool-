@@ -69,3 +69,15 @@ Each arrival plays on a full-screen transparent layer that ignores the mouse, so
 
 Prefer silence? Turn off *Show arrivals on this PC* and files save quietly with a notification.
 
+## The gesture
+
+| Step | On the phone |
+|:-:|---|
+| **1** | **Hold** a photo. It lifts off the grid and follows your finger. |
+| **2** | **Flick up**, or drag it into the glowing send zone at the top. |
+| **3** | **Let go.** It leaves the top of the phone and enters the bottom of the PC screen, roughly where you threw it. |
+
+Let go anywhere else and the photo snaps back. The send zone covers the top 10–50% of the screen (adjustable), and a fast upward flick sends from anywhere.
+
+Flingo is also a **share target**: from any app, *Share → Flingo* sends files of any type.
+
