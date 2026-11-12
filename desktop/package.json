@@ -50,7 +50,7 @@
       "category": "Utility",
       "executableName": "flingo",
       "synopsis": "Flick photos from your phone to this PC",
-      "artifactName": "flingo-linux-${arch}.${ext}"
+      "artifactName": "flingo-linux.${ext}"
     }
   }
 }

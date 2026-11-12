@@ -61,8 +61,8 @@ jobs:
         with:
           name: linux
           path: |
-            desktop/release/flingo-linux-*.deb
-            desktop/release/flingo-linux-*.tar.gz
+            desktop/release/flingo-linux.deb
+            desktop/release/flingo-linux.tar.gz
           if-no-files-found: error
 
   android:
