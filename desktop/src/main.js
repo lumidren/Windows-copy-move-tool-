@@ -15,6 +15,7 @@ let mainWin = null;
 let overlayWin = null;
 let tray = null;
 let quitting = false;
+let framesStarted = false;
 let pairCode = newCode();
 let settings = null;
 let history = [];
@@ -133,6 +134,24 @@ function playOverlay(item) {
       setTimeout(async () => {
         try { fs.writeFileSync(cap, (await overlayWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
       }, 1500);
+    }
+    // Debug: dump the first arrival as numbered frames (used to make the README animation).
+    const framesDir = process.env.FLINGO_DEBUG_FRAMES;
+    if (framesDir && !framesStarted) {
+      framesStarted = true;
+      fs.mkdirSync(framesDir, { recursive: true });
+      const t0 = Date.now();
+      let n = 0;
+      const grab = async () => {
+        const t = Date.now() - t0;
+        if (t > 3500) return;
+        try {
+          const shot = (await overlayWin.webContents.capturePage()).resize({ width: 960 });
+          fs.writeFileSync(path.join(framesDir, `f${String(n++).padStart(3, '0')}_${t}.png`), shot.toPNG());
+        } catch { /* debug only */ }
+        setTimeout(grab, 15);
+      };
+      grab();
     }
   };
   if (overlayWin.webContents.isLoading()) overlayWin.webContents.once('did-finish-load', send);
