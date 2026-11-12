@@ -1,4 +1,5 @@
 // LAN receiver: UDP discovery + a small HTTP API the phone talks to.
+const fs = require('fs');
 const path = require('path');
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 
@@ -12,5 +13,15 @@ function sanitizeName(raw) {
     name = name.slice(0, 180 - ext.length) + ext;
   }
   return name;
+}
+
+function uniquePath(dir, name) {
+  const ext = path.extname(name);
+  const base = name.slice(0, name.length - ext.length);
+  let candidate = path.join(dir, name);
+  for (let i = 1; fs.existsSync(candidate); i++) {
+    candidate = path.join(dir, `${base} (${i})${ext}`);
+  }
+  return candidate;
 }
 
