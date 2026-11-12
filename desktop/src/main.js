@@ -128,6 +128,7 @@ function createOverlay() {
   });
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
   overlayWin.setIgnoreMouseEvents(true);
+  if (isLinux) overlayWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWin.loadFile(path.join(__dirname, 'overlay.html'));
 }
 
@@ -233,7 +234,9 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     loadSettings();
     createMainWindow();
-    createOverlay();
+    // On Linux the compositor needs a moment before it hands out a transparent visual.
+    if (isLinux) setTimeout(createOverlay, 400);
+    else createOverlay();
     createTray();
     installShortcuts();
 
