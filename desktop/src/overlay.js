@@ -41,6 +41,21 @@ function placeholderImage() {
   return c;
 }
 
+function fileCard(name) {
+  const c = document.createElement('canvas');
+  c.width = 420; c.height = 420;
+  const g = c.getContext('2d');
+  g.fillStyle = '#1b1f2b'; g.fillRect(0, 0, 420, 420);
+  g.fillStyle = '#6c8cff';
+  g.beginPath(); g.moveTo(140, 80); g.lineTo(240, 80); g.lineTo(290, 130); g.lineTo(290, 280); g.lineTo(140, 280); g.closePath(); g.fill();
+  g.fillStyle = '#a9b9ff';
+  g.beginPath(); g.moveTo(240, 80); g.lineTo(240, 130); g.lineTo(290, 130); g.closePath(); g.fill();
+  g.fillStyle = '#fff'; g.font = '600 24px "Segoe UI", sans-serif'; g.textAlign = 'center';
+  const label = name.length > 26 ? name.slice(0, 23) + '…' : name;
+  g.fillText(label, 210, 345);
+  return c;
+}
+
 function addFlight(item, img) {
   const maxSide = Math.min(W, H) * 0.42;
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
@@ -237,7 +252,12 @@ function frame(now) {
 }
 
 window.flingo.onArrive((item) => {
+  if (!item.url) {
+    addFlight(item, item.name === 'Preview' ? placeholderImage() : fileCard(item.name));
+    return;
+  }
   const img = new Image();
   img.onload = () => addFlight(item, img);
+  img.onerror = () => addFlight(item, fileCard(item.name));
   img.src = item.url;
 });
