@@ -175,7 +175,11 @@ function showMain() {
 }
 
 function createTray() {
-  tray = new Tray(nativeImage.createFromPath(TRAY_ICON));
+  try {
+    tray = new Tray(nativeImage.createFromPath(TRAY_ICON));
+  } catch {
+    return; // no status-notifier host on this desktop; the window stays reachable from the dock
+  }
   tray.setToolTip('Flingo — ready to receive');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open Flingo', click: showMain },
