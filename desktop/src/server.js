@@ -98,6 +98,46 @@ function startServer(hooks) {
         return from ? json(res, 200, { ok: true, ...hooks.info() }) : json(res, 401, { error: 'Not paired' });
       }
 
+      if (req.method === 'POST' && url.pathname === '/send') {
+        if (!from) { req.resume(); return json(res, 401, { error: 'Not paired' }); }
+        let rawName = req.headers['x-filename'] || 'file';
+        try { rawName = decodeURIComponent(rawName); } catch { /* keep raw */ }
+        const name = sanitizeName(rawName);
+        const dir = hooks.saveDir();
+        fs.mkdirSync(dir, { recursive: true });
+        const tmp = path.join(dir, `.flingo-${crypto.randomBytes(6).toString('hex')}.part`);
+        const out = fs.createWriteStream(tmp);
+        let size = 0;
+        let failed = false;
+        const fail = () => {
+          if (failed) return;
+          failed = true;
+          out.destroy();
+          fs.rm(tmp, { force: true }, () => {});
+        };
+        req.on('data', (c) => { size += c.length; });
+        req.on('aborted', fail);
+        req.on('error', fail);
+        out.on('error', () => { fail(); if (!res.headersSent) json(res, 500, { error: 'Could not save file' }); });
+        out.on('finish', () => {
+          if (failed) return;
+          const finalPath = uniquePath(dir, name);
+          fs.rename(tmp, finalPath, (err) => {
+            if (err) { fs.rm(tmp, { force: true }, () => {}); return json(res, 500, { error: 'Could not save file' }); }
+            hooks.onFile({
+              path: finalPath,
+              name: path.basename(finalPath),
+              size,
+              mime: String(req.headers['content-type'] || 'application/octet-stream'),
+              from,
+            });
+            json(res, 200, { ok: true, name: path.basename(finalPath) });
+          });
+        });
+        req.pipe(out);
+        return;
+      }
+
       req.resume();
       json(res, 404, { error: 'Not found' });
     } catch (err) {
