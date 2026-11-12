@@ -141,4 +141,17 @@ object Net {
         }
     }
 
+    /**
+     * Sends one file to the paired PC. If the PC's address changed (new DHCP lease),
+     * finds it again by its id and retries once.
+     */
+    fun send(ctx: Context, prefs: Prefs, uri: Uri, x: Float): String {
+        try {
+            return sendTo(ctx, prefs.host, prefs, uri, x)
+        } catch (e: IOException) {
+            val moved = discover().firstOrNull { it.id == prefs.pcId && it.host != prefs.host } ?: throw e
+            prefs.host = moved.host
+            return sendTo(ctx, moved.host, prefs, uri, x)
+        }
+    }
 }
