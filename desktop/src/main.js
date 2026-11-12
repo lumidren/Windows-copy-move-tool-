@@ -85,6 +85,12 @@ function createMainWindow() {
   });
   mainWin.loadFile(path.join(__dirname, 'index.html'));
   mainWin.once('ready-to-show', () => { if (!startHidden) mainWin.show(); });
+  if (process.env.FLINGO_DEBUG_MAIN) {
+    mainWin.webContents.on('console-message', (_e, _l, msg) => console.log('[renderer]', msg));
+    setInterval(async () => {
+      try { fs.writeFileSync(process.env.FLINGO_DEBUG_MAIN, (await mainWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
+    }, 2000);
+  }
   mainWin.on('close', (e) => {
     if (quitting) return;
     e.preventDefault();
@@ -115,6 +121,12 @@ function playOverlay(item) {
   const send = () => {
     overlayWin.showInactive();
     overlayWin.webContents.send('arrive', item);
+    const cap = process.env.FLINGO_DEBUG_CAPTURE;
+    if (cap) {
+      setTimeout(async () => {
+        try { fs.writeFileSync(cap, (await overlayWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
+      }, 1500);
+    }
   };
   if (overlayWin.webContents.isLoading()) overlayWin.webContents.once('did-finish-load', send);
   else send();
