@@ -220,6 +220,38 @@ android/
 | **Virtual network adapters** | VirtualBox, VMware, Hyper-V and WSL adapters are hidden, so the address shown is one a phone can actually reach. |
 | **Protocol dependencies** | None. The PC uses Node's `http`, `dgram`, `fs`, `crypto`; the phone uses `HttpURLConnection` and `DatagramSocket`. |
 
+## How it compares
+
+Flingo is not the only way to move a photo. This is where it sits, including where it loses.
+
+| | **Flingo** | Quick Share | Phone Link | LocalSend | KDE Connect | PairDrop |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Made by | this repo | Google | Microsoft | open source | KDE, open source | open source |
+| Windows | ✅ | ✅ | ✅ | ✅ | ✅ | browser |
+| Linux | ✅ | ❌ | ❌ | ✅ | ✅ | browser |
+| Needs an account | no | optional | Microsoft account | no | no | no |
+| Works with no internet | ✅ | ✅ | partly | ✅ | ✅ | needs its server to connect |
+| Encrypted in transit | ❌ *(roadmap #1)* | ✅ | ✅ | ✅ | ✅ | ✅ |
+| PC → phone | ❌ *(roadmap #6)* | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Steps to send a photo | hold + flick | share → pick device → accept | open app, find photo, drag | open app → pick file → pick device → accept | share → pick device | open tab on both → pick file |
+| Arrival on the PC | animated, on screen, where you aimed | notification | inside the app | notification | notification | browser download |
+| Scope | photos and files | files | calls, texts, notifications, photos | files and text | clipboard, notifications, remote input, files | files and text |
+
+**Where the others fall short**
+
+- **Quick Share** has no Linux app, leans on Bluetooth for discovery, and users regularly report phones that cannot see the PC.
+- **Phone Link** needs a Microsoft account, is Windows-only, and treats files as a side feature of a much larger app.
+- **LocalSend** is the most capable free option, but every send is a four-step form and the receiver has to accept.
+- **KDE Connect** does a great deal, which makes setup heavier, and on GNOME it needs the GSConnect extension.
+- **PairDrop** needs a browser tab open on both devices and reaches a signalling server before the devices can talk.
+- **Canopy**, the Mac app whose Portal feature inspired this project, covers Apple devices only.
+
+**Where Flingo is better:** one gesture, no account, no receiver prompt, and the only one that makes the arrival visible on screen at the spot you aimed for.
+
+**Where Flingo is worse today:** no encryption, one direction, Android-only on the phone side, and not yet in any app store. The [roadmap](ROADMAP.md) lists 20 features that close these gaps, in priority order.
+
+<sub>Comparison reflects the tools as generally documented in late 2026. Check each project for its current feature set.</sub>
+
 ## Limits
 
 - Both devices must be on the same local network.
