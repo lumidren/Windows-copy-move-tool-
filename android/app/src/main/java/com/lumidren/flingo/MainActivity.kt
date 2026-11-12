@@ -166,7 +166,8 @@ class MainActivity : Activity() {
             textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
+            // Keep the label at the top edge so the dragged photo and the finger don't cover it.
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
             alpha = 0f
             visibility = View.GONE
         }
@@ -187,6 +188,7 @@ class MainActivity : Activity() {
         root.setOnApplyWindowInsetsListener { _, insets ->
             @Suppress("DEPRECATION")
             column.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom)
+            zone.setPadding(0, insets.systemWindowInsetTop + dpi(10f), 0, 0)
             insets
         }
         setContentView(root)
