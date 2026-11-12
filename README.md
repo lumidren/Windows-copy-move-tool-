@@ -68,11 +68,11 @@
 </tr>
 </table>
 
-| | Windows app | Android app |
+| | Desktop app (Windows, Linux) | Android app |
 |---|---|---|
 | **Built with** | Electron, plain HTML/CSS/canvas | Native Kotlin, Android Views |
-| **Runs as** | Tray app with a real window and Start menu shortcut | Regular app + system share target |
-| **Size** | Standalone `Flingo.exe` | ~5 MB APK |
+| **Runs as** | A real window with a launcher entry; tray icon where the desktop has one | Regular app + system share target |
+| **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~5 MB APK |
 
 ## Arrival effects
 
