@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src file: data:; script-src 'self'; style-src 'self'">
+<title>Flingo</title>
+<link rel="stylesheet" href="index.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo"></span><h1>Flingo</h1></div>
+  <div class="status"><span class="dot"></span><span id="status-text">Ready to receive</span></div>
+</header>
+
+<main>
+  <section class="col">
+    <div class="card pair">
+      <h2>Pair a phone</h2>
+      <p class="muted">Open Flingo on your Android phone, pick this PC, and type this code.</p>
+      <div class="code" id="code" aria-label="Pairing code"></div>
+      <div class="row">
+        <button id="new-code" class="ghost">New code</button>
+        <span class="muted small" id="addr"></span>
+      </div>
+    </div>
+
+  </section>
+
+  <section class="col wide">
+    <div class="card grow">
+      <div class="row spread">
+        <h2>Received</h2>
+        <div class="row">
+          <button id="open-folder" class="ghost">Open folder</button>
+          <button id="clear" class="ghost">Clear list</button>
+        </div>
+      </div>
+      <p class="muted small">Click to open. Drag a tile into any app or folder.</p>
+      <div id="history" class="history"></div>
+      <div id="empty" class="empty">
+        <div class="empty-art"></div>
+        <p>Nothing yet.</p>
+        <p class="muted">Hold a photo on your phone and flick it toward this screen.</p>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="index.js"></script>
+</body>
+</html>
