@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flingo — flick photos from your phone to your PC</title>
+<meta name="description" content="Hold a photo on your Android phone, flick it toward your computer, and watch it land on the screen. Free, local, no cloud. For Windows and Linux.">
+<meta property="og:title" content="Flingo">
+<meta property="og:description" content="Flick a photo off your phone. Watch it land on your PC.">
+<meta property="og:image" content="banner.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="#top"><img src="icon.png" alt="" width="28" height="28">Flingo</a>
+  <nav>
+    <a href="#how">How it works</a>
+    <a href="#effects">Effects</a>
+    <a href="#videos">Videos</a>
+    <a href="#download">Download</a>
+    <a class="gh" href="https://github.com/lumidren/Windows-copy-move-tool-">GitHub</a>
+  </nav>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">Android → Windows · Linux</p>
+    <h1>Flick a photo off your phone.<br><span>Watch it land on your PC.</span></h1>
+    <p class="lead">Hold a photo, flick it toward your computer, and it flies onto the screen and saves. No cable, no cloud, no account. Files travel directly over your own Wi-Fi.</p>
+    <div class="cta">
+      <a class="btn primary" id="main-download" href="#download">Download Flingo</a>
+      <a class="btn" href="#videos">Watch it work</a>
+    </div>
+    <p class="fine" id="detected">Free and open source. Needs an Android phone and a Windows or Linux computer.</p>
+  </div>
+  <div class="hero-art">
+    <img src="hero.gif" alt="A photo flying onto a desktop with a glowing trail" width="720" height="405">
+  </div>
+</section>
+
+<section id="how" class="band">
+  <h2>Three moves</h2>
+  <div class="steps">
+    <article>
+      <span class="num">1</span>
+      <h3>Hold</h3>
+      <p>Press a photo in your gallery. It lifts off the grid and follows your finger.</p>
+    </article>
+    <article>
+      <span class="num">2</span>
+      <h3>Flick</h3>
+      <p>Throw it upward, or drag it into the glowing zone at the top of the screen.</p>
+    </article>
+    <article>
+      <span class="num">3</span>
+      <h3>Land</h3>
+      <p>It enters the bottom of your computer screen where you aimed it, then saves to your folder.</p>
+    </article>
+  </div>
+  <div class="shots">
+    <figure><img src="phone.png" alt="Flingo on Android showing the photo gallery" loading="lazy"><figcaption>Your gallery, paired once</figcaption></figure>
+    <figure><img src="phone-drag.png" alt="A photo being dragged into the send zone" loading="lazy"><figcaption>Hold, then flick</figcaption></figure>
+    <figure class="wide"><img src="window.png" alt="Flingo on the computer with received photos" loading="lazy"><figcaption>Everything you've received, ready to drag anywhere</figcaption></figure>
+  </div>
+</section>
+
+<section id="effects">
+  <h2>Pick how it arrives</h2>
+  <p class="sub">Four arrival effects, drawn on a see-through layer that never blocks your mouse. Or turn them off and save quietly.</p>
+  <img class="framed" src="effects.png" alt="Comet, Ripple, Confetti and Aurora arrival effects" loading="lazy">
+</section>
+
+<section id="videos" class="band">
+  <h2>See it in motion</h2>
+  <div class="videos">
+    <figure>
+      <video controls preload="none" poster="video/what-is-flingo.jpg" src="video/what-is-flingo.mp4"></video>
+      <figcaption><b>What is Flingo?</b> The idea in under a minute.</figcaption>
+    </figure>
+    <figure>
+      <video controls preload="none" poster="video/how-it-works.jpg" src="video/how-it-works.mp4"></video>
+      <figcaption><b>How it works.</b> Pairing, the gesture, and what happens on the network.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="download">
+  <h2>Download</h2>
+  <p class="sub">Install it on your phone and on your computer, then pair them once with a 6-digit code.</p>
+  <div class="downloads">
+    <article data-os="android">
+      <h3>Android</h3>
+      <p>Android 10 or newer.</p>
+      <a class="btn primary" href="https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo.apk">Download APK</a>
+      <p class="fine">Open the file on your phone and allow installing from your browser when asked.</p>
+    </article>
+    <article data-os="windows">
+      <h3>Windows</h3>
+      <p>Windows 10 or 11, 64-bit.</p>
+      <a class="btn primary" href="https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/Flingo-Setup.exe">Download installer</a>
+      <p class="fine">When Windows Firewall asks, choose <b>Allow</b> so your phone can reach the PC.</p>
+    </article>
+    <article data-os="linux">
+      <h3>Linux</h3>
+      <p>Kali, Debian, Ubuntu and other 64-bit distros.</p>
+      <a class="btn primary" href="https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo-linux.deb">Download .deb</a>
+      <a class="btn small" href="https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo-linux.tar.gz">.tar.gz</a>
+      <pre><code>sudo apt install ./flingo-linux.deb</code></pre>
+      <p class="fine">GNOME hides tray icons, so Flingo stays in the dock there. Running as root? Start it with <code>flingo --no-sandbox</code>.</p>
+    </article>
+  </div>
+  <p class="fine center">All downloads come from <a href="https://github.com/lumidren/Windows-copy-move-tool-/releases/latest">the latest GitHub release</a>.</p>
+</section>
+
+<section class="band">
+  <h2>Good to know</h2>
+  <div class="faq">
+    <details open><summary>Does it use the internet?</summary><p>No. The phone talks straight to your computer on the local network. Nothing is uploaded anywhere.</p></details>
+    <details><summary>Is it safe?</summary><p>Only phones you have paired with the 6-digit code can send. Transfers are not encrypted yet, so use it on Wi-Fi you trust, like your home network.</p></details>
+    <details><summary>My phone can't find the computer.</summary><p>Check both are on the same Wi-Fi and that the firewall allowed Flingo. If your router blocks discovery, tap <b>Enter address</b> and type the address shown under the code.</p></details>
+    <details><summary>Can I send other files, or videos?</summary><p>Yes. Videos appear in the gallery, and any file can be sent with <b>Share → Flingo</b> from another app.</p></details>
+    <details><summary>Does it work from computer to phone?</summary><p>Not yet. It is on the roadmap.</p></details>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>Flingo is free software under the MIT license. Made by <a href="https://github.com/lumidren">lumidren</a>.</p>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>
