@@ -215,6 +215,12 @@ if (!app.requestSingleInstanceLock()) {
       if (!r.canceled && r.filePaths[0]) { settings.saveDir = r.filePaths[0]; saveSettings(); }
       return publicState();
     });
+    ipcMain.handle('new-code', () => { pairCode = newCode(); return publicState(); });
+    ipcMain.handle('remove-device', (_e, id) => {
+      settings.devices = settings.devices.filter((d) => d.id !== id);
+      saveSettings();
+      return publicState();
+    });
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
 
