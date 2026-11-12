@@ -167,25 +167,16 @@ npm install
 npm start
 ```
 
-Build a standalone `Flingo.exe` (adds Start menu and desktop shortcuts on first launch):
+Installers: `npm run dist:win` on Windows, `npm run dist:linux` on Linux.
 
-```bash
-npm run package
-```
-
-> [!IMPORTANT]
-> The first time Flingo starts, Windows Firewall asks whether to allow it. Choose **Allow** for private networks, or the phone cannot reach the PC.
-
-### Android
-
-Requires Android Studio, or JDK 17–21 with the Android SDK. Runs on Android 10 or newer.
+**Android** (Android Studio, or JDK 17–21 with the Android SDK):
 
 ```bash
 cd android
 ./gradlew assembleDebug
 ```
 
-The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`. Copy it to the phone and install it.
+The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ### Pair
 
@@ -257,6 +248,7 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 - Both devices must be on the same local network.
 - Transfers are authenticated but **not encrypted**. Use it on networks you trust, such as home Wi-Fi.
 - One direction only: phone to PC.
+- The Linux build is produced and smoke-tested by CI, but the overlay has not yet been checked on real Kali hardware.
 
 <sub>The screenshots and animation above are real captures from the running apps. The landscape pictures in them are generated sample images, not anyone's photos.</sub>
 
