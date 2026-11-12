@@ -156,6 +156,19 @@ function drawFlight(f, now) {
   ctx.drawImage(f.img, -f.w / 2, -f.h / 2, f.w, f.h);
   ctx.restore();
 
+  // caption pill while resting
+  if (p.phase === 'rest') {
+    const a = Math.min(1, p.t * 6) * Math.min(1, (1 - p.t) * 6);
+    const text = `From ${f.from}`;
+    ctx.font = '600 15px "Segoe UI", sans-serif';
+    const tw = ctx.measureText(text).width;
+    ctx.globalAlpha = a * p.alpha;
+    ctx.fillStyle = 'rgba(14,16,22,.82)';
+    roundRect(-tw / 2 - 14, f.h / 2 + 26, tw + 28, 32, 16);
+    ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, 0, f.h / 2 + 42);
+  }
   ctx.restore();
 }
 
