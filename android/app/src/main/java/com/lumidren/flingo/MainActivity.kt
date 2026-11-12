@@ -194,6 +194,15 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun setZoneActive(active: Boolean) {
+        val target = if (prefs.paired) prefs.pcName else "your PC"
+        zone.text = if (active) "Release to send to $target" else "↑  Flick up to send"
+        zone.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(if (active) Color.parseColor("#F06C8CFF") else Color.parseColor("#996C8CFF"), Color.TRANSPARENT),
+        )
+    }
+
     private fun showStatus(text: String, sticky: Boolean = false) {
         statusJob?.cancel()
         status.text = text
@@ -239,6 +248,101 @@ class MainActivity : Activity() {
             adapter.submit(items)
             empty.text = "No photos or videos on this phone yet."
             empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    // ---------- drag + flick ----------
+    private fun rootOnScreen(): IntArray = IntArray(2).also { root.getLocationOnScreen(it) }
+
+    private fun startDrag(item: MediaItem, source: ImageView) {
+        if (dragging) return
+        val loc = IntArray(2).also { source.getLocationOnScreen(it) }
+        val base = rootOnScreen()
+        val view = ImageView(this).apply {
+            setImageDrawable(source.drawable)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            elevation = dp(16f)
+            clipToOutline = true
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, outline: Outline) = outline.setRoundRect(0, 0, v.width, v.height, dp(14f))
+            }
+        }
+        root.addView(view, FrameLayout.LayoutParams(source.width, source.height))
+        originX = (loc[0] - base[0]).toFloat()
+        originY = (loc[1] - base[1]).toFloat()
+        view.x = originX
+        view.y = originY
+        grabDx = lastX - base[0] - originX
+        grabDy = lastY - base[1] - originY
+        view.animate().scaleX(1.18f).scaleY(1.18f).setDuration(120).start()
+        source.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+
+        floating = view
+        dragItem = item
+        dragging = true
+
+        zone.layoutParams = zone.layoutParams.apply { height = root.height * prefs.zonePercent / 100 }
+        setZoneActive(false)
+        zone.visibility = View.VISIBLE
+        zone.animate().alpha(1f).setDuration(150).start()
+
+        // Take the gesture away from the list so it stops scrolling.
+        val now = SystemClock.uptimeMillis()
+        val cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, lastX, lastY, 0)
+        super.dispatchTouchEvent(cancel)
+        cancel.recycle()
+    }
+
+    private fun fingerInZone(): Boolean = (lastY - rootOnScreen()[1]) < root.height * prefs.zonePercent / 100f
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        lastX = ev.rawX
+        lastY = ev.rawY
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            tracker?.recycle()
+            tracker = VelocityTracker.obtain()
+        }
+        tracker?.addMovement(ev)
+        if (!dragging) return super.dispatchTouchEvent(ev)
+
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_MOVE -> {
+                val base = rootOnScreen()
+                floating?.let {
+                    it.x = lastX - base[0] - grabDx
+                    it.y = lastY - base[1] - grabDy
+                }
+                setZoneActive(fingerInZone())
+            }
+            MotionEvent.ACTION_UP -> finishDrag(cancelled = false)
+            MotionEvent.ACTION_CANCEL -> finishDrag(cancelled = true)
+        }
+        return true
+    }
+
+    private fun finishDrag(cancelled: Boolean) {
+        val view = floating
+        val item = dragItem
+        dragging = false
+        floating = null
+        dragItem = null
+        zone.animate().alpha(0f).setDuration(180).withEndAction { zone.visibility = View.GONE }.start()
+        if (view == null || item == null) return
+
+        tracker?.computeCurrentVelocity(1000)
+        val vy = tracker?.yVelocity ?: 0f
+        val flung = vy < -dp(1100f)
+        val shouldSend = !cancelled && (fingerInZone() || flung)
+
+        if (shouldSend && prefs.paired) {
+            val x = ((lastX - rootOnScreen()[0]) / root.width).coerceIn(0f, 1f)
+            view.animate().y(-view.height * 1.6f).scaleX(0.5f).scaleY(0.5f).alpha(0.4f)
+                .setDuration(220).withEndAction { root.removeView(view) }.start()
+            send(listOf(item.uri), x)
+        } else {
+            view.animate().x(originX).y(originY).scaleX(1f).scaleY(1f)
+                .setDuration(200).withEndAction { root.removeView(view) }.start()
+            if (shouldSend) showPairDialog()
         }
     }
 

@@ -22,6 +22,11 @@ class Prefs(ctx: Context) {
         get() = sp.getString("pcId", "") ?: ""
         set(v) = sp.edit().putString("pcId", v).apply()
 
+    /** Height of the send zone as a percentage of the screen (10–50). */
+    var zonePercent: Int
+        get() = sp.getInt("zone", 25).coerceIn(10, 50)
+        set(v) = sp.edit().putInt("zone", v.coerceIn(10, 50)).apply()
+
     val paired: Boolean get() = token.isNotEmpty() && host.isNotEmpty()
 
     fun savePairing(pc: Pc, newToken: String) {
