@@ -124,12 +124,14 @@ function startServer(hooks) {
           const finalPath = uniquePath(dir, name);
           fs.rename(tmp, finalPath, (err) => {
             if (err) { fs.rm(tmp, { force: true }, () => {}); return json(res, 500, { error: 'Could not save file' }); }
+            const x = Math.min(1, Math.max(0, parseFloat(url.searchParams.get('x')) || 0.5));
             hooks.onFile({
               path: finalPath,
               name: path.basename(finalPath),
               size,
               mime: String(req.headers['content-type'] || 'application/octet-stream'),
               from,
+              x,
             });
             json(res, 200, { ok: true, name: path.basename(finalPath) });
           });
