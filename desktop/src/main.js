@@ -225,6 +225,9 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('open-folder', () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); });
     ipcMain.on('open-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.openPath(p); });
     ipcMain.on('reveal-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.showItemInFolder(p); });
+    ipcMain.on('preview-effect', (_e, effect) => {
+      playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
+    });
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
 
