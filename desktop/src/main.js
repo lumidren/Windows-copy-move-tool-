@@ -10,6 +10,10 @@ const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
 const EFFECTS = ['comet', 'ripple', 'confetti', 'aurora'];
 const startHidden = process.argv.includes('--hidden');
+const isLinux = process.platform === 'linux';
+
+// Transparent windows need an ARGB visual on X11 and XWayland (GNOME, Xfce, KDE).
+if (isLinux) app.commandLine.appendSwitch('enable-transparent-visuals');
 
 let mainWin = null;
 let overlayWin = null;
