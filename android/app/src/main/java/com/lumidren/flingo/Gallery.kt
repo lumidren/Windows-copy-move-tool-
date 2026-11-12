@@ -38,6 +38,7 @@ object Gallery {
             }
         }
         query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, false)
+        query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true)
         items.sortByDescending { it.date }
         return if (items.size > limit) items.subList(0, limit) else items
     }
