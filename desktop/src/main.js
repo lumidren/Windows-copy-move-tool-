@@ -1,0 +1,56 @@
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const crypto = require('crypto');
+
+const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
+const startHidden = process.argv.includes('--hidden');
+
+let mainWin = null;
+let quitting = false;
+
+
+
+
+// ---------- windows ----------
+function createMainWindow() {
+  mainWin = new BrowserWindow({
+    width: 940, height: 680, minWidth: 720, minHeight: 520,
+    show: false,
+    backgroundColor: '#0e1016',
+    icon: ICON,
+    title: 'Flingo',
+    autoHideMenuBar: true,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+  });
+  mainWin.loadFile(path.join(__dirname, 'index.html'));
+  mainWin.once('ready-to-show', () => { if (!startHidden) mainWin.show(); });
+  mainWin.on('close', (e) => {
+    if (quitting) return;
+    e.preventDefault();
+    mainWin.hide(); // keep receiving from the tray
+  });
+}
+
+function showMain() {
+  if (!mainWin || mainWin.isDestroyed()) createMainWindow();
+  mainWin.show();
+  mainWin.focus();
+}
+
+// ---------- app ----------
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', showMain);
+  app.setAppUserModelId('com.lumidren.flingo');
+
+  app.whenReady().then(() => {
+    createMainWindow();
+
+  });
+
+  app.on('window-all-closed', () => { /* stay alive in the tray */ });
+  app.on('before-quit', () => { quitting = true; });
+}
