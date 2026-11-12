@@ -346,4 +346,25 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- sending ----------
+    private fun send(uris: List<Uri>, x: Float) {
+        scope.launch {
+            var sent = 0
+            try {
+                for (uri in uris) {
+                    showStatus(if (uris.size > 1) "Sending ${sent + 1} of ${uris.size}…" else "Sending…", sticky = true)
+                    withContext(Dispatchers.IO) { Net.send(this@MainActivity, prefs, uri, x) }
+                    sent++
+                }
+                showStatus(if (sent > 1) "Sent $sent files to ${prefs.pcName} ✓" else "Sent to ${prefs.pcName} ✓")
+            } catch (_: NotPairedException) {
+                prefs.clearPairing()
+                updateChip()
+                showStatus("That PC no longer knows this phone. Pair again.")
+            } catch (_: Exception) {
+                showStatus("Couldn't reach ${prefs.pcName}. Is Flingo open on the PC, on the same Wi-Fi?")
+            }
+        }
+    }
+
 }
