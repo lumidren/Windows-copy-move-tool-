@@ -138,6 +138,18 @@ function createTray() {
   tray.on('click', showMain);
 }
 
+function installShortcuts() {
+  if (!app.isPackaged) return;
+  const opts = { target: process.execPath, description: 'Flick photos from your phone to this PC', icon: process.execPath, iconIndex: 0 };
+  const targets = [
+    path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Flingo.lnk'),
+    path.join(app.getPath('desktop'), 'Flingo.lnk'),
+  ];
+  for (const lnk of targets) {
+    try { shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'update' : 'create', opts); } catch { /* non-fatal */ }
+  }
+}
+
 // ---------- receiving ----------
 function isImage(mime, name) {
   return /^image\//.test(mime) || /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
@@ -176,6 +188,7 @@ if (!app.requestSingleInstanceLock()) {
     createMainWindow();
     createOverlay();
     createTray();
+    installShortcuts();
 
     startServer({
       info: () => ({ id: settings.deviceId, name: settings.name }),
