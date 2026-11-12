@@ -16,6 +16,7 @@ import java.net.URLEncoder
 
 data class Pc(val id: String, val name: String, val host: String, val port: Int)
 
+class NotPairedException : Exception("Not paired")
 class WrongCodeException(message: String) : Exception(message)
 
 /** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
@@ -116,6 +117,28 @@ object Net {
             }
         }
         return name to size
+    }
+
+    private fun sendTo(ctx: Context, host: String, prefs: Prefs, uri: Uri, x: Float): String {
+        val (name, size) = describe(ctx, uri)
+        val conn = open(host, prefs.port, "/send?x=$x")
+        try {
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.readTimeout = 60000
+            conn.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+            conn.setRequestProperty("X-Filename", URLEncoder.encode(name, "UTF-8").replace("+", "%20"))
+            conn.setRequestProperty("Content-Type", ctx.contentResolver.getType(uri) ?: "application/octet-stream")
+            if (size >= 0) conn.setFixedLengthStreamingMode(size) else conn.setChunkedStreamingMode(64 * 1024)
+            val input = ctx.contentResolver.openInputStream(uri) ?: throw IOException("Cannot read file")
+            input.use { src -> conn.outputStream.use { dst -> src.copyTo(dst, 64 * 1024) } }
+            val code = conn.responseCode
+            if (code == 401) throw NotPairedException()
+            if (code != 200) throw IOException("PC answered $code")
+            return name
+        } finally {
+            conn.disconnect()
+        }
     }
 
 }
