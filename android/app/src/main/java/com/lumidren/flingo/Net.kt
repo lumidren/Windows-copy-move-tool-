@@ -104,4 +104,18 @@ object Net {
         }
     }
 
+    private fun describe(ctx: Context, uri: Uri): Pair<String, Long> {
+        var name = uri.lastPathSegment ?: "file"
+        var size = -1L
+        runCatching {
+            ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+                if (c.moveToFirst()) {
+                    if (!c.isNull(0)) name = c.getString(0)
+                    if (!c.isNull(1)) size = c.getLong(1)
+                }
+            }
+        }
+        return name to size
+    }
+
 }
