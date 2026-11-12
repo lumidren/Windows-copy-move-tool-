@@ -48,3 +48,76 @@ private class SquareFrame(ctx: Context) : FrameLayout(ctx) {
     override fun onMeasure(widthSpec: Int, heightSpec: Int) = super.onMeasure(widthSpec, widthSpec)
 }
 
+class GalleryAdapter(
+    private val ctx: Context,
+    private val onTap: () -> Unit,
+    private val onPickUp: (MediaItem, ImageView) -> Unit,
+) : RecyclerView.Adapter<GalleryAdapter.Holder>() {
+
+    private var items: List<MediaItem> = emptyList()
+    private val pool = Executors.newFixedThreadPool(4)
+    private val main = Handler(Looper.getMainLooper())
+    private val cache = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount
+    }
+
+    class Holder(view: View, val image: ImageView, val badge: TextView) : RecyclerView.ViewHolder(view) {
+        var key: String? = null
+    }
+
+    fun submit(list: List<MediaItem>) {
+        items = list
+        notifyDataSetChanged()
+    }
+
+    override fun getItemCount() = items.size
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+        val d = ctx.resources.displayMetrics.density
+        val frame = SquareFrame(ctx).apply {
+            layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setPadding((1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt())
+        }
+        val image = ImageView(ctx).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setBackgroundColor(Color.parseColor("#171A23"))
+        }
+        frame.addView(image, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val badge = TextView(ctx).apply {
+            text = "▶"
+            setTextColor(Color.WHITE)
+            textSize = 12f
+            setShadowLayer(4f, 0f, 1f, Color.BLACK)
+        }
+        frame.addView(badge, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.END).apply {
+            marginEnd = (8 * d).toInt(); bottomMargin = (6 * d).toInt()
+        })
+        return Holder(frame, image, badge)
+    }
+
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        val item = items[position]
+        val key = item.uri.toString()
+        holder.key = key
+        holder.badge.visibility = if (item.isVideo) View.VISIBLE else View.GONE
+        holder.image.contentDescription = if (item.isVideo) "Video" else "Photo"
+        holder.itemView.setOnClickListener { onTap() }
+        holder.itemView.setOnLongClickListener {
+            if (holder.image.drawable != null) onPickUp(item, holder.image)
+            true
+        }
+        val cached = cache.get(key)
+        if (cached != null) {
+            holder.image.setImageBitmap(cached)
+            return
+        }
+        holder.image.setImageDrawable(null)
+        pool.execute {
+            val bmp = runCatching { ctx.contentResolver.loadThumbnail(item.uri, Size(320, 320), null) }.getOrNull() ?: return@execute
+            cache.put(key, bmp)
+            main.post { if (holder.key == key) holder.image.setImageBitmap(bmp) }
+        }
+    }
+
+    fun shutdown() = pool.shutdownNow()
+}
