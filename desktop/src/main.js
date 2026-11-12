@@ -87,6 +87,18 @@ function createOverlay() {
   overlayWin.loadFile(path.join(__dirname, 'overlay.html'));
 }
 
+function playOverlay(item) {
+  if (!overlayWin || overlayWin.isDestroyed()) createOverlay();
+  const { bounds } = screen.getPrimaryDisplay();
+  overlayWin.setBounds(bounds);
+  const send = () => {
+    overlayWin.showInactive();
+    overlayWin.webContents.send('arrive', item);
+  };
+  if (overlayWin.webContents.isLoading()) overlayWin.webContents.once('did-finish-load', send);
+  else send();
+}
+
 function showMain() {
   if (!mainWin || mainWin.isDestroyed()) createMainWindow();
   mainWin.show();
