@@ -5,12 +5,32 @@ const os = require('os');
 const crypto = require('crypto');
 
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
+const EFFECTS = ['comet', 'ripple', 'confetti', 'aurora'];
 const startHidden = process.argv.includes('--hidden');
 
 let mainWin = null;
 let quitting = false;
+let settings = null;
 
+// ---------- settings ----------
+const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 
+function loadSettings() {
+  const defaults = {
+    deviceId: crypto.randomBytes(8).toString('hex'),
+    name: os.hostname(),
+    saveDir: path.join(app.getPath('pictures'), 'Flingo'),
+    effect: 'comet',
+    showOverlay: true,
+    launchAtLogin: false,
+    devices: [], // {id, name, hash, added}
+  };
+  try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; }
+  catch { settings = defaults; }
+  if (!EFFECTS.includes(settings.effect)) settings.effect = 'comet';
+  saveSettings();
+}
+function saveSettings() { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); }
 
 
 // ---------- windows ----------
@@ -47,6 +67,7 @@ if (!app.requestSingleInstanceLock()) {
   app.setAppUserModelId('com.lumidren.flingo');
 
   app.whenReady().then(() => {
+    loadSettings();
     createMainWindow();
 
   });
