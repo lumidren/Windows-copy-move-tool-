@@ -10,6 +10,7 @@ const startHidden = process.argv.includes('--hidden');
 
 let mainWin = null;
 let quitting = false;
+let pairCode = newCode();
 let settings = null;
 
 // ---------- settings ----------
@@ -32,6 +33,8 @@ function loadSettings() {
 }
 function saveSettings() { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); }
 
+function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
+const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 // ---------- windows ----------
 function createMainWindow() {
