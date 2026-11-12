@@ -40,7 +40,12 @@ function addFlight(item, img) {
     t0: performance.now(), landed: false, lastTrail: 0,
     hue: Math.floor(rand(0, PALETTE.length)),
   });
+  if (item.effect === 'ripple') spawnRings(lerp(W * 0.2, W * 0.8, item.x ?? 0.5), H, 4);
   if (!running) { running = true; requestAnimationFrame(frame); }
+}
+
+function spawnRings(x, y, n) {
+  for (let i = 0; i < n; i++) rings.push({ x, y, born: performance.now() + i * 140, life: 1300, max: Math.max(W, H) * 0.45 });
 }
 
 function pose(f, now) {
@@ -87,6 +92,7 @@ function drawFlight(f, now) {
 
   if (!f.landed && p.phase !== 'fly') {
     f.landed = true;
+    if (f.effect === 'ripple') spawnRings(p.x, p.y, 3);
   }
 
   ctx.save();
@@ -134,9 +140,25 @@ function drawParticles(now) {
   }
 }
 
+function drawRings(now) {
+  rings = rings.filter((r) => now - r.born < r.life);
+  for (const r of rings) {
+    if (now < r.born) continue;
+    const t = (now - r.born) / r.life;
+    ctx.save();
+    ctx.globalAlpha = (1 - t) * 0.8;
+    ctx.strokeStyle = '#8fb4ff';
+    ctx.lineWidth = 5 * (1 - t) + 1;
+    ctx.shadowColor = '#6c8cff'; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.arc(r.x, r.y, easeOutCubic(t) * r.max, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function frame(now) {
   ctx.clearRect(0, 0, W, H);
   flights = flights.filter((f) => now - f.t0 < TOTAL);
+  drawRings(now);
   for (const f of flights) drawFlight(f, now);
   drawParticles(now);
   if (flights.length || particles.length || rings.length) {
