@@ -5,10 +5,12 @@ const os = require('os');
 const crypto = require('crypto');
 
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
+const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
 const EFFECTS = ['comet', 'ripple', 'confetti', 'aurora'];
 const startHidden = process.argv.includes('--hidden');
 
 let mainWin = null;
+let tray = null;
 let quitting = false;
 let pairCode = newCode();
 let settings = null;
@@ -74,6 +76,18 @@ function showMain() {
   mainWin.focus();
 }
 
+function createTray() {
+  tray = new Tray(nativeImage.createFromPath(TRAY_ICON));
+  tray.setToolTip('Flingo — ready to receive');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Flingo', click: showMain },
+    { label: 'Open received folder', click: () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); } },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { quitting = true; app.quit(); } },
+  ]));
+  tray.on('click', showMain);
+}
+
 // ---------- app ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -84,6 +98,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     loadSettings();
     createMainWindow();
+    createTray();
 
   });
 
