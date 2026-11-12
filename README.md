@@ -235,6 +235,7 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 - **LocalSend** is the most capable free option, but every send is a four-step form and the receiver has to accept.
 - **KDE Connect** does a great deal, which makes setup heavier, and on GNOME it needs the GSConnect extension.
 - **PairDrop** needs a browser tab open on both devices and reaches a signalling server before the devices can talk.
+- **Blip** is fast, encrypted and works across the internet, but it needs an email sign-in and its own service, and its Linux version was still early-access when reviewed.
 - **Canopy**, the Mac app whose Portal feature inspired this project, covers Apple devices only.
 
 **Where Flingo is better:** one gesture, no account, no receiver prompt, and the only one that makes the arrival visible on screen at the spot you aimed for.
