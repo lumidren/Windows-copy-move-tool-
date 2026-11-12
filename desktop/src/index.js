@@ -53,6 +53,8 @@ function render(s) {
       ]),
     ]);
     tile.onclick = () => api.openFile(h.path);
+    tile.oncontextmenu = (e) => { e.preventDefault(); api.revealFile(h.path); };
+    tile.ondragstart = (e) => { e.preventDefault(); api.dragFile(h.path); };
     return tile;
   }));
 }
