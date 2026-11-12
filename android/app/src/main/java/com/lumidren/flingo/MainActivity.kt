@@ -128,6 +128,7 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor("#C5CAD8"))
             gravity = Gravity.CENTER
             contentDescription = "Settings"
+            setOnClickListener { showSettings() }
         }, LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
         column.addView(header)
 
@@ -499,4 +500,43 @@ class MainActivity : Activity() {
         field.requestFocus()
     }
 
+    // ---------- settings ----------
+    private fun showSettings() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpi(24f), dpi(12f), dpi(24f), 0)
+        }
+        val label = TextView(this).apply { textSize = 15f }
+        val note = TextView(this).apply {
+            text = "Let go of a photo inside this area at the top of the screen to send it. A quick upward flick sends from anywhere."
+            textSize = 13f
+            alpha = 0.7f
+        }
+        val bar = SeekBar(this).apply {
+            min = 10
+            max = 50
+            progress = prefs.zonePercent
+            setPadding(dpi(8f), dpi(16f), dpi(8f), dpi(16f))
+        }
+        fun refresh() { label.text = "Send zone: top ${bar.progress}% of the screen" }
+        bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) { prefs.zonePercent = p; refresh() }
+            override fun onStartTrackingTouch(s: SeekBar) {}
+            override fun onStopTrackingTouch(s: SeekBar) {}
+        })
+        refresh()
+        box.addView(label)
+        box.addView(bar)
+        box.addView(note)
+
+        val builder = AlertDialog.Builder(this).setTitle("Settings").setView(box).setPositiveButton("Done", null)
+        if (prefs.paired) {
+            builder.setNeutralButton("Unpair ${prefs.pcName}") { _, _ ->
+                prefs.clearPairing()
+                updateChip()
+                showStatus("Unpaired.")
+            }
+        }
+        builder.show()
+    }
 }
