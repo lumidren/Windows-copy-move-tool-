@@ -1,10 +1,13 @@
 // LAN receiver: UDP discovery + a small HTTP API the phone talks to.
 const http = require('http');
+const dgram = require('dgram');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const HTTP_PORT = 47801;
+const DISCOVERY_PORT = 47800;
+const DISCOVERY_MAGIC = 'FLINGO_DISCOVER';
 const MAX_PAIR_FAILS = 5; // per IP per minute
 
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
@@ -148,8 +151,18 @@ function startServer(hooks) {
   });
   server.listen(HTTP_PORT, '0.0.0.0');
 
+  const udp = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+  udp.on('message', (msg, rinfo) => {
+    if (msg.toString('utf8').trim() !== DISCOVERY_MAGIC) return;
+    const reply = Buffer.from(JSON.stringify({ app: 'flingo', port: HTTP_PORT, ...hooks.info() }));
+    udp.send(reply, rinfo.port, rinfo.address);
+  });
+  udp.on('error', () => {});
+  udp.bind(DISCOVERY_PORT);
+
   return {
     server,
+    close() { server.close(); try { udp.close(); } catch { /* already closed */ } },
   };
 }
 
