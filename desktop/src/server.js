@@ -1,6 +1,11 @@
 // LAN receiver: UDP discovery + a small HTTP API the phone talks to.
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+const HTTP_PORT = 47801;
+
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 
 function sanitizeName(raw) {
@@ -43,5 +48,35 @@ function readSmallBody(req, limit = 4096) {
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
+}
+
+/**
+ * hooks: {
+ *   info(): {id, name},
+ *   pair(code, deviceName): token | null,
+ *   checkToken(token): deviceName | null,
+ *   saveDir(): string,
+ *   onFile({path, name, size, mime, from, x})
+ * }
+ */
+function startServer(hooks) {
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    try {
+      if (req.method === 'GET' && url.pathname === '/info') {
+        return json(res, 200, { app: 'flingo', version: 1, ...hooks.info() });
+      }
+
+      req.resume();
+      json(res, 404, { error: 'Not found' });
+    } catch (err) {
+      if (!res.headersSent) json(res, 500, { error: 'Server error' });
+    }
+  });
+  server.listen(HTTP_PORT, '0.0.0.0');
+
+  return {
+    server,
+  };
 }
 
