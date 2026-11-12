@@ -175,3 +175,14 @@ android/
 | **Virtual network adapters** | VirtualBox, VMware, Hyper-V and WSL adapters are hidden, so the address shown is one a phone can actually reach. |
 | **Protocol dependencies** | None. The PC uses Node's `http`, `dgram`, `fs`, `crypto`; the phone uses `HttpURLConnection` and `DatagramSocket`. |
 
+## Limits
+
+- Both devices must be on the same local network.
+- Transfers are authenticated but **not encrypted**. Use it on networks you trust, such as home Wi-Fi.
+- One direction only: phone to PC.
+
+<sub>The screenshots and animation above are real captures from the running apps. The landscape pictures in them are generated sample images, not anyone's photos.</sub>
+
+## License
+
+MIT © lumidren
