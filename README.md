@@ -110,3 +110,44 @@ sequenceDiagram
 - **Sending.** The file is streamed as the raw request body, so memory stays flat even for long videos. A dropped connection never leaves a half-written file.
 - **Arrival.** The flick's horizontal position travels with the upload, so the photo enters the PC screen where you aimed it.
 
+## Run it
+
+### Windows
+
+Requires Node.js 20+.
+
+```bash
+cd desktop
+npm install
+npm start
+```
+
+Build a standalone `Flingo.exe` (adds Start menu and desktop shortcuts on first launch):
+
+```bash
+npm run package
+```
+
+> [!IMPORTANT]
+> The first time Flingo starts, Windows Firewall asks whether to allow it. Choose **Allow** for private networks, or the phone cannot reach the PC.
+
+### Android
+
+Requires Android Studio, or JDK 17–21 with the Android SDK. Runs on Android 10 or newer.
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`. Copy it to the phone and install it.
+
+### Pair
+
+1. Open Flingo on the PC. It shows a 6-digit code.
+2. Open Flingo on the phone and tap **Pair with PC**.
+3. Pick the PC from the list and type the code.
+
+> [!TIP]
+> Some routers block broadcast. If the PC isn't listed, tap **Enter address** and type the address shown under the code.
+
