@@ -90,6 +90,14 @@ function startServer(hooks) {
         return json(res, 200, { token, ...hooks.info() });
       }
 
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+      const from = token ? hooks.checkToken(token) : null;
+
+      if (req.method === 'GET' && url.pathname === '/ping') {
+        return from ? json(res, 200, { ok: true, ...hooks.info() }) : json(res, 401, { error: 'Not paired' });
+      }
+
       req.resume();
       json(res, 404, { error: 'Not found' });
     } catch (err) {
