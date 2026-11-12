@@ -374,6 +374,7 @@ class MainActivity : Activity() {
             .setTitle("Looking for your PC…")
             .setMessage("Open Flingo on your PC. Both devices need to be on the same Wi-Fi.")
             .setNegativeButton("Cancel", null)
+            .setNeutralButton("Enter address") { _, _ -> showManualDialog() }
             .show()
         scope.launch {
             val pcs = withContext(Dispatchers.IO) { runCatching { Net.discover() }.getOrDefault(emptyList()) }
@@ -381,6 +382,7 @@ class MainActivity : Activity() {
             searching.dismiss()
             val builder = AlertDialog.Builder(this@MainActivity)
                 .setNegativeButton("Cancel", null)
+                .setNeutralButton("Enter address") { _, _ -> showManualDialog() }
             if (pcs.isEmpty()) {
                 builder.setTitle("No PC found")
                     .setMessage("Check that Flingo is open on the PC, both devices are on the same Wi-Fi, and Windows Firewall allowed Flingo.")
@@ -410,6 +412,26 @@ class MainActivity : Activity() {
         val box = FrameLayout(this).apply { setPadding(dpi(22f), dpi(8f), dpi(22f), 0) }
         box.addView(field, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         return box to field
+    }
+
+    private fun showManualDialog() {
+        val (box, field) = input("e.g. 192.168.1.20", numeric = false)
+        AlertDialog.Builder(this)
+            .setTitle("PC address")
+            .setMessage("The address is shown under the pairing code in Flingo on your PC.")
+            .setView(box)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Connect") { _, _ ->
+                val host = field.text.toString().trim()
+                if (host.isEmpty()) return@setPositiveButton
+                showStatus("Connecting…", sticky = true)
+                scope.launch {
+                    val pc = withContext(Dispatchers.IO) { Net.info(host) }
+                    if (pc == null) showStatus("No Flingo PC answered at $host.")
+                    else { status.visibility = View.GONE; showCodeDialog(pc) }
+                }
+            }
+            .show()
     }
 
     private fun showCodeDialog(pc: Pc) {
