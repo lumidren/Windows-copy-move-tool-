@@ -12,9 +12,11 @@ let mainWin = null;
 let quitting = false;
 let pairCode = newCode();
 let settings = null;
+let history = [];
 
 // ---------- settings ----------
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
+const historyFile = () => path.join(app.getPath('userData'), 'history.json');
 
 function loadSettings() {
   const defaults = {
@@ -30,8 +32,10 @@ function loadSettings() {
   catch { settings = defaults; }
   if (!EFFECTS.includes(settings.effect)) settings.effect = 'comet';
   saveSettings();
+  try { history = JSON.parse(fs.readFileSync(historyFile(), 'utf8')); } catch { history = []; }
 }
 function saveSettings() { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); }
+function saveHistory() { fs.writeFileSync(historyFile(), JSON.stringify(history.slice(0, 60))); }
 
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
