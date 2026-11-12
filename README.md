@@ -151,3 +151,27 @@ The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`. Copy it to
 > [!TIP]
 > Some routers block broadcast. If the PC isn't listed, tap **Enter address** and type the address shown under the code.
 
+## Under the hood
+
+```
+desktop/
+  src/server.js     UDP discovery + HTTP API (pair, send), filename sanitising
+  src/main.js       tray, windows, settings, pairing state
+  src/overlay.js    canvas arrival animation and the four effects
+  src/index.*       main window: code, effects, received list
+android/
+  app/src/main/java/com/lumidren/flingo/
+    Net.kt          discovery, pairing, streaming upload, address recovery
+    Gallery.kt      MediaStore query, thumbnail cache, grid adapter
+    MainActivity.kt hold-and-flick gesture, pairing dialogs, share target
+    Prefs.kt        stored pairing and settings
+```
+
+| Problem | How Flingo handles it |
+|---|---|
+| **Scrolling vs. picking up** | A long press hands the touch stream from the scrolling list to the activity (a synthetic `ACTION_CANCEL` stops the list), so the two never fight. |
+| **The PC's IP changes** | The phone remembers the PC by id, not just address. If a send fails it rediscovers the PC and retries once. |
+| **Hostile filenames** | Names are cut to a base name, stripped of characters Windows rejects, guarded against device names like `CON` and `NUL`, and de-duplicated with ` (1)`, ` (2)`. |
+| **Virtual network adapters** | VirtualBox, VMware, Hyper-V and WSL adapters are hidden, so the address shown is one a phone can actually reach. |
+| **Protocol dependencies** | None. The PC uses Node's `http`, `dgram`, `fs`, `crypto`; the phone uses `HttpURLConnection` and `DatagramSocket`. |
+
