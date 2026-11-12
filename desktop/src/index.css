@@ -95,3 +95,18 @@ code {
 .devices li + li { border-top: 1px solid var(--line); }
 .devices .none { color: var(--muted); }
 
+.history {
+  flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; margin-top: 6px;
+}
+.tile {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+  overflow: hidden; cursor: pointer; padding: 0; text-align: left; color: var(--text);
+}
+.tile:hover { border-color: var(--accent); }
+.tile .thumb { height: 104px; background: #0b0d12 center/cover no-repeat; display: grid; place-items: center; color: var(--muted); font-weight: 700; letter-spacing: 1px; }
+.tile img { width: 100%; height: 104px; object-fit: cover; display: block; -webkit-user-drag: none; }
+.tile .meta { padding: 7px 9px; }
+.tile .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.tile .sub { font-size: 11px; color: var(--muted); }
+
