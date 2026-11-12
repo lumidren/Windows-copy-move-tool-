@@ -1,0 +1,102 @@
+name: Release
+
+# Builds every download (Windows installer, Linux .deb and .tar.gz, Android APK)
+# and attaches them to a GitHub Release. Runs when a version tag is pushed.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: desktop/release/Flingo-Setup.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run dist:linux
+      - name: Smoke-test the receiver API
+        run: |
+          node -e "
+            const { startServer } = require('./src/server');
+            const s = startServer({ info: () => ({ id: 'ci', name: 'ci' }), pair: () => null, checkToken: () => null, saveDir: () => '/tmp', onFile() {} });
+            setTimeout(async () => {
+              const r = await fetch('http://127.0.0.1:47801/info').then((x) => x.json());
+              if (r.app !== 'flingo') process.exit(1);
+              console.log('receiver ok', r);
+              s.close();
+            }, 300);
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            desktop/release/flingo-linux-*.deb
+            desktop/release/flingo-linux-*.tar.gz
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+      - run: ./gradlew assembleDebug --no-daemon
+      - run: cp app/build/outputs/apk/debug/app-debug.apk flingo.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: android/flingo.apk
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -la dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*
