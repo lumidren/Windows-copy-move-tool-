@@ -28,6 +28,19 @@ let particles = [];
 let rings = [];
 let running = false;
 
+function placeholderImage() {
+  const c = document.createElement('canvas');
+  c.width = 480; c.height = 360;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 480, 360);
+  grad.addColorStop(0, '#6c8cff'); grad.addColorStop(1, '#ff6bb5');
+  g.fillStyle = grad; g.fillRect(0, 0, 480, 360);
+  g.fillStyle = 'rgba(255,255,255,.9)';
+  g.beginPath(); g.arc(360, 110, 38, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.moveTo(0, 360); g.lineTo(150, 170); g.lineTo(250, 290); g.lineTo(320, 220); g.lineTo(480, 360); g.fill();
+  return c;
+}
+
 function addFlight(item, img) {
   const maxSide = Math.min(W, H) * 0.42;
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
