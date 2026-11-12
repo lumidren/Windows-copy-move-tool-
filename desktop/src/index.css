@@ -1,0 +1,44 @@
+:root {
+  --bg: #0e1016; --panel: #171a23; --panel-2: #1f2330; --line: #2a2f3f;
+  --text: #eef0f6; --muted: #9097aa; --accent: #6c8cff; --accent-2: #9b6bff; --ok: #4de1a1;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column; user-select: none;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 22px; border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
+.logo {
+  width: 26px; height: 26px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 18px rgba(108, 140, 255, .5);
+}
+.status { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+
+main { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 16px 22px 22px; }
+.col { width: 330px; flex: none; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-right: 4px; }
+.col.wide { flex: 1; width: auto; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.card.grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+p { margin: 0 0 10px; }
+.muted { color: var(--muted); }
+.small, small { font-size: 12px; }
+.row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.spread { justify-content: space-between; }
+
+.code {
+  font: 600 38px/1 "Cascadia Mono", Consolas, monospace; letter-spacing: 8px;
+  text-align: center; padding: 16px 0 16px 8px; margin: 4px 0 12px;
+  background: var(--panel-2); border-radius: 12px; user-select: text;
+  background-image: linear-gradient(135deg, rgba(108,140,255,.16), rgba(155,107,255,.10));
+}
+
