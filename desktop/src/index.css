@@ -118,3 +118,5 @@ code {
   mask: radial-gradient(circle at 50% 50%, #000 60%, transparent 61%);
 }
 
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
