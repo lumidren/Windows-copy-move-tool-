@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
+const { startServer, HTTP_PORT } = require('./server');
 
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
@@ -155,6 +156,27 @@ if (!app.requestSingleInstanceLock()) {
     createMainWindow();
     createOverlay();
     createTray();
+
+    startServer({
+      info: () => ({ id: settings.deviceId, name: settings.name }),
+      pair: (code, deviceName) => {
+        const a = Buffer.from(sha(code)); const b = Buffer.from(sha(pairCode));
+        if (!crypto.timingSafeEqual(a, b)) return null;
+        const token = crypto.randomBytes(32).toString('hex');
+        settings.devices.push({ id: crypto.randomBytes(6).toString('hex'), name: deviceName, hash: sha(token), added: Date.now() });
+        saveSettings();
+        pairCode = newCode(); // one code, one phone
+        pushState();
+        return token;
+      },
+      checkToken: (token) => {
+        const h = sha(token);
+        const d = settings.devices.find((x) => x.hash === h);
+        return d ? d.name : null;
+      },
+      saveDir: () => settings.saveDir,
+      onFile: handleFile,
+    });
 
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
