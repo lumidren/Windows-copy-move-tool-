@@ -48,6 +48,17 @@ function spawnRings(x, y, n) {
   for (let i = 0; i < n; i++) rings.push({ x, y, born: performance.now() + i * 140, life: 1300, max: Math.max(W, H) * 0.45 });
 }
 
+function spawnConfetti(x, y) {
+  for (let i = 0; i < 110; i++) {
+    const a = rand(0, Math.PI * 2), sp = rand(3, 13);
+    particles.push({
+      kind: 'confetti', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 4,
+      rot: rand(0, 6), vr: rand(-0.3, 0.3), size: rand(6, 12),
+      color: PALETTE[i % PALETTE.length], born: performance.now(), life: rand(900, 1700),
+    });
+  }
+}
+
 function pose(f, now) {
   const e = now - f.t0;
   const cx = W / 2, cy = H * 0.44;
@@ -92,6 +103,7 @@ function drawFlight(f, now) {
 
   if (!f.landed && p.phase !== 'fly') {
     f.landed = true;
+    if (f.effect === 'confetti') spawnConfetti(p.x, p.y);
     if (f.effect === 'ripple') spawnRings(p.x, p.y, 3);
   }
 
