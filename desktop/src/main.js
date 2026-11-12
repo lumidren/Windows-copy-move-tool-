@@ -190,8 +190,36 @@ function createTray() {
   tray.on('click', showMain);
 }
 
+// Linux launcher entry, also used for start-at-login (~/.config/autostart).
+function desktopEntry(extraArgs = '') {
+  const exe = process.env.APPIMAGE || process.execPath;
+  return [
+    '[Desktop Entry]',
+    'Type=Application',
+    'Name=Flingo',
+    'Comment=Flick photos from your phone to this PC',
+    `Exec="${exe}"${extraArgs}`,
+    `Icon=${ICON}`,
+    'Terminal=false',
+    'Categories=Utility;Network;FileTransfer;',
+    'StartupWMClass=Flingo',
+    '',
+  ].join('\n');
+}
+
 function installShortcuts() {
   if (!app.isPackaged) return;
+  if (isLinux) {
+    // A .deb install already ships a system-wide launcher.
+    if (fs.existsSync('/usr/share/applications/flingo.desktop')) return;
+    try {
+      const dir = path.join(app.getPath('home'), '.local', 'share', 'applications');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'flingo.desktop'), desktopEntry());
+    } catch { /* non-fatal */ }
+    return;
+  }
+  if (process.platform !== 'win32') return;
   const opts = { target: process.execPath, description: 'Flick photos from your phone to this PC', icon: process.execPath, iconIndex: 0 };
   const targets = [
     path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Flingo.lnk'),
@@ -200,6 +228,22 @@ function installShortcuts() {
   for (const lnk of targets) {
     try { shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'update' : 'create', opts); } catch { /* non-fatal */ }
   }
+}
+
+function setLaunchAtLogin(enabled) {
+  if (!isLinux) {
+    app.setLoginItemSettings({ openAtLogin: enabled, args: ['--hidden'] });
+    return;
+  }
+  const file = path.join(app.getPath('home'), '.config', 'autostart', 'flingo.desktop');
+  try {
+    if (enabled) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, desktopEntry(' --hidden'));
+    } else {
+      fs.rmSync(file, { force: true });
+    }
+  } catch { /* non-fatal */ }
 }
 
 // ---------- receiving ----------
@@ -272,7 +316,7 @@ if (!app.requestSingleInstanceLock()) {
       if (typeof patch.showOverlay === 'boolean') settings.showOverlay = patch.showOverlay;
       if (typeof patch.launchAtLogin === 'boolean') {
         settings.launchAtLogin = patch.launchAtLogin;
-        app.setLoginItemSettings({ openAtLogin: patch.launchAtLogin, args: ['--hidden'] });
+        setLaunchAtLogin(patch.launchAtLogin);
       }
       saveSettings();
       return publicState();
