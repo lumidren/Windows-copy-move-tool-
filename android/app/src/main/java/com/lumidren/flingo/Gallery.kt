@@ -44,3 +44,7 @@ object Gallery {
     }
 }
 
+private class SquareFrame(ctx: Context) : FrameLayout(ctx) {
+    override fun onMeasure(widthSpec: Int, heightSpec: Int) = super.onMeasure(widthSpec, widthSpec)
+}
+
