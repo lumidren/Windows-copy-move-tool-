@@ -87,8 +87,36 @@ function roundRect(x, y, w, h, r) {
   ctx.roundRect(x, y, w, h, r);
 }
 
+function drawAurora(f, p) {
+  const strength = p.phase === 'fly' ? p.t : p.phase === 'rest' ? 1 : 1 - p.t;
+  const time = (performance.now() - f.t0) / 1000;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 4; i++) {
+    const baseY = H - 40 - i * 60;
+    const grad = ctx.createLinearGradient(0, baseY - 260, 0, baseY + 60);
+    const color = PALETTE[(i + f.hue) % PALETTE.length];
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.6, color + '55');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = 0.55 * strength;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 40) {
+      const y = baseY - 150 * strength + Math.sin(x / 260 + time * 1.4 + i * 1.7) * 60;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawFlight(f, now) {
   const p = pose(f, now);
+  if (f.effect === 'aurora') drawAurora(f, p);
 
   if (f.effect === 'comet' && p.phase === 'fly' && now - f.lastTrail > 12) {
     f.lastTrail = now;
