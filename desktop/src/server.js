@@ -166,3 +166,4 @@ function startServer(hooks) {
   };
 }
 
+module.exports = { startServer, sanitizeName, HTTP_PORT, DISCOVERY_PORT };
