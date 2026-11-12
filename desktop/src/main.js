@@ -210,6 +210,11 @@ if (!app.requestSingleInstanceLock()) {
       saveSettings();
       return publicState();
     });
+    ipcMain.handle('choose-folder', async () => {
+      const r = await dialog.showOpenDialog(mainWin, { properties: ['openDirectory', 'createDirectory'], defaultPath: settings.saveDir });
+      if (!r.canceled && r.filePaths[0]) { settings.saveDir = r.filePaths[0]; saveSettings(); }
+      return publicState();
+    });
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
 
