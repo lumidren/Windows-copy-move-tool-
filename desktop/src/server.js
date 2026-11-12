@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const HTTP_PORT = 47801;
+const MAX_PAIR_FAILS = 5; // per IP per minute
 
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 
@@ -60,11 +61,33 @@ function readSmallBody(req, limit = 4096) {
  * }
  */
 function startServer(hooks) {
+  const fails = new Map(); // ip -> [timestamps]
+
+  function tooManyFails(ip) {
+    const now = Date.now();
+    const list = (fails.get(ip) || []).filter((t) => now - t < 60_000);
+    fails.set(ip, list);
+    return list.length >= MAX_PAIR_FAILS;
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
+    const ip = req.socket.remoteAddress || '';
     try {
       if (req.method === 'GET' && url.pathname === '/info') {
         return json(res, 200, { app: 'flingo', version: 1, ...hooks.info() });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/pair') {
+        if (tooManyFails(ip)) return json(res, 429, { error: 'Too many attempts. Wait a minute.' });
+        let body;
+        try { body = JSON.parse(await readSmallBody(req)); } catch { return json(res, 400, { error: 'Bad request' }); }
+        const token = hooks.pair(String(body.code || ''), String(body.deviceName || 'Phone').slice(0, 60));
+        if (!token) {
+          fails.get(ip).push(Date.now());
+          return json(res, 403, { error: 'Wrong code' });
+        }
+        return json(res, 200, { token, ...hooks.info() });
       }
 
       req.resume();
