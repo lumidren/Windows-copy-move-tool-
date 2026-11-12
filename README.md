@@ -21,6 +21,27 @@
   <img src="docs/hero.gif" alt="A photo arriving on the Windows desktop with the Comet effect" width="720">
 </p>
 
+<p align="center">
+  <a href="https://lumidren.github.io/Windows-copy-move-tool-/"><b>Website and downloads</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://lumidren.github.io/Windows-copy-move-tool-/#videos"><b>Watch the videos</b></a>
+  &nbsp;·&nbsp;
+  <a href="ROADMAP.md"><b>Roadmap</b></a>
+</p>
+
+<table>
+<tr>
+<td width="50%" align="center">
+  <a href="https://lumidren.github.io/Windows-copy-move-tool-/video/what-is-flingo.mp4"><img src="docs/video/what-is-flingo.jpg" alt="Video: What is Flingo?" width="100%"></a><br>
+  <sub>▶ <b>What is Flingo?</b> (37 s)</sub>
+</td>
+<td width="50%" align="center">
+  <a href="https://lumidren.github.io/Windows-copy-move-tool-/video/how-it-works.mp4"><img src="docs/video/how-it-works.jpg" alt="Video: How it works" width="100%"></a><br>
+  <sub>▶ <b>How it works</b> (41 s)</sub>
+</td>
+</tr>
+</table>
+
 ---
 
 ## What you get
