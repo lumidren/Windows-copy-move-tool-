@@ -228,6 +228,12 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('preview-effect', (_e, effect) => {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
     });
+    ipcMain.on('drag-file', (e, p) => {
+      if (!history.some((h) => h.path === p) || !fs.existsSync(p)) return;
+      let icon = nativeImage.createFromPath(p);
+      icon = icon.isEmpty() ? nativeImage.createFromPath(ICON).resize({ width: 64 }) : icon.resize({ width: 96 });
+      e.sender.startDrag({ file: p, icon });
+    });
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
 
