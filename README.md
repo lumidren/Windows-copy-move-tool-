@@ -52,3 +52,20 @@
 | **Runs as** | Tray app with a real window and Start menu shortcut | Regular app + system share target |
 | **Size** | Standalone `Flingo.exe` | ~5 MB APK |
 
+## Arrival effects
+
+Each arrival plays on a full-screen transparent layer that ignores the mouse, so it never blocks what you're doing. Pick one on the PC:
+
+<p align="center">
+  <img src="docs/effects.png" alt="The four arrival effects: Comet, Ripple, Confetti and Aurora" width="100%">
+</p>
+
+| Effect | What happens |
+|---|---|
+| **Comet** | The photo streaks in with a glowing particle trail |
+| **Ripple** | Rings spread from where it entered and where it lands |
+| **Confetti** | A burst when it lands |
+| **Aurora** | Ribbons of light rise from the bottom edge |
+
+Prefer silence? Turn off *Show arrivals on this PC* and files save quietly with a notification.
+
