@@ -221,6 +221,10 @@ if (!app.requestSingleInstanceLock()) {
       saveSettings();
       return publicState();
     });
+    ipcMain.handle('clear-history', () => { history = []; saveHistory(); return publicState(); });
+    ipcMain.on('open-folder', () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); });
+    ipcMain.on('open-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.openPath(p); });
+    ipcMain.on('reveal-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.showItemInFolder(p); });
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
 
