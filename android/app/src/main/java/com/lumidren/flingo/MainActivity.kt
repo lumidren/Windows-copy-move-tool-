@@ -81,6 +81,12 @@ class MainActivity : Activity() {
         buildUi()
         updateChip()
         if (hasMediaPermission()) loadGallery() else requestMediaPermission()
+        handleShare(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleShare(intent)
     }
 
     override fun onDestroy() {
@@ -367,6 +373,33 @@ class MainActivity : Activity() {
             }
         }
     }
+
+    private fun handleShare(intent: Intent?) {
+        intent ?: return
+        val uris: List<Uri> = when (intent.action) {
+            Intent.ACTION_SEND -> listOfNotNull(streamExtra(intent))
+            Intent.ACTION_SEND_MULTIPLE -> streamListExtra(intent)
+            else -> return
+        }
+        intent.action = Intent.ACTION_MAIN // don't resend on rotation
+        if (uris.isEmpty()) return
+        if (prefs.paired) {
+            send(uris, 0.5f)
+        } else {
+            pendingShare = uris
+            showPairDialog()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun streamExtra(intent: Intent): Uri? =
+        if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        else intent.getParcelableExtra(Intent.EXTRA_STREAM)
+
+    @Suppress("DEPRECATION")
+    private fun streamListExtra(intent: Intent): List<Uri> =
+        (if (Build.VERSION.SDK_INT >= 33) intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        else intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)) ?: emptyList()
 
     // ---------- pairing ----------
     private fun showPairDialog() {
