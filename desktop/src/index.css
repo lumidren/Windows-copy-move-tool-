@@ -90,3 +90,8 @@ code {
   font: 12px "Cascadia Mono", Consolas, monospace;
 }
 
+.devices { list-style: none; margin: 0; padding: 0; }
+.devices li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+.devices li + li { border-top: 1px solid var(--line); }
+.devices .none { color: var(--muted); }
+
