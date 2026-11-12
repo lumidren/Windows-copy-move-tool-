@@ -132,11 +132,34 @@ sequenceDiagram
 - **Sending.** The file is streamed as the raw request body, so memory stays flat even for long videos. A dropped connection never leaves a half-written file.
 - **Arrival.** The flick's horizontal position travels with the upload, so the photo enters the PC screen where you aimed it.
 
-## Run it
+## Get it
 
-### Windows
+Every download is built by GitHub Actions from this repository and attached to the [latest release](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest).
 
-Requires Node.js 20+.
+| Platform | Download | Notes |
+|---|---|---|
+| **Android** 10+ | [`flingo.apk`](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo.apk) | Open it on the phone and allow installing from your browser. |
+| **Windows** 10 / 11 | [`Flingo-Setup.exe`](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/Flingo-Setup.exe) | Adds Start menu and desktop shortcuts. |
+| **Linux** (Kali, Debian, Ubuntu) | [`flingo-linux.deb`](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo-linux.deb) | `sudo apt install ./flingo-linux.deb` |
+| **Linux** (any 64-bit distro) | [`flingo-linux.tar.gz`](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo-linux.tar.gz) | Extract and run `./flingo`. |
+
+> [!IMPORTANT]
+> **Windows:** the first time Flingo starts, Windows Firewall asks whether to allow it. Choose **Allow** for private networks, or the phone cannot reach the PC.
+
+### Linux notes (Kali GNOME and friends)
+
+- **GNOME has no tray.** Closing the Flingo window minimises it to the dock instead of hiding it, so it is always reachable. On desktops with a tray (Xfce, KDE) the tray icon appears as usual.
+- **Wayland.** Flingo runs through XWayland, which is what gives the arrival overlay its transparency and click-through. No setup needed on a default GNOME session.
+- **Firewall.** Kali ships without one enabled. If you use `ufw`, open the two ports:
+  ```bash
+  sudo ufw allow 47800/udp && sudo ufw allow 47801/tcp
+  ```
+- **Running as root.** Chromium refuses to start sandboxed as root. Use a normal user, or run `flingo --no-sandbox`.
+- **Start at login** writes `~/.config/autostart/flingo.desktop`.
+
+### Build from source
+
+**Desktop** (Node.js 20+):
 
 ```bash
 cd desktop
