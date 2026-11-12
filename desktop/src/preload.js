@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('flingo', {
   openFolder: () => ipcRenderer.send('open-folder'),
   openFile: (p) => ipcRenderer.send('open-file', p),
   revealFile: (p) => ipcRenderer.send('reveal-file', p),
+  dragFile: (p) => ipcRenderer.send('drag-file', p),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
 });
