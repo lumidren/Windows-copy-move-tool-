@@ -37,18 +37,24 @@ object Net {
         return out
     }
 
-    fun discover(timeoutMs: Int = 1500): List<Pc> {
+    fun discover(timeoutMs: Int = 2400): List<Pc> {
         val found = LinkedHashMap<String, Pc>()
         DatagramSocket().use { socket ->
             socket.broadcast = true
             socket.soTimeout = 300
             val msg = MAGIC.toByteArray()
-            for (target in broadcastAddresses()) {
-                runCatching { socket.send(DatagramPacket(msg, msg.size, target, DISCOVERY_PORT)) }
-            }
+            val targets = broadcastAddresses()
             val end = System.currentTimeMillis() + timeoutMs
             val buf = ByteArray(2048)
+            var lastProbe = 0L
             while (System.currentTimeMillis() < end) {
+                // UDP broadcasts get dropped on busy Wi-Fi, so ask again every 600 ms.
+                if (System.currentTimeMillis() - lastProbe >= 600) {
+                    lastProbe = System.currentTimeMillis()
+                    for (target in targets) {
+                        runCatching { socket.send(DatagramPacket(msg, msg.size, target, DISCOVERY_PORT)) }
+                    }
+                }
                 try {
                     val packet = DatagramPacket(buf, buf.size)
                     socket.receive(packet)
