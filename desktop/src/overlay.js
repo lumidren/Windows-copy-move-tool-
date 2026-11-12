@@ -74,6 +74,17 @@ function roundRect(x, y, w, h, r) {
 function drawFlight(f, now) {
   const p = pose(f, now);
 
+  if (f.effect === 'comet' && p.phase === 'fly' && now - f.lastTrail > 12) {
+    f.lastTrail = now;
+    for (let i = 0; i < 5; i++) {
+      particles.push({
+        kind: 'spark', x: p.x + rand(-f.w, f.w) * 0.3 * p.scale, y: p.y + f.h * 0.4 * p.scale,
+        vx: rand(-1.2, 1.2), vy: rand(1, 5), size: rand(3, 9),
+        color: PALETTE[Math.floor(rand(0, PALETTE.length))], born: now, life: rand(450, 900),
+      });
+    }
+  }
+
   if (!f.landed && p.phase !== 'fly') {
     f.landed = true;
   }
