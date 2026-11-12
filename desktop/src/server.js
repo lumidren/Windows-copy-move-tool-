@@ -25,3 +25,23 @@ function uniquePath(dir, name) {
   return candidate;
 }
 
+function json(res, status, body) {
+  const data = JSON.stringify(body);
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) });
+  res.end(data);
+}
+
+function readSmallBody(req, limit = 4096) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limit) { reject(new Error('too large')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
