@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('flingo', {
   openSettings: (what) => ipcRenderer.send('open-settings', what),
   overlayIdle: (stats) => ipcRenderer.send('overlay-idle', stats),
   update: (what) => ipcRenderer.send('update', what),
+  openLink: (which) => ipcRenderer.send('open-link', which),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onDevices: (fn) => ipcRenderer.on('devices', (_e, d) => fn(d)),
   onTransfer: (fn) => ipcRenderer.on('transfer', (_e, t) => fn(t)),

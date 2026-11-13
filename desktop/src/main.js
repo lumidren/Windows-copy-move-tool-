@@ -24,6 +24,13 @@ const HISTORY_MAX = 200;
 const WAIT_MS = 30_000; // how long a cut-off transfer waits for the phone to carry on
 const BATCH_GAP_MS = 8_000; // a batch with nothing arriving for this long is over
 const PART_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// The About card's links. The window asks for one by name, so it can never open anything else.
+const LINKS = {
+  website: 'https://lumidren.github.io/Windows-copy-move-tool-/',
+  github: 'https://github.com/lumidren',
+  linkedin: 'https://www.linkedin.com/in/lumidren',
+  source: 'https://github.com/lumidren/Windows-copy-move-tool-',
+};
 const UPDATE_FIRST_CHECK_MS = 20_000; // after the window is up, so starting stays quick
 const UPDATE_EVERY_MS = 12 * 60 * 60 * 1000;
 // Opening one of these by double-click would run it, so the app shows it in its folder instead.
@@ -987,6 +994,7 @@ if (!app.requestSingleInstanceLock()) {
       if (what === 'folder') { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); }
       if (process.platform !== 'win32') return;
       if (what === 'firewall') execFile('control.exe', ['firewall.cpl'], () => {});
+    ipcMain.on('open-link', (_e, which) => { if (Object.hasOwn(LINKS, which)) shell.openExternal(LINKS[which]); });
       if (what === 'notifications') shell.openExternal('ms-settings:notifications');
     });
     ipcMain.on('drag-file', (e, p) => {
