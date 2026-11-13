@@ -102,15 +102,11 @@ function lanAddresses() {
 // shorter link makes a QR code with bigger squares that scans from further away. The
 // PC's name and id are not in it; the phone learns them when it pairs.
 function pairUri() {
-  const q = new URLSearchParams({
-    h: lanAddresses().join(','),
-    p: String(receiver ? receiver.port : HTTP_PORT),
-    c: pairCode,
-    id: settings.deviceId,
-    n: settings.name,
-  });
-  if (identity) q.set('fp', fingerprint(identity.cert).toString('base64url'));
-  return `flingo://pair?${q}`;
+  const port = receiver ? receiver.port : HTTP_PORT;
+  let uri = `flingo://pair?h=${lanAddresses().slice(0, 3).join(',')}&c=${pairCode}`;
+  if (port !== HTTP_PORT) uri += `&p=${port}`;
+  if (identity) uri += `&fp=${fingerprint(identity.cert).toString('base64url')}`;
+  return uri;
 }
 
 function qrRows(text) {
