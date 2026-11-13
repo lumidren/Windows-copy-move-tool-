@@ -79,6 +79,10 @@ class MainActivity : Activity() {
     private var online: Boolean? = null
     private var sending = false
 
+    private val accent = Color.parseColor("#6C8CFF")
+    private val good = Color.parseColor("#4DE1A1")
+    private val warn = Color.parseColor("#FFB84D")
+    private fun dp(v: Float) = v * resources.displayMetrics.density
     private fun dpi(v: Float) = dp(v).toInt()
 
     private fun pill(color: Int, radius: Float) = GradientDrawable().apply {
