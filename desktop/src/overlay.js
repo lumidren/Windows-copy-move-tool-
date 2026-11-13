@@ -276,12 +276,10 @@ function drawRings(now) {
   }
 }
 
-// ---------- progress pills (large files) ----------
-function fmtSize(n) {
-  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
-  if (n < 1024 ** 3) return `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
-  return `${(n / 1024 ** 3).toFixed(2)} GB`;
-}
+// ---------- progress pills (large files, batches, quiet arrivals) ----------
+// The app decides the words; this only draws them. A pill is active (ring fills),
+// waiting (the connection dropped and the phone is expected back), done or failed.
+const AMBER = '#ffb84d', BLUE = '#6c8cff', GREEN = '#4de1a1';
 
 function drawPills(now) {
   let row = 0;
