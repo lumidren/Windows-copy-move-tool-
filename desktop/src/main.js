@@ -19,6 +19,10 @@ const STAGE_EFFECT = 'comet'; // reads best from the back of a room
 const STAGE_ZOOM = 1.22;
 const SELF_TEST = 'Pre-flight test';
 const SLOW_TRANSFER_BYTES = 3 * 1024 * 1024; // show progress on screen for anything larger
+const HISTORY_MAX = 200;
+const WAIT_MS = 30_000; // how long a cut-off transfer waits for the phone to carry on
+const BATCH_GAP_MS = 8_000; // a batch with nothing arriving for this long is over
+const PART_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Opening one of these by double-click would run it, so the app shows it in its folder instead.
 const RUNNABLE = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|ps1|vbs|vbe|js|jse|wsf|wsh|hta|jar|reg|cpl|msc|dll|sh|desktop|appimage|run|apk)$/i;
 const startHidden = process.argv.includes('--hidden');
@@ -34,6 +38,8 @@ let overlayWin = null;
 let tray = null;
 let quitting = false;
 let framesStarted = false;
+let overlayShown = false;
+let stateTimer = null;
 let pairCode = newCode();
 let settings = null;
 let history = [];
@@ -43,7 +49,9 @@ let sleepBlocker = null;
 let selfToken = null;
 let selfResult = null; // filled in while a pre-flight transfer is running
 const lastSeen = new Map(); // device id -> { at, ip }
-const transfers = new Map(); // transfer id -> { id, name, from, total, received, shown }
+const transfers = new Map(); // transfer key -> one file on its way that is not part of a batch
+const batches = new Map(); // phone + batch id -> a group of files sent together
+const memberOf = new Map(); // transfer key -> the batch it belongs to
 
 // ---------- settings ----------
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
