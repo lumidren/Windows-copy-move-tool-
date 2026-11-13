@@ -164,6 +164,11 @@ code {
 .transfer.failed { border-color: var(--warn); }
 .transfer.failed .bar { background: var(--warn); }
 .transfer.failed .label { white-space: normal; }
+.transfer .label b { font-weight: 600; }
+.transfer .label span { color: var(--muted); }
+.transfer.waiting { border-color: var(--warn); }
+.transfer.waiting .bar { background: var(--warn); animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .45; } }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 
 .summary { font-size: 16px; font-weight: 600; padding: 10px 14px; border-radius: 10px; margin-bottom: 10px; background: var(--panel-2); }
