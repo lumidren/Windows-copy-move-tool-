@@ -167,7 +167,9 @@ Every download is built by GitHub Actions from this repository and attached to t
 | **Linux** (any 64-bit distro) | [`flingo-linux.tar.gz`](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo-linux.tar.gz) | Extract and run `./flingo`. |
 
 > [!IMPORTANT]
-> **Windows:** the first time Flingo starts, Windows Firewall asks whether to allow it. Choose **Allow** for private networks, or the phone cannot reach the PC.
+> **Windows:** the first time Flingo starts, Windows Firewall asks whether to allow it. Tick **Private and Public** and choose **Allow**, or the phone cannot reach the PC. The **Pre-flight check** button in Flingo tells you if this went wrong.
+>
+> The installer is not code-signed yet, so Windows shows "Windows protected your PC" the first time. Choose **More info**, then **Run anyway**.
 
 ### Linux notes (Kali GNOME and friends)
 
