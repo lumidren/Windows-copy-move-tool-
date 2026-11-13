@@ -93,8 +93,8 @@ function json(res, status, body) {
 }
 
 /** Answers and hangs up: used when a request is refused before its body has been read. */
-function refuse(req, res, status, error) {
-  const data = JSON.stringify({ error });
+function refuse(req, res, status, error, extra = {}) {
+  const data = JSON.stringify({ error, ...extra });
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(data),
