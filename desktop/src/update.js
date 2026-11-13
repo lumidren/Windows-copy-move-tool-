@@ -92,3 +92,49 @@ async function sha256Of(file) {
  * Downloads an update's installer into `dir` and checks it against the size and checksum
  * the release declared. Resolves to the file's path. A file that does not match is deleted.
  */
+async function download(update, dir, { fetch, onProgress = () => {}, signal } = {}) {
+  const { asset, version } = update;
+  if (!asset) throw new Error('This release has no installer for this PC');
+  fs.mkdirSync(dir, { recursive: true });
+  const ext = path.extname(asset.name);
+  const name = `${path.basename(asset.name, ext)}-${version}${ext}`;
+  const file = path.join(dir, name);
+  cleanDownloads(dir, name);
+
+  // Already here from an earlier try: use it if it is intact.
+  try {
+    if (fs.statSync(file).size === asset.size && (await sha256Of(file)) === asset.sha256) return file;
+  } catch { /* not there */ }
+  remove(file);
+
+  const part = `${file}.part`;
+  const res = await fetch(asset.url, { headers: { 'User-Agent': 'Flingo' }, signal });
+  if (!res.ok || !res.body) throw new Error(`The download answered ${res.status}`);
+  const hash = crypto.createHash('sha256');
+  const out = fs.createWriteStream(part);
+  let received = 0;
+  let diskError = null; // a full disk must not take the app down with it
+  out.on('error', (err) => { diskError = err; });
+  try {
+    for await (const chunk of res.body) {
+      if (diskError) throw diskError;
+      received += chunk.length;
+      if (received > asset.size) throw new Error('The download is larger than the release says');
+      hash.update(chunk);
+      if (!out.write(chunk)) await new Promise((resolve) => out.once('drain', resolve));
+      onProgress(received, asset.size);
+    }
+    await new Promise((resolve) => out.end(resolve));
+    if (diskError) throw diskError;
+    if (received !== asset.size) throw new Error('The download stopped early');
+    if (hash.digest('hex') !== asset.sha256) throw new Error('The download does not match the release checksum');
+    fs.renameSync(part, file);
+    return file;
+  } catch (err) {
+    out.destroy();
+    remove(part);
+    throw err;
+  }
+}
+
+module.exports = { FEED, DOWNLOADS, RELEASES, LATEST_PAGE, parseVersion, isNewer, readRelease, checkLatest, download, cleanDownloads };
