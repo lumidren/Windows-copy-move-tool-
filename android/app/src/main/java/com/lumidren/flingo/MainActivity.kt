@@ -87,7 +87,12 @@ class MainActivity : Activity() {
 
     /** Whether the paired PC answered the last time it was asked. Null until the first answer. */
     private var online: Boolean? = null
-    private var sending = false
+
+    // Progress and results of whatever is being sent, while this screen is in front.
+    private val sendWatcher = object : Transfers.Listener {
+        override fun onProgress(state: SendState) = showSend(state)
+        override fun onFinished(result: SendResult) = showResult(result)
+    }
 
     private val accent = Color.parseColor("#6C8CFF")
     private val good = Color.parseColor("#4DE1A1")
@@ -133,6 +138,10 @@ class MainActivity : Activity() {
         healthJob?.cancel()
         super.onPause()
     }
+        // Catch up with a transfer that kept going while this screen was away.
+        Transfers.listener = sendWatcher
+        Transfers.takeResult()?.let(::showResult)
+        Transfers.state?.let(::showSend)
 
     override fun onDestroy() {
         scope.cancel()
