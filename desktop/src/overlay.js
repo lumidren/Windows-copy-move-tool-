@@ -106,6 +106,14 @@ function addFlight(item, img) {
   kick();
 }
 
+// The window has only just been shown and the first frames are slow, so a flight's
+// clock starts on its third frame. Otherwise the opening of the flight is skipped.
+function launch(f, now) {
+  f.t0 = now;
+  if (f.effect === 'ripple') spawnRings(f.startX, H, 4);
+  if (f.sound) sfx('whoosh');
+}
+
 function spawnRings(x, y, n) {
   for (let i = 0; i < n; i++) rings.push({ x, y, born: performance.now() + i * 140, life: 1300, max: Math.max(W, H) * 0.45 });
 }
