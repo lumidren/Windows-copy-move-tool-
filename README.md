@@ -134,8 +134,10 @@ sequenceDiagram
     W-->>P: { id, name, port }
 
     Note over P,W: Pairing (once)
-    W->>W: show random 6-digit code
-    P->>W: POST /pair { code, deviceName }
+    W->>W: make a TLS certificate, show a QR code:<br/>address + one-time code + certificate fingerprint
+    P->>P: scan the QR code
+    P->>W: TLS handshake, accepted only if the certificate matches the fingerprint
+    P->>W: POST /pair { code, deviceName, deviceId }
     W->>P: 256-bit token (PC keeps only its SHA-256)
 
     Note over P,W: Every flick
