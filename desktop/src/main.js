@@ -352,13 +352,13 @@ if (!app.requestSingleInstanceLock()) {
       pair: ({ code, deviceName, deviceId }) => {
         if (settings.pairingLocked) return { error: 'locked' };
         const a = Buffer.from(sha(code)); const b = Buffer.from(sha(pairCode));
-        if (!crypto.timingSafeEqual(a, b)) return null;
+        if (!crypto.timingSafeEqual(a, b)) return { error: 'wrong' };
         const token = crypto.randomBytes(32).toString('hex');
         settings.devices.push({ id: crypto.randomBytes(6).toString('hex'), name: deviceName, hash: sha(token), added: Date.now() });
         saveSettings();
         pairCode = newCode(); // one code, one phone
         pushState();
-        return token;
+        return { token };
       },
       checkToken: (token) => {
         const h = sha(token);
