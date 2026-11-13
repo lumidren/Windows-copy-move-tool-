@@ -376,6 +376,7 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('get-state', () => publicState());
     ipcMain.handle('set', (_e, patch) => {
       if (typeof patch.name === 'string' && patch.name.trim()) settings.name = patch.name.trim().slice(0, 40);
+      rotateCode: () => { pairCode = newCode(); pushState(); },
       if (EFFECTS.includes(patch.effect)) settings.effect = patch.effect;
       if (typeof patch.showOverlay === 'boolean') settings.showOverlay = patch.showOverlay;
       if (typeof patch.launchAtLogin === 'boolean') {
