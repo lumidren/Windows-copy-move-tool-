@@ -39,3 +39,22 @@ function windowsFirewall(exePath) {
     });
   });
 }
+
+/** Pure decision, kept separate so it can be tested without Windows. */
+function judgeFirewall(raw) {
+  const list = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const categories = list(raw.categories).map((c) => (c === 'DomainAuthenticated' ? 'Domain' : c));
+  const network = categories.join(', ');
+  if (!categories.length) return { state: 'unknown', network };
+  const enabled = (name) => list(raw.profiles).some((p) => p.name === name && String(p.enabled) === 'True');
+  let worst = 'off';
+  for (const cat of categories) {
+    if (!enabled(cat)) continue;
+    const rules = list(raw.rules).filter((r) => r.profile === 'Any' || String(r.profile).split(',').map((s) => s.trim()).includes(cat));
+    // Windows applies a block rule ahead of an allow rule.
+    if (rules.some((r) => r.action === 'Block')) return { state: 'blocked', network };
+    if (!rules.some((r) => r.action === 'Allow')) worst = 'none';
+    else if (worst === 'off') worst = 'allowed';
+  }
+  return { state: worst, network };
+}
