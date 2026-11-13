@@ -97,9 +97,12 @@ function lanAddresses() {
 }
 
 function publicState() {
+  const locked = settings.pairingLocked;
   return {
     name: settings.name,
-    code: pairCode,
+    code: locked ? '' : pairCode,
+    qr: locked ? null : qrRows(pairUri()),
+    pairingLocked: locked,
     addresses: lanAddresses(),
     port: HTTP_PORT,
     saveDir: settings.saveDir,
