@@ -185,7 +185,6 @@ code {
 .check-body button { margin-top: 7px; }
 
 /* Stage mode: the same window, readable from across a room and with nothing to fiddle with. */
-body.stage { zoom: 1.22; }
 body.stage .thispc, body.stage #clear, body.stage .devices button { display: none; }
 body.stage .status { font-size: 16px; color: var(--text); }
 body.stage .status .dot { width: 11px; height: 11px; }

@@ -16,6 +16,7 @@ const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
 const EFFECTS = ['comet', 'ripple', 'confetti', 'aurora'];
 const STAGE_EFFECT = 'comet'; // reads best from the back of a room
+const STAGE_ZOOM = 1.22;
 const SELF_TEST = 'Pre-flight test';
 const SLOW_TRANSFER_BYTES = 3 * 1024 * 1024; // show progress on screen for anything larger
 // Opening one of these by double-click would run it, so the app shows it in its folder instead.
@@ -193,6 +194,7 @@ function createMainWindow() {
     if (!startHidden) mainWin.show();
     else if (isLinux) { mainWin.show(); mainWin.minimize(); } // no tray to reopen from
   });
+  mainWin.webContents.on('did-finish-load', applyStage);
   // Links never navigate the app window.
   mainWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWin.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -375,6 +377,8 @@ function setLaunchAtLogin(enabled) {
 function applyStage() {
   if (settings.stage && sleepBlocker === null) sleepBlocker = powerSaveBlocker.start('prevent-display-sleep');
   if (!settings.stage && sleepBlocker !== null) { powerSaveBlocker.stop(sleepBlocker); sleepBlocker = null; }
+  // Enlarge the whole window so it reads from a few steps away.
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.setZoomFactor(settings.stage ? STAGE_ZOOM : 1);
 }
 
 function setStage(on) {
