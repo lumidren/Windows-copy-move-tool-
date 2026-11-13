@@ -216,10 +216,13 @@ The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ```
 desktop/
-  src/server.js     UDP discovery + HTTP API (pair, send), filename sanitising
-  src/main.js       tray, windows, settings, pairing state
-  src/overlay.js    canvas arrival animation and the four effects
-  src/index.*       main window: code, effects, received list
+  src/server.js     UDP discovery + HTTPS API (pair, ping, send), limits, filename sanitising
+  src/cert.js       the PC's TLS identity: a self-signed X.509 certificate built by hand
+  src/preflight.js  the pre-flight checklist, including the Windows Firewall reading
+  src/main.js       tray, windows, settings, pairing, stage mode, arrival screen
+  src/overlay.js    canvas arrival animation, the four effects, progress pills, sound
+  src/index.*       main window: QR code, effects, phones, received list, checklist
+  test/             receiver, certificate and pre-flight tests; overlay at ten screen sizes
 android/
   app/src/main/java/com/lumidren/flingo/
     Net.kt          discovery, pairing, streaming upload, address recovery
