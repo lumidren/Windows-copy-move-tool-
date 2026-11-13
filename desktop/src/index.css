@@ -181,7 +181,7 @@ code {
 .check.fail .mark { background: var(--bad); }
 .check.manual .mark { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
 .check-title { font-weight: 600; }
-.check-body { min-width: 0; user-select: text; }
+.check-body { flex: 1; min-width: 0; user-select: text; overflow-wrap: anywhere; }
 .check-body button { margin-top: 7px; }
 
 /* Stage mode: the same window, readable from across a room and with nothing to fiddle with. */
