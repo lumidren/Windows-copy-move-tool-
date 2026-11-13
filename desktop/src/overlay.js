@@ -31,7 +31,7 @@ const rand = (a, b) => a + Math.random() * (b - a);
 let flights = [];
 let particles = [];
 let rings = [];
-const pills = new Map(); // transfer id -> progress pill
+const pills = new Map(); // card id -> progress pill
 let running = false;
 let lastFrame = 0;
 let stats = null; // frame timing for the current burst of activity
@@ -286,30 +286,31 @@ function drawPills(now) {
   for (const [id, p] of pills) {
     const age = now - p.born;
     const leaving = p.doneAt ? now - p.doneAt : 0;
-    const hold = p.ok === false ? 2200 : 260;
-    if (p.doneAt && leaving > hold + 260) { pills.delete(id); continue; }
-    const alpha = Math.min(1, age / 200) * (p.doneAt ? Math.max(0, 1 - Math.max(0, leaving - hold) / 260) : 1);
-    const target = p.ok === true ? 1 : p.total ? p.received / p.total : 0;
+    if (p.doneAt && leaving > p.hold + 260) { pills.delete(id); continue; }
+    const alpha = Math.min(1, age / 200) * (p.doneAt ? Math.max(0, 1 - Math.max(0, leaving - p.hold) / 260) : 1);
+    const known = p.fraction !== null && p.fraction !== undefined;
+    const target = p.state === 'done' ? 1 : known ? p.fraction : 0;
     p.shown += (target - p.shown) * 0.18;
 
     const w = 440 * S, h = 66 * S;
     const x = W / 2 - w / 2, y = H - (44 + row * 78) * S - h + (1 - Math.min(1, age / 200)) * 18 * S;
-    const failed = p.ok === false;
+    const amber = p.state === 'failed' || p.state === 'waiting';
+    const color = amber ? AMBER : p.state === 'done' ? GREEN : BLUE;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 24 * S * dpr; ctx.shadowOffsetY = 8 * S * dpr;
     ctx.fillStyle = 'rgba(14,16,22,.94)';
     roundRect(x, y, w, h, h / 2); ctx.fill();
     ctx.shadowColor = 'transparent';
-    ctx.lineWidth = 1.5 * S; ctx.strokeStyle = failed ? '#ffb84d' : 'rgba(108,140,255,.7)';
+    ctx.lineWidth = 1.5 * S; ctx.strokeStyle = amber ? AMBER : p.state === 'done' ? 'rgba(77,225,161,.7)' : 'rgba(108,140,255,.7)';
     roundRect(x, y, w, h, h / 2); ctx.stroke();
 
     // ring
     const cx = x + h / 2, cy = y + h / 2, r = 19 * S;
-    ctx.lineWidth = 5 * S; ctx.lineCap = 'round';
+    ctx.lineWidth = 5 * S; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.strokeStyle = 'rgba(255,255,255,.14)';
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = failed ? '#ffb84d' : '#6c8cff';
+    ctx.strokeStyle = color;
     ctx.beginPath();
     if (p.state === 'failed' || p.state === 'done') ctx.arc(cx, cy, r, 0, Math.PI * 2);
     else if (p.state === 'waiting') {
@@ -319,17 +320,18 @@ function drawPills(now) {
     } else if (known) ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, p.shown));
     else { const a = now / 260; ctx.arc(cx, cy, r, a, a + Math.PI * 0.9); } // size unknown: spin
     ctx.stroke();
+    ctx.globalAlpha = alpha;
+    if (p.state === 'done') {
+      ctx.lineWidth = 4 * S;
+      ctx.beginPath(); ctx.moveTo(cx - 8 * S, cy + 0.5 * S); ctx.lineTo(cx - 2.5 * S, cy + 6 * S); ctx.lineTo(cx + 8.5 * S, cy - 6 * S); ctx.stroke();
+    }
 
     // text
-    const name = p.name.length > 30 ? p.name.slice(0, 27) + '…' : p.name;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff'; ctx.font = `600 ${16 * S}px ${FONT}`;
-    ctx.fillText(failed ? 'Transfer interrupted' : `Receiving ${name}`, x + h + 2 * S, y + h / 2 - 11 * S, w - h - 24 * S);
+    ctx.fillText(p.title, x + h + 2 * S, y + h / 2 - 11 * S, w - h - 24 * S);
     ctx.fillStyle = '#b3bacb'; ctx.font = `${13 * S}px ${FONT}`;
-    const detail = failed ? `${name} from ${p.from} did not finish. Send it again.`
-      : p.total ? `from ${p.from} · ${Math.round(p.shown * 100)}% of ${fmtSize(p.total)}`
-      : `from ${p.from} · ${fmtSize(p.received)}`;
-    ctx.fillText(detail, x + h + 2 * S, y + h / 2 + 12 * S, w - h - 24 * S);
+    ctx.fillText(p.detail.replace('{pct}', Math.round(p.shown * 100)), x + h + 2 * S, y + h / 2 + 12 * S, w - h - 24 * S);
     ctx.restore();
     row++;
   }
@@ -409,7 +411,11 @@ window.flingo.onProgress((card) => {
     pill = { shown: card.state === 'done' ? 1 : 0, born: now, doneAt: 0 };
     pills.set(card.id, pill);
   }
-  if (pill) { pill.received = p.received; pill.total = p.total; }
-  else pills.set(p.id, { name: p.name, from: p.from, received: p.received, total: p.total, shown: 0, born: performance.now(), doneAt: 0, ok: null });
+  const over = card.state === 'done' || card.state === 'failed';
+  Object.assign(pill, {
+    title: card.title || '', detail: card.detail || '', state: card.state,
+    fraction: card.fraction, hold: card.hold || 260,
+    doneAt: over ? pill.doneAt || now : 0,
+  });
   kick();
 });
