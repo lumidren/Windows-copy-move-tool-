@@ -129,6 +129,15 @@ Let go anywhere else and the photo snaps back. The send zone covers the top 10�
 
 Flingo is also a **share target**: from any app, *Share → Flingo* sends files of any type.
 
+**Moving a lot at once** (0.3.0) skips the show on purpose:
+
+| To send | Do this | On the PC |
+|---|---|---|
+| **Several photos** | Tap each one, then **Send** | One card: "Receiving 24 files · 7 of 24", then "24 files received" |
+| **A whole day or everything** | Tap one, tap the count, choose a range, then **Send** | The same single card |
+| **A stack, with a flourish** | Select some, then hold and flick one | That one flies in; the rest arrive quietly |
+| **Documents and other files** | **Files**, pick them | A card per file or per batch, no flight |
+
 ## How it works
 
 ```mermaid
