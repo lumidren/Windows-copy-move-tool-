@@ -20,4 +20,5 @@ contextBridge.exposeInMainWorld('flingo', {
   onDevices: (fn) => ipcRenderer.on('devices', (_e, d) => fn(d)),
   onTransfer: (fn) => ipcRenderer.on('transfer', (_e, t) => fn(t)),
   onArrive: (fn) => ipcRenderer.on('arrive', (_e, item) => fn(item)),
+  onProgress: (fn) => ipcRenderer.on('progress', (_e, p) => fn(p)),
 });

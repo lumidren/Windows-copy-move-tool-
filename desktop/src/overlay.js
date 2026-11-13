@@ -261,3 +261,14 @@ window.flingo.onArrive((item) => {
   img.onerror = () => addFlight(item, fileCard(item.name));
   img.src = item.url;
 });
+
+window.flingo.onProgress((p) => {
+  const pill = pills.get(p.id);
+  if (p.done) {
+    if (pill) { pill.doneAt = performance.now(); pill.ok = p.ok; }
+    return;
+  }
+  if (pill) { pill.received = p.received; pill.total = p.total; }
+  else pills.set(p.id, { name: p.name, from: p.from, received: p.received, total: p.total, shown: 0, born: performance.now(), doneAt: 0, ok: null });
+  kick();
+});
