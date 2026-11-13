@@ -125,6 +125,7 @@ object Net {
                     val json = JSONObject(String(packet.data, 0, packet.length))
                     if (json.optString("app") != "flingo") continue
                     val host = packet.address.hostAddress ?: continue
+                    // The fingerprint in a discovery reply is only a claim; pairing pins what TLS really shows.
                     val pc = Pc(json.getString("id"), json.getString("name"), host, json.optInt("port", HTTP_PORT))
                     found.putIfAbsent(pc.id, pc)
                 } catch (_: SocketTimeoutException) {
