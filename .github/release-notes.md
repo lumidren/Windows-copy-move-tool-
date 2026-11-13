@@ -13,6 +13,12 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 - **Linux is told, not changed.** The offer opens the download page, because installing a package needs your password.
 - **Yours to control.** Nothing installs without a click. *Check for updates* can be switched off in both apps, *Later* hides an offer, and *Check now* asks straight away.
 
+### A tidier look
+
+- **The PC window has a bar of tabs down the left:** Home (pairing and what has arrived), Arrivals (the effects), Settings and About. Stage mode hides the bar and shows Home.
+- **Pairing on the phone starts from a clearer choice:** scan the QR code, find the PC on the Wi-Fi, or type it in, each with a line saying when to pick it.
+- **About** in both apps: the version, who made Flingo, and links to the website, GitHub, LinkedIn and the source code.
+
 ### Faster
 
 - **The PC window stays responsive during a large batch.** A new arrival adds one tile instead of redrawing the whole list, and the list is written to disk once a second instead of once per file.
