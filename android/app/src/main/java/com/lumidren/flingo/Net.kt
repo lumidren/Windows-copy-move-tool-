@@ -137,9 +137,20 @@ object Net {
         shared?.let { if (it.pin == pin) return it }
         val trust = Pinning(decodeFp(pin))
         val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
+        return Shared(pin, trust, tls.socketFactory).also { shared = it }
+    }
+
+    /**
+     * [reuse] is for talking to the PC this phone is already paired with. Finding and pairing
+     * leave it off: they need to see the certificate each connection presents.
+     */
+    private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000, reuse: Boolean = false): Conn {
+        val kept = if (reuse && pin.isNotEmpty()) sharedFor(pin) else null
+        val trust = kept?.trust ?: Pinning(decodeFp(pin))
+        val factory = kept?.factory ?: SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }.socketFactory
         val url = URL("https", host, port, path)
         val conn = (wifi?.openConnection(url) ?: url.openConnection()) as HttpsURLConnection
-        conn.sslSocketFactory = tls.socketFactory
+        conn.sslSocketFactory = factory
         // The address is an IP on the local network, so there is no name to check. The pin is the check.
         conn.hostnameVerifier = HostnameVerifier { _, _ -> true }
         conn.connectTimeout = connectMs
@@ -497,6 +508,7 @@ object Net {
     fun send(
         ctx: Context, prefs: Prefs, uri: Uri, x: Float, search: Boolean = true,
         o: SendOptions = SendOptions(), cancelled: () -> Boolean = { false },
+        known: Pair<String, Long>? = null,
         onProgress: (sent: Long, size: Long, waiting: Boolean) -> Unit = { _, _, _ -> },
     ): String {
         // The queue has already asked for the name and size of every file; asking again costs a lookup per file.
@@ -509,7 +521,6 @@ object Net {
             if (cancelled()) throw SendCancelledException()
             try {
                 return sendOnce(ctx, prefs, uri, name, size, x, search && first, o, offset, cancelled) { sent, total ->
-        known: Pair<String, Long>? = null,
                     if (sent > reached) {
                         reached = sent
                         lastProgress = SystemClock.elapsedRealtime()
