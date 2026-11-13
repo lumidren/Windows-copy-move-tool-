@@ -48,6 +48,8 @@ function render(s) {
   $('save-dir').textContent = s.saveDir;
   $('save-dir').title = s.saveDir;
   $('show-overlay').checked = s.showOverlay;
+  $('show-overlay').disabled = s.stage;
+  $('sound').checked = s.sound;
   $('launch').checked = s.launchAtLogin;
 
   $('effects').replaceChildren(...s.effects.map((name) => {
