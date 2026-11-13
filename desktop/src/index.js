@@ -74,8 +74,13 @@ function render(s) {
 
   renderDevices();
 
+  // received: rebuilt only when it changed, so thumbnails do not flicker
+  const key = s.history.map((h) => h.path + h.at).join('|');
   $('empty').classList.toggle('show', s.history.length === 0);
   $('history').style.display = s.history.length ? '' : 'none';
+  $('history-hint').hidden = s.history.length === 0;
+  if (key === historyKey) return;
+  historyKey = key;
   $('history').replaceChildren(...s.history.map((h) => {
     const thumb = h.image
       ? el('img', { src: h.url, alt: '', loading: 'lazy' })
