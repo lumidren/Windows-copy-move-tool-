@@ -345,6 +345,9 @@ if (!app.requestSingleInstanceLock()) {
 
     startServer({
       info: () => ({ id: settings.deviceId, name: settings.name }),
+    try { identity = loadOrCreateIdentity(identityFile(), 'Flingo'); } catch { identity = null; }
+    cleanStaleParts(settings.saveDir);
+    applyStage();
       pair: (code, deviceName) => {
         const a = Buffer.from(sha(code)); const b = Buffer.from(sha(pairCode));
         if (!crypto.timingSafeEqual(a, b)) return null;
