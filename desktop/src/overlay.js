@@ -70,9 +70,10 @@ function addFlight(item, img) {
   const maxSide = Math.min(W, H) * 0.42;
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
   const s = Math.min(maxSide / iw, maxSide / ih);
+  const w = iw * s, h = ih * s;
   flights.push({
-    img, w: iw * s, h: ih * s,
-    effect: item.effect, from: item.from, name: item.name,
+    sprite: makeSprite(img, w, h, item.effect), w, h,
+    effect: item.effect, from: item.from, name: item.name, sound: !!item.sound,
     startX: lerp(W * 0.2, W * 0.8, item.x ?? 0.5),
     tilt: rand(-0.09, 0.09),
     t0: performance.now(), landed: false, lastTrail: 0,
@@ -178,21 +179,8 @@ function drawFlight(f, now) {
   ctx.translate(p.x, p.y);
   ctx.rotate(p.rot);
   ctx.scale(p.scale, p.scale);
-
-  // glow + white photo frame
-  const pad = 10;
-  ctx.shadowColor = f.effect === 'comet' ? 'rgba(108,140,255,.9)' : 'rgba(0,0,0,.55)';
-  ctx.shadowBlur = f.effect === 'comet' ? 60 : 40;
-  ctx.shadowOffsetY = 14;
-  ctx.fillStyle = '#fff';
-  roundRect(-f.w / 2 - pad, -f.h / 2 - pad, f.w + pad * 2, f.h + pad * 2, 18);
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.save();
-  roundRect(-f.w / 2, -f.h / 2, f.w, f.h, 10);
-  ctx.clip();
-  ctx.drawImage(f.img, -f.w / 2, -f.h / 2, f.w, f.h);
-  ctx.restore();
+  const { canvas: sprite, m } = f.sprite;
+  ctx.drawImage(sprite, -f.w / 2 - m, -f.h / 2 - m, f.w + m * 2, f.h + m * 2);
 
   // caption pill while resting
   if (p.phase === 'rest') {
