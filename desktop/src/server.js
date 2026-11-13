@@ -220,7 +220,7 @@ function startServer(hooks, options = {}) {
     const ip = req.socket.remoteAddress || '';
     try {
       if (req.method === 'GET' && url.pathname === '/info') {
-        return json(res, 200, { app: 'flingo', version: 1, ...hooks.info() });
+        return json(res, 200, { app: 'flingo', version: PROTOCOL_VERSION, ...hooks.info() });
       }
 
       if (req.method === 'POST' && url.pathname === '/pair') {
