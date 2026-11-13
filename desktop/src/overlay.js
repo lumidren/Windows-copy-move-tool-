@@ -311,8 +311,12 @@ function drawPills(now) {
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
     ctx.strokeStyle = failed ? '#ffb84d' : '#6c8cff';
     ctx.beginPath();
-    if (failed) ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    else if (p.total) ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, p.shown));
+    if (p.state === 'failed' || p.state === 'done') ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    else if (p.state === 'waiting') {
+      // Holds its place and breathes, so it reads as paused rather than broken.
+      ctx.globalAlpha = alpha * (0.55 + 0.45 * Math.sin(now / 320));
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, p.shown));
+    } else if (known) ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, p.shown));
     else { const a = now / 260; ctx.arc(cx, cy, r, a, a + Math.PI * 0.9); } // size unknown: spin
     ctx.stroke();
 
