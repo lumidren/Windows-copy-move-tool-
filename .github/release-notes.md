@@ -27,6 +27,8 @@ Flick a photo off your phone and watch it land on your PC. This release makes th
 
 - The Windows installer is not code-signed, so Windows shows a "Windows protected your PC" box. Choose **More info**, then **Run anyway**.
 - The first time Flingo starts, allow it through Windows Firewall on **Private and Public** networks. The pre-flight check tells you if it is blocked.
+- A transfer that is carried on after a drop is not checksummed end to end. TLS protects each part in flight and the PC checks the final size.
+- Files in a batch are sent one after another over separate connections, so thousands of very small files are slower than they could be.
 - Pairing by typing the address and code trusts the certificate it sees the first time. Pairing by QR code is the fully pinned path.
 - Photos in JPEG or PNG animate as the picture itself. Videos, HEIC photos and other files arrive intact but show a file card.
 - Planning to show Flingo live? Read the [demo runbook](https://github.com/lumidren/Windows-copy-move-tool-/blob/main/DEMO.md), which also lists what has and has not been tested on real hardware.

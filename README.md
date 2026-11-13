@@ -270,7 +270,7 @@ android/
 | **Virtual network adapters** | VirtualBox, VMware, Hyper-V and WSL adapters are hidden, so the address shown is one a phone can actually reach. |
 | **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
 
-**Tested how.** `npm test` runs 18 tests on the receiver, the certificate and the pre-flight logic, including 140 transfers in a row with every file compared byte for byte. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
+**Tested how.** `npm test` runs 24 tests on the receiver, the certificate and the pre-flight logic, including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
@@ -311,6 +311,7 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 - One direction only: phone to PC.
 - Pairing by **typed code** trusts the certificate the PC presents on that first connection. Pairing by **QR code** does not have that gap, because the fingerprint arrives through the camera. After a typed pairing, compare the security code on the phone with the one on the PC.
 - The arrival shows the picture itself for JPEG, PNG, GIF, WebP and AVIF. Videos, HEIC photos and other files arrive intact but animate as a file card.
+- A transfer that is carried on after a drop is not checksummed end to end; TLS protects each part in flight, and the PC checks the final size.
 - The installers are not code-signed, and the APK is signed with a debug key, so a new version does not install over an old one.
 - Tested on an Android emulator, on Windows 11, and in CI. Not yet checked on real Kali hardware, on a phone hotspot, or on a second screen in extended mode. The [demo runbook](DEMO.md) lists exactly what is and is not verified.
 
