@@ -309,6 +309,13 @@ function handleFile(file) {
   saveHistory();
   pushState();
   if (settings.showOverlay) {
+  if (file.from === SELF_TEST) {
+    // A pre-flight transfer: check it, play it, and leave no trace.
+    if (selfResult) selfResult.path = file.path;
+    if (settings.showOverlay) playOverlay({ url: pathToFileURL(file.path).href, name: SELF_TEST, from: SELF_TEST, x: 0.5, effect: settings.effect });
+    setTimeout(() => fs.rm(file.path, { force: true }, () => {}), 8000);
+    return;
+  }
     playOverlay({
       url: entry.image ? pathToFileURL(entry.path).href : null,
       name: entry.name, from: entry.from, x: file.x, effect: settings.effect,
