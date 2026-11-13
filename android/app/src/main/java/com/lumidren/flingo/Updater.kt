@@ -83,3 +83,24 @@ object Updater {
         }
         return null
     }
+
+    private fun open(url: String): HttpURLConnection =
+        // Whatever network has internet: unlike transfers to the PC, this is not tied to Wi-Fi.
+        (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 20_000
+            setRequestProperty("User-Agent", "Flingo")
+            setRequestProperty("Accept", "application/vnd.github+json")
+        }
+
+    /** Asks for the newest release. Null when this is it; throws when it cannot find out. */
+    fun check(current: String = BuildConfig.VERSION_NAME): Update? {
+        val conn = open(BuildConfig.UPDATE_FEED)
+        try {
+            val status = conn.responseCode
+            if (status != 200) throw IOException("The release list answered $status")
+            return readRelease(conn.inputStream.bufferedReader().use { it.readText() }, current)
+        } finally {
+            conn.disconnect()
+        }
+    }
