@@ -16,9 +16,11 @@ contextBridge.exposeInMainWorld('flingo', {
   identifyScreens: () => ipcRenderer.send('identify-screens'),
   openSettings: (what) => ipcRenderer.send('open-settings', what),
   overlayIdle: (stats) => ipcRenderer.send('overlay-idle', stats),
+  update: (what) => ipcRenderer.send('update', what),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onDevices: (fn) => ipcRenderer.on('devices', (_e, d) => fn(d)),
   onTransfer: (fn) => ipcRenderer.on('transfer', (_e, t) => fn(t)),
+  onUpdate: (fn) => ipcRenderer.on('update', (_e, u) => fn(u)),
   onArrive: (fn) => ipcRenderer.on('arrive', (_e, item) => fn(item)),
   onProgress: (fn) => ipcRenderer.on('progress', (_e, p) => fn(p)),
 });
