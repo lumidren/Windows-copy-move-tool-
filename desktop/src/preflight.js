@@ -145,7 +145,7 @@ async function runPreflight(ctx) {
     if (free !== null && free < 2 * 1024 ** 3) add('folder', 'Save folder is almost full', 'warn', `Only ${gb(free)} free in ${ctx.saveDir}.`, 'folder');
     else add('folder', 'Save folder is ready', 'ok', free === null ? ctx.saveDir : `${ctx.saveDir} (${gb(free)} free).`);
   } catch {
-    add('folder', 'Save folder cannot be written', 'fail', `Flingo cannot write to ${ctx.saveDir}. Choose another folder under "This PC".`, 'folder');
+    add('folder', 'Save folder cannot be written', 'fail', `Flingo cannot write to ${ctx.saveDir}. Choose another folder on the Settings tab.`, 'folder');
   }
 
   // 9. arrival screen
