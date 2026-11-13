@@ -1,5 +1,6 @@
-// LAN receiver: UDP discovery + a small HTTP API the phone talks to.
+// LAN receiver: UDP discovery + a small HTTP(S) API the phone talks to.
 const http = require('http');
+const https = require('https');
 const dgram = require('dgram');
 const fs = require('fs');
 const path = require('path');
@@ -18,9 +19,9 @@ const SPACE_MARGIN = 64 * 1024 ** 2;
 const PROGRESS_EVERY_MS = 80;
 
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
-
 // Zero-width and direction-override characters can disguise a file's real extension.
 const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/g;
+
 function sanitizeName(raw) {
   let name = path.basename(String(raw || '').replace(/\\/g, '/'));
   name = name.replace(INVISIBLE, '').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '_').replace(/[. ]+$/, '').trim();
@@ -34,17 +35,16 @@ function sanitizeName(raw) {
   return name;
 }
 
-function uniquePath(dir, name) {
+function uniquePath(dir, name, claimed) {
   const ext = path.extname(name);
   const base = name.slice(0, name.length - ext.length);
   let candidate = path.join(dir, name);
-  for (let i = 1; fs.existsSync(candidate); i++) {
+  for (let i = 1; fs.existsSync(candidate) || (claimed && claimed.has(candidate)); i++) {
     candidate = path.join(dir, `${base} (${i})${ext}`);
   }
   return candidate;
 }
 
-function json(res, status, body) {
 /** Removes half-received files left behind by a crash or a power cut. */
 function cleanStaleParts(dir) {
   let removed = 0;
@@ -63,6 +63,7 @@ function freeBytes(dir) {
   });
 }
 
+function json(res, status, body) {
   const data = JSON.stringify(body);
   res.writeHead(status, {
     'Content-Type': 'application/json',
@@ -81,9 +82,9 @@ function refuse(req, res, status, error) {
     Connection: 'close',
   });
   res.end(data);
-}
   req.resume();
   setTimeout(() => req.destroy(), 1500).unref();
+}
 
 function readSmallBody(req, limit = 4096) {
   return new Promise((resolve, reject) => {
@@ -111,7 +112,6 @@ function readSmallBody(req, limit = 4096) {
  *   onStart({id, name, from, total}), onProgress({id, received, total}), onEnd({id, ok}),
  *   onFile({id, path, name, size, mime, from, x})
  * }
- */
  * options: { tls: {key, cert} | null, port, discoveryPort, host }
  */
 function startServer(hooks, options = {}) {
@@ -119,12 +119,17 @@ function startServer(hooks, options = {}) {
   const wantedPort = options.port ?? HTTP_PORT;
   const discoveryPort = options.discoveryPort ?? DISCOVERY_PORT;
   const fails = new Map(); // ip -> [timestamps]
+  const claimed = new Set(); // final paths picked by transfers that are still finishing
+  let totalFails = 0;
+  let uploads = 0;
 
   function tooManyFails(ip) {
     const now = Date.now();
-    const list = (fails.get(ip) || []).filter((t) => now - t < 60_000);
-    fails.set(ip, list);
-    return list.length >= MAX_PAIR_FAILS;
+    for (const [k, list] of fails) {
+      const recent = list.filter((t) => now - t < 60_000);
+      if (recent.length) fails.set(k, recent); else fails.delete(k);
+    }
+    return (fails.get(ip) || []).length >= MAX_PAIR_FAILS;
   }
 
   function noteFail(ip) {
@@ -239,7 +244,8 @@ function startServer(hooks, options = {}) {
           noteFail(ip);
           return json(res, 403, { error: 'Wrong code' });
         }
-        return json(res, 200, { token, ...hooks.info() });
+        totalFails = 0;
+        return json(res, 200, { token: result.token, ...hooks.info() });
       }
 
       const auth = req.headers.authorization || '';
@@ -248,49 +254,12 @@ function startServer(hooks, options = {}) {
       if (device && hooks.seen) hooks.seen(device, ip);
 
       if (req.method === 'GET' && url.pathname === '/ping') {
-        return from ? json(res, 200, { ok: true, ...hooks.info() }) : json(res, 401, { error: 'Not paired' });
+        return device ? json(res, 200, { ok: true, ...hooks.info() }) : json(res, 401, { error: 'Not paired' });
       }
 
       if (req.method === 'POST' && url.pathname === '/send') {
-        if (!from) { req.resume(); return json(res, 401, { error: 'Not paired' }); }
-        let rawName = req.headers['x-filename'] || 'file';
-        try { rawName = decodeURIComponent(rawName); } catch { /* keep raw */ }
-        const name = sanitizeName(rawName);
-        const dir = hooks.saveDir();
-        fs.mkdirSync(dir, { recursive: true });
-        const tmp = path.join(dir, `.flingo-${crypto.randomBytes(6).toString('hex')}.part`);
-        const out = fs.createWriteStream(tmp);
-        let size = 0;
-        let failed = false;
-        const fail = () => {
-          if (failed) return;
-          failed = true;
-          out.destroy();
-          fs.rm(tmp, { force: true }, () => {});
-        };
-        req.on('data', (c) => { size += c.length; });
-        req.on('aborted', fail);
-        req.on('error', fail);
-        out.on('error', () => { fail(); if (!res.headersSent) json(res, 500, { error: 'Could not save file' }); });
-        out.on('finish', () => {
-          if (failed) return;
-          const finalPath = uniquePath(dir, name);
-          fs.rename(tmp, finalPath, (err) => {
-            if (err) { fs.rm(tmp, { force: true }, () => {}); return json(res, 500, { error: 'Could not save file' }); }
-            const x = Math.min(1, Math.max(0, parseFloat(url.searchParams.get('x')) || 0.5));
-            hooks.onFile({
-              path: finalPath,
-              name: path.basename(finalPath),
-              size,
-              mime: String(req.headers['content-type'] || 'application/octet-stream'),
-              from,
-              x,
-            });
-            json(res, 200, { ok: true, name: path.basename(finalPath) });
-          });
-        });
-        req.pipe(out);
-        return;
+        if (!device) return refuse(req, res, 401, 'Not paired');
+        return await receive(req, res, url, device);
       }
 
       req.resume();
@@ -298,21 +267,41 @@ function startServer(hooks, options = {}) {
     } catch (err) {
       if (!res.headersSent) json(res, 500, { error: 'Server error' });
     }
+  };
+
+  const server = tls
+    ? https.createServer({ key: tls.key, cert: tls.cert, minVersion: 'TLSv1.2' }, handler)
+    : http.createServer(handler);
+  server.requestTimeout = 0; // a large video may take longer than Node's default five minutes
+  server.headersTimeout = 15_000;
+  server.keepAliveTimeout = 8_000;
+  server.on('clientError', (_err, socket) => { try { socket.destroy(); } catch { /* already gone */ } });
+  server.on('tlsClientError', () => { /* a probe that is not TLS; nothing to do */ });
+
+  const state = { httpError: null, udpError: null, udpBound: false };
+  const ready = new Promise((resolve) => {
+    server.once('error', (err) => { state.httpError = err.code || String(err); resolve(false); });
+    server.listen(wantedPort, options.host || '0.0.0.0', () => resolve(true));
   });
-  server.listen(HTTP_PORT, '0.0.0.0');
 
   const udp = dgram.createSocket({ type: 'udp4', reuseAddr: true });
   udp.on('message', (msg, rinfo) => {
     if (msg.toString('utf8').trim() !== DISCOVERY_MAGIC) return;
-    const reply = Buffer.from(JSON.stringify({ app: 'flingo', port: HTTP_PORT, ...hooks.info() }));
+    const port = server.address() ? server.address().port : wantedPort;
+    const reply = Buffer.from(JSON.stringify({ app: 'flingo', port, tls: !!tls, ...hooks.info() }));
     udp.send(reply, rinfo.port, rinfo.address);
   });
-  udp.on('error', () => {});
-  udp.bind(DISCOVERY_PORT);
+  udp.on('error', (err) => { state.udpError = err.code || String(err); });
+  udp.on('listening', () => { state.udpBound = true; });
+  if (discoveryPort !== null) udp.bind(discoveryPort);
 
   return {
     server,
-    close() { server.close(); try { udp.close(); } catch { /* already closed */ } },
+    ready,
+    tls: !!tls,
+    get port() { return server.address() ? server.address().port : wantedPort; },
+    status: () => ({ listening: server.listening, ...state, uploads }),
+    close() { server.close(); server.closeAllConnections?.(); try { udp.close(); } catch { /* already closed */ } },
   };
 }
 
