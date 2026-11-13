@@ -98,7 +98,9 @@ function lanAddresses() {
 
 // ---------- pairing link + QR ----------
 // Everything a phone needs to pair without discovery: where the PC is, the one-time
-// code, and the certificate fingerprint to pin.
+// code, and the certificate fingerprint to pin. Kept as short as possible, because a
+// shorter link makes a QR code with bigger squares that scans from further away. The
+// PC's name and id are not in it; the phone learns them when it pairs.
 function pairUri() {
   const q = new URLSearchParams({
     h: lanAddresses().join(','),
