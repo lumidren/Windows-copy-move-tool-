@@ -497,8 +497,9 @@ class MainActivity : Activity() {
                 .setNeutralButton("Enter address") { _, _ -> showManualDialog() }
             if (pcs.isEmpty()) {
                 builder.setTitle("No PC found")
-                    .setMessage("Check that Flingo is open on the PC, both devices are on the same Wi-Fi, and Windows Firewall allowed Flingo.")
-                    .setPositiveButton("Search again") { _, _ -> showPairDialog() }
+                    .setMessage("Some Wi-Fi networks stop devices from finding each other. Scanning the QR code shown in Flingo on the PC works on any network.")
+                    .setPositiveButton("Scan QR code") { _, _ -> scanQr() }
+                    .setNeutralButton("Search again") { _, _ -> searchForPc() }
             } else {
                 builder.setTitle("Choose your PC")
                     .setItems(pcs.map { it.name }.toTypedArray()) { _, i -> showCodeDialog(pcs[i]) }
