@@ -24,6 +24,24 @@ function el(tag, props = {}, children = []) {
 
 const isOnline = (d) => d.lastSeen && Date.now() - d.lastSeen < ONLINE_MS;
 
+// ---------- pairing QR ----------
+function drawQr(rows) {
+  const key = rows.join('');
+  if (key === qrKey) return;
+  qrKey = key;
+  const canvas = $('qr');
+  const quiet = 3; // light margin, in modules
+  const n = rows.length + quiet * 2;
+  const px = Math.max(3, Math.ceil(520 / n)); // drawn large, shown smaller, so it stays sharp
+  canvas.width = canvas.height = n * px;
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = '#0e1016';
+  rows.forEach((row, r) => {
+    for (let c = 0; c < row.length; c++) if (row[c] === '1') g.fillRect((c + quiet) * px, (r + quiet) * px, px, px);
+  });
+}
+
 function render(s) {
   state = s;
   devices = s.devices;
