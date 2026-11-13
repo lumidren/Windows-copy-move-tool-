@@ -138,16 +138,7 @@ object Net {
         return found.values.toList()
     }
 
-    private fun open(host: String, port: Int, path: String): HttpURLConnection {
-        val conn = URL("http", host, port, path).openConnection() as HttpURLConnection
-        conn.connectTimeout = 2500
-        conn.readTimeout = 15000
-        return conn
-    }
-
-    private fun HttpURLConnection.body(): String =
-        (if (responseCode in 200..299) inputStream else errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
-
+    /** Asks whatever is at [host] who it is. The returned [Pc.fp] is the certificate it presented. */
     fun info(host: String, port: Int = HTTP_PORT): Pc? = runCatching {
         val conn = open(host, port, "/info")
         try {
