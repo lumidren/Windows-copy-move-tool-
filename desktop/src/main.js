@@ -438,6 +438,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
   });
+    ipcMain.handle('preflight', () => preflight());
 
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('before-quit', () => { quitting = true; });
