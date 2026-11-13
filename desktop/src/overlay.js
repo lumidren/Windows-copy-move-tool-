@@ -114,6 +114,14 @@ function launch(f, now) {
   if (f.sound) sfx('whoosh');
 }
 
+function kick() {
+  if (running) return;
+  running = true;
+  lastFrame = 0;
+  stats = { seen: 0, frames: 0, total: 0, worst: 0 };
+  requestAnimationFrame(frame);
+}
+
 function spawnRings(x, y, n) {
   for (let i = 0; i < n; i++) rings.push({ x, y, born: performance.now() + i * 140, life: 1300, max: Math.max(W, H) * 0.45 });
 }
