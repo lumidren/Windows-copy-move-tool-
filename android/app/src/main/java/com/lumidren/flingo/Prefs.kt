@@ -43,6 +43,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("keepAwake", true)
         set(v) = sp.edit().putBoolean("keepAwake", v).apply()
 
+    /** Whether the notification permission has been asked for once. It is never asked twice. */
+    var askedNotifications: Boolean
+        get() = sp.getBoolean("askedNotifications", false)
+        set(v) = sp.edit().putBoolean("askedNotifications", v).apply()
+
     // A pairing made before transfers were encrypted has no fingerprint, so it has to be made again.
     val paired: Boolean get() = token.isNotEmpty() && host.isNotEmpty() && fp.isNotEmpty()
 
