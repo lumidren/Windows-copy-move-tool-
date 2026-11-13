@@ -123,9 +123,10 @@ function publicState() {
     version: app.getVersion(),
   };
 }
-function pushState() {
-  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('state', publicState());
+function sendMain(channel, payload) {
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send(channel, payload);
 }
+function pushState() { sendMain('state', publicState()); }
 
 // ---------- windows ----------
 function createMainWindow() {
