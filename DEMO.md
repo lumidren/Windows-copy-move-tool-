@@ -97,3 +97,9 @@ Stay calm and keep talking. Each row is in the order to try it.
 | Phone says the QR code **"has already been used"** | The laptop is showing a fresh one. Scan it again. | 5 seconds |
 | Transfer shows **"interrupted"** on the big screen | The network dropped mid-file. Flick it again. | 5 seconds |
 | Nothing works and the room is waiting | Say "Let me show you what that looks like", and play **`what-is-flingo.mp4`** from the laptop. It is 37 seconds and shows exactly this demo. | 40 seconds |
+
+## After the demo
+
+- Turn Stage mode off. This does not unlock pairing: press **Pair a phone** when you next need to.
+- Received photos are in the folder shown under "This PC" (by default `Pictures\Flingo`).
+- If the laptop was on a network other people use, remove phones you do not recognise under "Paired phones".
