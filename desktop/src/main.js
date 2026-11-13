@@ -441,6 +441,61 @@ function endProgress(id, ok) {
   if (t.shown && overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send('progress', { id, done: true, ok });
 }
 
+// ---------- pre-flight ----------
+/** Sends a real file through the real receiver from this PC, checks it byte for byte, and times the animation. */
+function selfTest() {
+  return new Promise((resolve) => {
+    const body = fs.readFileSync(ICON);
+    const started = Date.now();
+    selfToken = crypto.randomBytes(32).toString('hex');
+    selfResult = { path: null, stats: null };
+    let settled = false;
+    const finish = (r) => {
+      if (settled) return;
+      settled = true;
+      selfToken = null;
+      const stats = selfResult ? selfResult.stats : null;
+      selfResult = null;
+      resolve({ ms: Date.now() - started, ...(stats || {}), ...r });
+    };
+    const req = (identity ? https : http).request({
+      host: '127.0.0.1', port: receiver.port, path: '/send?x=0.5', method: 'POST', agent: false, rejectUnauthorized: false,
+      headers: {
+        Authorization: `Bearer ${selfToken}`, 'X-Filename': 'Flingo pre-flight test.png',
+        'Content-Type': 'image/png', 'Content-Length': body.length,
+      },
+    }, (res) => {
+      res.resume();
+      res.on('end', () => {
+        if (res.statusCode !== 200) return finish({ ok: false, error: `The receiver answered with error ${res.statusCode}.` });
+        let same = false;
+        try { same = fs.readFileSync(selfResult.path).equals(body); } catch { /* not saved */ }
+        if (!same) return finish({ ok: false, error: 'The test file was not saved intact. Check the save folder.' });
+        const ms = Date.now() - started;
+        if (!settings.showOverlay) return finish({ ok: true, ms });
+        // Let the arrival play so its frame rate can be reported.
+        const wait = (left) => {
+          if (selfResult && selfResult.stats) return finish({ ok: true, ms });
+          if (left <= 0) return finish({ ok: true, ms });
+          setTimeout(() => wait(left - 1), 200);
+        };
+        wait(30);
+      });
+    });
+    if (identity) {
+      req.on('socket', (sock) => sock.on('secureConnect', () => {
+        const seen = crypto.createHash('sha256').update(sock.getPeerCertificate().raw).digest();
+        if (!seen.equals(fingerprint(identity.cert))) req.destroy(new Error('certificate mismatch'));
+      }));
+    }
+    req.setTimeout(6000, () => req.destroy(new Error('timeout')));
+    req.on('error', (e) => finish({ ok: false, error: e.message === 'timeout'
+      ? 'The receiver did not answer within 6 seconds.'
+      : `Could not talk to the receiver (${e.message}).` }));
+    req.end(body);
+  });
+}
+
 // ---------- app ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
