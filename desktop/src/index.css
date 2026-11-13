@@ -122,6 +122,8 @@ code {
 
 .devices { list-style: none; margin: 0; padding: 0; }
 .devices li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+.devices .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.devices .who > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .devices li + li { border-top: 1px solid var(--line); }
 .devices .none { color: var(--muted); }
 
