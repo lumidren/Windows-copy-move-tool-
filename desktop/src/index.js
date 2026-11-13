@@ -42,6 +42,38 @@ function drawQr(rows) {
   });
 }
 
+// ---------- status line + phone list ----------
+function renderDevices() {
+  if (!state) return;
+  const online = devices.filter(isOnline);
+  const dot = $('dot');
+  let text;
+  if (!state.addresses.length) { text = 'No network'; dot.className = 'dot bad'; }
+  else if (online.length) { text = `${online.map((d) => d.name).join(' and ')} connected`; dot.className = 'dot'; }
+  else if (devices.length) { text = 'Waiting for your phone. Open Flingo on it.'; dot.className = 'dot wait'; }
+  else { text = `Ready to pair as “${state.name}”`; dot.className = 'dot wait'; }
+  $('status-text').textContent = text;
+
+  const key = devices.map((d) => `${d.id}:${d.name}:${isOnline(d)}:${!!d.lastSeen}`).join('|');
+  if (key === devicesKey) return;
+  devicesKey = key;
+  $('devices').replaceChildren(...(devices.length ? devices.map((d) => {
+    const rm = el('button', { className: 'ghost', textContent: 'Remove' });
+    rm.onclick = async () => render(await api.removeDevice(d.id));
+    const on = isOnline(d);
+    return el('li', {}, [
+      el('span', { className: 'who' }, [
+        el('span', { className: `dot ${on ? '' : 'off'}` }),
+        el('span', {}, [
+          el('span', { textContent: d.name }),
+          el('small', { className: 'muted', textContent: on ? 'Connected' : d.lastSeen ? 'Not connected right now' : 'Not seen since Flingo started' }),
+        ]),
+      ]),
+      rm,
+    ]);
+  }) : [el('li', { className: 'none', textContent: 'No phones paired yet.' })]));
+}
+
 function render(s) {
   state = s;
   devices = s.devices;
