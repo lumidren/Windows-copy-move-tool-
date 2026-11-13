@@ -42,3 +42,33 @@ class UpdateReceiver : BroadcastReceiver() {
     private fun report(status: Int) {
         Handler(Looper.getMainLooper()).post { Updater.failed(status) }
     }
+
+    private fun announce(ctx: Context) {
+        val manager = ctx.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "App updates", NotificationManager.IMPORTANCE_DEFAULT))
+        val open = PendingIntent.getActivity(
+            ctx, 0,
+            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        // Without permission to notify this does nothing, and Flingo is simply opened by hand.
+        runCatching {
+            manager.notify(
+                NOTIFICATION,
+                Notification.Builder(ctx, CHANNEL)
+                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                    .setContentTitle("Flingo was updated to ${BuildConfig.VERSION_NAME}")
+                    .setContentText("Tap to open it.")
+                    .setContentIntent(open)
+                    .setAutoCancel(true)
+                    .build(),
+            )
+        }
+    }
+
+    companion object {
+        const val ACTION_STATUS = "com.lumidren.flingo.UPDATE_STATUS"
+        private const val CHANNEL = "updates"
+        private const val NOTIFICATION = 3
+    }
+}
