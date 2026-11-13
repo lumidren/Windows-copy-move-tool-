@@ -101,13 +101,18 @@ function readSmallBody(req, limit = 4096) {
 
 /**
  * hooks: {
- *   info(): {id, name},
- *   pair(code, deviceName): token | null,
- *   checkToken(token): deviceName | null,
+ *   info(): {id, name, ...},
+ *   pair({code, deviceName, deviceId, ip}): {token} | {error: 'wrong' | 'locked'},
+ *   rotateCode(): called after too many wrong codes,
+ *   checkToken(token): {id, name} | null,
+ *   seen(device, ip): a paired phone just talked to us,
  *   saveDir(): string,
- *   onFile({path, name, size, mime, from, x})
+ *   maxBytes(): largest file accepted,
+ *   onStart({id, name, from, total}), onProgress({id, received, total}), onEnd({id, ok}),
+ *   onFile({id, path, name, size, mime, from, x})
  * }
  */
+ * options: { tls: {key, cert} | null, port, discoveryPort, host }
 function startServer(hooks) {
   const fails = new Map(); // ip -> [timestamps]
 
