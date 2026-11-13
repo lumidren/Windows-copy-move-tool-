@@ -124,6 +124,8 @@ jobs:
     needs: [test, windows, linux, android]
     runs-on: ubuntu-latest
     steps:
+      # Only needed for the hand-written notes; the downloads come from the jobs above.
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -131,5 +133,6 @@ jobs:
       - run: ls -la dist
       - uses: softprops/action-gh-release@v2
         with:
+          body_path: .github/release-notes.md
           generate_release_notes: true
           files: dist/*
