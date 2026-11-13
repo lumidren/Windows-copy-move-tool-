@@ -528,6 +528,8 @@ class MainActivity : Activity() {
     private fun fingerInZone(): Boolean = (lastY - rootOnScreen()[1]) < root.height * prefs.zonePercent / 100f
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // With photos selected, a flick takes them all: the one under the finger first, so it is the one that flies.
+        dragUris = listOf(item.uri) + adapter.selection().filter { it != item.uri }
         lastX = ev.rawX
         lastY = ev.rawY
         if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
@@ -575,7 +577,8 @@ class MainActivity : Activity() {
             val x = ((lastX - rootOnScreen()[0]) / root.width).coerceIn(0f, 1f)
             view.animate().y(-view.height * 1.6f).scaleX(0.5f).scaleY(0.5f).alpha(0.4f)
                 .setDuration(220).withEndAction { root.removeView(view) }.start()
-            send(listOf(item.uri), x)
+            send(dragUris, x, animateFirst = true)
+            adapter.clearSelection()
         } else {
             view.animate().x(originX).y(originY).scaleX(1f).scaleY(1f)
                 .setDuration(200).withEndAction { root.removeView(view) }.start()
