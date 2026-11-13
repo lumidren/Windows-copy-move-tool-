@@ -114,3 +114,17 @@ test('an installer from somewhere else, or without a checksum, is not used', () 
   const odd = release('v0.4.0', undefined, { html_url: 'https://example.com/notes' });
   assert.equal(readRelease(odd, at).page, LATEST_PAGE);
 });
+
+test('checks a release list over the network', async (t) => {
+  const body = crypto.randomBytes(2000);
+  const hub = await fakeGitHub(t, 'v9.9.9', body);
+  const u = await checkLatest({ fetch, current: '0.3.0', platform: 'win32', ...hub });
+  assert.equal(u.version, '9.9.9');
+  assert.equal(u.asset.size, body.length);
+  assert.equal(await checkLatest({ fetch, current: '9.9.9', platform: 'win32', ...hub }), null);
+});
+
+test('a release list that fails is an error, not "no update"', async (t) => {
+  const hub = await fakeGitHub(t, 'v9.9.9', Buffer.from('x'), { feedStatus: 403 });
+  await assert.rejects(checkLatest({ fetch, current: '0.3.0', platform: 'win32', ...hub }), /403/);
+});
