@@ -254,7 +254,10 @@ function frame(now) {
   } else {
     running = false;
     ctx.clearRect(0, 0, W, H);
-    window.flingo.overlayIdle();
+    window.flingo.overlayIdle(stats.frames ? {
+      frames: stats.frames, fps: 1000 / (stats.total / stats.frames), worstMs: stats.worst,
+      width: canvas.width, height: canvas.height,
+    } : null);
   }
 }
 
