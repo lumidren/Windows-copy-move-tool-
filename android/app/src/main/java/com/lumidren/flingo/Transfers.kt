@@ -53,3 +53,67 @@ sealed class SendResult {
  * transfer carries on when the person switches to another app or the screen turns off.
  * Everything here is called and reported on the main thread.
  */
+object Transfers {
+    interface Listener {
+        fun onProgress(state: SendState)
+        fun onFinished(result: SendResult)
+    }
+
+    /** More files than this, or more bytes, and a transfer counts as long. */
+    private const val LONG_COUNT = 3
+    private const val LONG_BYTES = 20L * 1024 * 1024
+    /** How long a long transfer keeps trying after the connection drops. */
+    private const val PATIENCE_MS = 45_000L
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val main = Handler(Looper.getMainLooper())
+    private val queue = ArrayDeque<SendJob>()
+    private val random = SecureRandom()
+    @Volatile private var cancelled = false
+    private var running = false
+
+    /** The screen that is showing progress, if one is in front. */
+    var listener: Listener? = null
+
+    /** Null when nothing is being sent. */
+    var state: SendState? = null
+        private set
+
+    /** The outcome of the last job if no screen was there to see it. Read it once with [takeResult]. */
+    private var unseen: SendResult? = null
+
+    val busy: Boolean get() = running
+
+    fun takeResult(): SendResult? = unseen.also { unseen = null }
+
+    fun enqueue(ctx: Context, job: SendJob) {
+        if (job.uris.isEmpty()) return
+        queue.addLast(job)
+        if (!running) {
+            running = true
+            scope.launch { drain(ctx.applicationContext) }
+        }
+    }
+
+    /** Stops the job being sent and forgets the ones waiting behind it. */
+    fun cancel() {
+        if (!running) return
+        cancelled = true
+        queue.clear()
+        Thread { Net.abort() }.start() // closing a socket is network work: not on the main thread
+    }
+
+    private fun id(): String = ByteArray(6).also(random::nextBytes).joinToString("") { "%02x".format(it) }
+
+    private suspend fun drain(ctx: Context) {
+        while (true) {
+            val job = queue.removeFirstOrNull() ?: break
+            cancelled = false
+            val result = run(ctx, job)
+            TransferService.finish(ctx, result, visible = listener != null)
+            state = null
+            val seen = listener
+            if (seen != null) seen.onFinished(result) else unseen = result
+        }
+        running = false
+    }
