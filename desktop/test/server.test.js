@@ -55,3 +55,35 @@ test('file names are made safe', () => {
   assert.ok(sanitizeName('x'.repeat(400) + '.jpeg').length <= 180);
   assert.ok(sanitizeName('x'.repeat(400) + '.jpeg').endsWith('.jpeg'));
 });
+
+test('info identifies the receiver', async () => {
+  const t = await boot();
+  try {
+    const r = await fetch(`${t.base}/info`).then((x) => x.json());
+    assert.equal(r.app, 'flingo');
+    assert.equal(r.version, 2);
+    assert.equal(r.name, 'Test PC');
+  } finally { t.close(); }
+});
+
+test('pairing: wrong code refused, right code gives a token, then lockout', async () => {
+  const t = await boot();
+  const pair = (code) => fetch(`${t.base}/pair`, { method: 'POST', body: JSON.stringify({ code, deviceName: 'P' }) });
+  try {
+    assert.equal((await pair('000000')).status, 403);
+    const ok = await pair(CODE);
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).token, TOKEN);
+    for (let i = 0; i < 4; i++) assert.equal((await pair('999999')).status, 403);
+    assert.equal((await pair(CODE)).status, 429, 'sixth attempt inside a minute is locked out, even with the right code');
+    assert.equal((await fetch(`${t.base}/pair`, { method: 'POST', body: 'not json' })).status, 429);
+  } finally { t.close(); }
+});
+
+test('pairing can be locked', async () => {
+  const t = await boot({ locked: true });
+  try {
+    const r = await fetch(`${t.base}/pair`, { method: 'POST', body: JSON.stringify({ code: CODE }) });
+    assert.equal(r.status, 423);
+  } finally { t.close(); }
+});
