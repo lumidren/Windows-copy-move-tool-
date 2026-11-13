@@ -276,6 +276,23 @@ function playOverlay(item) {
   });
 }
 
+/** Shows a large number on every screen for two seconds, so the arrival screen can be picked by eye. */
+function identifyScreens() {
+  screen.getAllDisplays().forEach((d, i) => {
+    const size = 220;
+    const win = new BrowserWindow({
+      x: Math.round(d.bounds.x + (d.bounds.width - size) / 2), y: Math.round(d.bounds.y + (d.bounds.height - size) / 2),
+      width: size, height: size, frame: false, transparent: true, resizable: false, skipTaskbar: true,
+      focusable: false, alwaysOnTop: true, hasShadow: false, show: false,
+    });
+    win.setIgnoreMouseEvents(true);
+    const html = `<body style="margin:0;height:100vh;display:grid;place-items:center;background:rgba(14,16,22,.92);border-radius:36px;color:#fff;font:700 140px 'Segoe UI',sans-serif">${i + 1}</body>`;
+    win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    win.once('ready-to-show', () => win.showInactive());
+    setTimeout(() => { if (!win.isDestroyed()) win.destroy(); }, 2000);
+  });
+}
+
 function showMain() {
   if (!mainWin || mainWin.isDestroyed()) createMainWindow();
   mainWin.show();
