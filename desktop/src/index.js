@@ -49,11 +49,18 @@ function render(s) {
     return b;
   }));
 
-  $('devices').replaceChildren(...(s.devices.length ? s.devices.map((d) => {
-    const rm = el('button', { className: 'ghost', textContent: 'Remove' });
-    rm.onclick = async () => render(await api.removeDevice(d.id));
-    return el('li', {}, [el('span', { textContent: d.name }), rm]);
-  }) : [el('li', { className: 'none', textContent: 'No phones paired yet.' })]));
+  // arrival screen: only worth showing when there is a choice
+  $('screen-field').hidden = s.displays.length < 2;
+  $('screen').replaceChildren(
+    el('option', { value: 'auto', textContent: 'Main screen (automatic)' }),
+    ...s.displays.map((d) => el('option', {
+      value: d.id,
+      textContent: `Screen ${d.index} · ${d.width}×${d.height}${d.primary ? ' · main' : ''}`,
+    })),
+  );
+  $('screen').value = s.overlayDisplay;
+
+  renderDevices();
 
   $('empty').classList.toggle('show', s.history.length === 0);
   $('history').style.display = s.history.length ? '' : 'none';
