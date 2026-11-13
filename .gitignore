@@ -8,3 +8,7 @@ local.properties
 .idea/
 *.iml
 release/
+# signing keys never belong in the repository
+*.p12
+*.jks
+*.keystore
