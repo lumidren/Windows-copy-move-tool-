@@ -152,8 +152,6 @@ function render(s) {
   }));
 }
 
-// ---------- transfers in progress ----------
-// One row per card from the app: a single large file, or a whole batch.
 // ---------- updates ----------
 // A bar under the header when a newer Flingo exists, and one line in "This PC" that
 // always says where things stand. The bar stays away in stage mode.
@@ -186,10 +184,10 @@ function renderUpdate(u) {
   }[u.state];
   $('version').textContent = `Version ${state.version}${line ? ` · ${line}` : ''}`;
   $('check-update').disabled = u.state === 'checking' || busy || u.state === 'ready';
-// ---------- transfers in progress ----------
-// One row per card from the app: a single large file, or a whole batch.
 }
 
+// ---------- transfers in progress ----------
+// One row per card from the app: a single large file, or a whole batch.
 const rows = new Map();
 function onTransfer(card) {
   let row = rows.get(card.id);
@@ -283,8 +281,8 @@ $('update-later').onclick = () => api.update('later');
 $('update-go').onclick = () => api.update(state.update.state === 'ready' ? 'install' : 'download');
 
 api.onState(render);
-api.onUpdate(renderUpdate);
 api.onDevices((d) => { devices = d; renderDevices(); });
 api.onTransfer(onTransfer);
+api.onUpdate(renderUpdate);
 api.getState().then(render);
 setInterval(renderDevices, 2000); // a phone that goes quiet turns grey without waiting for an event
