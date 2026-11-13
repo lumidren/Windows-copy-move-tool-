@@ -777,6 +777,31 @@ class MainActivity : Activity() {
         code.requestFocus()
     }
 
+    /** Pairs with a typed code. The PC's certificate is remembered from this first connection. */
+    private fun pairWithCode(pc: Pc, code: String) {
+        showStatus("Pairing with ${pc.name}…", sticky = true)
+        scope.launch {
+            try {
+                val paired = withContext(Dispatchers.IO) { Net.pair(pc, code, deviceName(), prefs.deviceId) }
+                onPaired(paired)
+                showStatus("Paired with ${paired.pc.name} ✓  Security code ${Net.securityCode(paired.pc.fp)}", holdMs = 6000)
+            } catch (_: WrongCodeException) {
+                buzz(hapticNo)
+                showStatus("That code didn't match. Check the code on the PC and try again.", holdMs = 5000)
+                showCodeDialog(pc)
+            } catch (_: PairingLockedException) {
+                buzz(hapticNo)
+                showStatus("Pairing is locked on ${pc.name}. On the PC, press Pair a phone, then try again.", holdMs = 7000)
+            } catch (e: PcRefusedException) {
+                buzz(hapticNo)
+                showStatus(e.message ?: "The PC did not accept the pairing.", holdMs = 6000)
+            } catch (_: Exception) {
+                buzz(hapticNo)
+                showStatus("Couldn't reach ${pc.name}. Check that both are on the same network.", holdMs = 6000)
+            }
+        }
+    }
+
     // ---------- settings ----------
     private fun showSettings() {
         val box = LinearLayout(this).apply {
