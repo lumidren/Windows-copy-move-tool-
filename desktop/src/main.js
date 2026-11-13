@@ -143,6 +143,10 @@ function targetDisplay() {
   return screen.getAllDisplays().find((d) => String(d.id) === settings.overlayDisplay) || screen.getPrimaryDisplay();
 }
 
+function devicesState() {
+  return settings.devices.map(({ id, name, added }) => ({ id, name, added, lastSeen: lastSeen.get(id)?.at || 0 }));
+}
+
 function publicState() {
   const locked = settings.pairingLocked;
   return {
