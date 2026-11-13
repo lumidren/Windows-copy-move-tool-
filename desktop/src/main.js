@@ -563,6 +563,20 @@ function transferEnded({ key, ok, waiting }) {
   showTransfer(tr);
 }
 
+/** The phone's owner pressed Cancel. Say so, instead of waiting for a phone that is not coming back. */
+function transferCancelled({ key }) {
+  const batch = memberOf.get(key);
+  if (batch) { batch.stopped = true; closeBatch(batch); return; }
+  const tr = transfers.get(key);
+  if (!tr) return;
+  clearTimeout(tr.timer);
+  transfers.delete(key);
+  post({
+    id: key, state: 'failed', title: 'Stopped on the phone',
+    detail: `${short(tr.name, 24)} from ${tr.from} was cancelled.`, hold: 1900,
+  }, tr.onScreen);
+}
+
 // ---------- batches ----------
 // Many files sent in one go share a single card ("12 of 40") instead of forty flights.
 function batchFileStarted(t) {
@@ -634,6 +648,9 @@ function closeBatch(b) {
   post(all ? {
     id: b.id, state: 'done', title: `${files(b.done)} received`,
     detail: `from ${b.from} · ${fmtSize(b.doneBytes)}`, fraction: 1, hold: 1900,
+  } : b.stopped ? {
+    id: b.id, state: 'failed', title: 'Stopped on the phone',
+    detail: `${b.done} of ${files(b.count)} received from ${b.from}.`, hold: 2400,
   } : {
     id: b.id, state: 'failed', title: `${b.done} of ${files(b.count)} received`,
     detail: `The rest did not arrive from ${b.from}. Send them again.`, hold: 3400,
@@ -792,6 +809,7 @@ if (!app.requestSingleInstanceLock()) {
       onStart: transferStarted,
       onProgress: transferProgress,
       onEnd: transferEnded,
+      onCancel: transferCancelled,
       onFile: handleFile,
     }, { tls: identity });
     receiver.ready.then(pushState);
