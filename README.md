@@ -107,7 +107,7 @@ Each arrival plays on a full-screen transparent layer that ignores the mouse, so
 | **Confetti** | A burst when it lands |
 | **Aurora** | Ribbons of light rise from the bottom edge |
 
-Prefer silence? Turn off *Show arrivals on this PC* and files save quietly with a notification.
+Prefer silence? Turn off *Show arrivals on this PC* and files save quietly with a notification. Want more? Turn on the landing sound. With two screens, choose which one the arrivals appear on.
 
 ## The gesture
 
