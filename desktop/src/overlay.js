@@ -31,7 +31,10 @@ const rand = (a, b) => a + Math.random() * (b - a);
 let flights = [];
 let particles = [];
 let rings = [];
+const pills = new Map(); // transfer id -> progress pill
 let running = false;
+let lastFrame = 0;
+let stats = null; // frame timing for the current burst of activity
 
 function placeholderImage() {
   const c = document.createElement('canvas');
