@@ -169,3 +169,34 @@ object Updater {
             part.delete()
         }
     }
+
+    private fun signers(info: PackageInfo?): Set<String>? {
+        val signing = info?.signingInfo ?: return null
+        val certs = if (signing.hasMultipleSigners()) signing.apkContentsSigners else signing.signingCertificateHistory
+        return certs?.map { c -> MessageDigest.getInstance("SHA-256").digest(c.toByteArray()).joinToString("") { "%02x".format(it) } }?.toSet()
+    }
+
+    /**
+     * Looks at a downloaded APK the way Android will: is it Flingo, is it newer, and was it
+     * signed with the same key as the copy on this phone? Android refuses an update signed
+     * with another key, so saying so first saves a confusing error.
+     */
+    fun inspect(ctx: Context, file: File): Verdict {
+        val pm = ctx.packageManager
+        @Suppress("DEPRECATION")
+        val theirs = pm.getPackageArchiveInfo(file.path, PackageManager.GET_SIGNING_CERTIFICATES) ?: return Verdict.NOT_FLINGO
+        if (theirs.packageName != ctx.packageName) return Verdict.NOT_FLINGO
+        @Suppress("DEPRECATION")
+        val mine = pm.getPackageInfo(ctx.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        if (theirs.longVersionCode <= mine.longVersionCode) return Verdict.NOT_NEWER
+        val a = signers(mine)
+        val b = signers(theirs)
+        // If Android will not say who signed one of them, leave the decision to its installer.
+        if (a != null && b != null && a.intersect(b).isEmpty()) return Verdict.OTHER_KEY
+        return Verdict.OK
+    }
+
+    /**
+     * Hands the APK to Android's installer. Android then shows its own screen asking whether
+     * to update; [UpdateReceiver] opens it and hears how it went.
+     */
