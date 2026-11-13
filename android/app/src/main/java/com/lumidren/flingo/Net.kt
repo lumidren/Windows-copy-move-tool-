@@ -229,13 +229,26 @@ object Net {
      * Sends one file to the paired PC. If the PC's address changed (new DHCP lease),
      * finds it again by its id and retries once.
      */
-    fun send(ctx: Context, prefs: Prefs, uri: Uri, x: Float): String {
-        try {
-            return sendTo(ctx, prefs.host, prefs, uri, x)
-        } catch (e: IOException) {
-            val moved = discover().firstOrNull { it.id == prefs.pcId && it.host != prefs.host } ?: throw e
-            prefs.host = moved.host
-            return sendTo(ctx, moved.host, prefs, uri, x)
+    fun send(ctx: Context, prefs: Prefs, uri: Uri, x: Float, search: Boolean = true, onProgress: (Long, Long) -> Unit = { _, _ -> }): String {
+        var last: IOException? = null
+        if (!search) throw last ?: IOException("PC not reachable")
+        val moved = runCatching { discover(1800) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId && it.host !in tried }
+            ?: throw last ?: IOException("PC not reachable")
+        val name = sendTo(ctx, moved.host, prefs, uri, x, onProgress)
+        prefs.host = moved.host
+        return name
+        val tried = mutableSetOf<String>()
+        for (host in candidates(prefs)) {
+            tried.add(host)
+            try {
+                val name = sendTo(ctx, host, prefs, uri, x, onProgress)
+                if (host != prefs.host) prefs.host = host
+                return name
+            } catch (e: UnreadableFileException) {
+                throw e
+            } catch (e: IOException) {
+                last = e
+            }
         }
     }
 }
