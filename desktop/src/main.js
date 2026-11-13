@@ -131,7 +131,7 @@ function pushState() { sendMain('state', publicState()); }
 // ---------- windows ----------
 function createMainWindow() {
   mainWin = new BrowserWindow({
-    width: 940, height: 680, minWidth: 720, minHeight: 520,
+    width: 1040, height: 760, minWidth: 760, minHeight: 540,
     show: false,
     backgroundColor: '#0e1016',
     icon: ICON,
