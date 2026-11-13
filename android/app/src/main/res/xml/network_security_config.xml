@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Transfers go straight to the paired PC over the local network (plain HTTP by IP address). -->
+<!-- Every connection is TLS to the paired PC, checked against the certificate fingerprint
+     remembered at pairing (see Net.kt). Plain HTTP is not allowed anywhere. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
 </network-security-config>
