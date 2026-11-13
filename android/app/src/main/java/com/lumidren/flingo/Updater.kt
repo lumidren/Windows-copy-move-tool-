@@ -200,3 +200,25 @@ object Updater {
      * Hands the APK to Android's installer. Android then shows its own screen asking whether
      * to update; [UpdateReceiver] opens it and hears how it went.
      */
+    fun install(ctx: Context, file: File) {
+        val installer = ctx.packageManager.packageInstaller
+        installer.mySessions.forEach { runCatching { installer.abandonSession(it.sessionId) } }
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setAppPackageName(ctx.packageName)
+            setSize(file.length())
+        }
+        val id = installer.createSession(params)
+        installer.openSession(id).use { session ->
+            session.openWrite(ASSET, 0, file.length()).use { out ->
+                file.inputStream().use { it.copyTo(out, 256 * 1024) }
+                session.fsync(out)
+            }
+            val status = PendingIntent.getBroadcast(
+                ctx, id,
+                Intent(ctx, UpdateReceiver::class.java).setAction(UpdateReceiver.ACTION_STATUS),
+                // Android fills in the result, so it has to be allowed to change the intent.
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0),
+            )
+            session.commit(status.intentSender)
+        }
+    }
