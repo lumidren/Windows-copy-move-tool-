@@ -199,3 +199,54 @@ object Transfers {
         }
     }
 }
+
+/** Words for sizes, speeds and time left, shared by the screen and the notification. */
+object Words {
+    fun size(bytes: Long): String = when {
+        bytes < 1024 * 1024 -> "${maxOf(1, bytes / 1024)} KB"
+        bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / 1048576.0)
+        else -> "%.2f GB".format(bytes / 1073741824.0)
+    }
+
+    private fun left(seconds: Long): String = when {
+        seconds < 60 -> "less than a minute left"
+        seconds < 3600 -> "about ${(seconds + 30) / 60} min left"
+        else -> "about ${seconds / 3600} h ${(seconds % 3600) / 60} min left"
+    }
+
+    /** What is happening, e.g. "Sending 7 of 24". */
+    fun title(s: SendState): String = when {
+        s.waiting -> "Connection lost. Trying to carry on…"
+        s.count > 1 -> "Sending ${s.index} of ${s.count}"
+        else -> "Sending"
+    }
+
+    /** How far it has got, e.g. "45% of 1.20 GB · 12.0 MB/s · about 2 min left". Empty when not worth saying. */
+    fun detail(s: SendState): String {
+        if (s.total <= 0) return if (s.sent > 0 && s.long) size(s.sent) else ""
+        // Small things finish before a number is worth reading.
+        if (!s.long && s.total <= 3 * 1024 * 1024) return ""
+        val parts = mutableListOf("${s.sent * 100 / s.total}% of ${size(s.total)}")
+        if (s.long && s.speed > 0 && !s.waiting) {
+            parts.add("${size(s.speed)}/s")
+            val seconds = (s.total - s.sent) / s.speed
+            if (seconds >= 10) parts.add(left(seconds))
+        }
+        return parts.joinToString(" · ")
+    }
+
+    /** Both together on [lines] lines, for a status pill (2) or a notification (1). */
+    fun progress(s: SendState, lines: Int = 1): String {
+        val t = title(s)
+        val d = detail(s)
+        return when {
+            d.isEmpty() -> if (s.waiting) t else "$t…"
+            lines > 1 -> "$t\n$d"
+            else -> "$t · $d"
+        }
+    }
+
+    fun fraction(s: SendState): Int? = if (s.total > 0) (s.sent * 1000 / s.total).toInt().coerceIn(0, 1000) else null
+
+    fun files(n: Int): String = if (n == 1) "1 file" else "$n files"
+}
