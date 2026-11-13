@@ -78,6 +78,15 @@ object Net {
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }
 
+    private class Conn(val http: HttpsURLConnection, val trust: Pinning) {
+        /** The fingerprint the PC actually presented, as stored in [Pc.fp]. */
+        val fp: String get() = trust.seen?.let(::encodeFp) ?: ""
+    }
+
+    private fun encodeFp(bytes: ByteArray) = Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+    private fun decodeFp(fp: String): ByteArray? =
+        if (fp.isEmpty()) null else runCatching { Base64.decode(fp, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP) }.getOrNull()
+
     private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000): Conn {
         val trust = Pinning(decodeFp(pin))
         val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
