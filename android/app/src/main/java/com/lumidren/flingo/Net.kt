@@ -22,6 +22,7 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.X509TrustManager
 
 /**
@@ -123,7 +124,17 @@ object Net {
         return hex.substring(0, 4) + " " + hex.substring(4)
     }
 
-    private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000): Conn {
+    // One TLS setup for the paired PC, kept between requests. A later connection to the same PC
+    // then resumes the earlier session instead of repeating the whole handshake, which is most
+    // of the cost of sending a small file, and of the check every few seconds that the PC is
+    // still there. The certificate was held against the pin when the session was made, and a
+    // resumed session is that same checked session, so nothing about the pin is relaxed.
+    private class Shared(val pin: String, val trust: Pinning, val factory: SSLSocketFactory)
+    private var shared: Shared? = null
+
+    @Synchronized
+    private fun sharedFor(pin: String): Shared {
+        shared?.let { if (it.pin == pin) return it }
         val trust = Pinning(decodeFp(pin))
         val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
         val url = URL("https", host, port, path)
