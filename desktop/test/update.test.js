@@ -67,3 +67,50 @@ test('newer means newer, number by number', () => {
   assert.equal(isNewer('nonsense', '0.3.0'), false);
   assert.equal(isNewer('0.4.0', 'nonsense'), false);
 });
+
+test('a newer release is offered with its installer', () => {
+  const body = Buffer.from('a real installer');
+  const u = readRelease(release('v0.4.0', body), { current: '0.3.0', platform: 'win32' });
+  assert.equal(u.version, '0.4.0');
+  assert.equal(u.page, 'https://github.com/lumidren/Windows-copy-move-tool-/releases/tag/v0.4.0');
+  assert.deepEqual(u.asset, { name: 'Flingo-Setup.exe', url: `${DOWNLOADS}v0.4.0/Flingo-Setup.exe`, size: body.length, sha256: sha256(body) });
+});
+
+test('the same, an older, an unfinished or an unreadable release is not offered', () => {
+  const at = { current: '0.4.0', platform: 'win32' };
+  assert.equal(readRelease(release('v0.4.0'), at), null);
+  assert.equal(readRelease(release('v0.3.0'), at), null);
+  assert.equal(readRelease(release('v0.5.0', undefined, { draft: true }), at), null);
+  assert.equal(readRelease(release('v0.5.0', undefined, { prerelease: true }), at), null);
+  assert.equal(readRelease(release('v0.5.0-beta'), at), null);
+  assert.equal(readRelease(null, at), null);
+  assert.equal(readRelease('<html>', at), null);
+});
+
+test('Linux hears about the release but gets no installer to run', () => {
+  const u = readRelease(release('v0.4.0'), { current: '0.3.0', platform: 'linux' });
+  assert.equal(u.version, '0.4.0');
+  assert.equal(u.asset, null);
+});
+
+test('an installer from somewhere else, or without a checksum, is not used', () => {
+  const at = { current: '0.3.0', platform: 'win32' };
+  const elsewhere = release('v0.4.0');
+  elsewhere.assets[1].browser_download_url = 'https://example.com/Flingo-Setup.exe';
+  assert.equal(readRelease(elsewhere, at).asset, null);
+
+  const lookalike = release('v0.4.0');
+  lookalike.assets[1].browser_download_url = 'https://github.com/someone-else/Windows-copy-move-tool-/releases/download/v0.4.0/Flingo-Setup.exe';
+  assert.equal(readRelease(lookalike, at).asset, null);
+
+  const unsummed = release('v0.4.0');
+  delete unsummed.assets[1].digest;
+  assert.equal(readRelease(unsummed, at).asset, null);
+
+  const empty = release('v0.4.0');
+  empty.assets[1].size = 0;
+  assert.equal(readRelease(empty, at).asset, null);
+
+  const odd = release('v0.4.0', undefined, { html_url: 'https://example.com/notes' });
+  assert.equal(readRelease(odd, at).page, LATEST_PAGE);
+});
