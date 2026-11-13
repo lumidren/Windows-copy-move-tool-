@@ -110,9 +110,6 @@ $('show-overlay').onchange = async (e) => render(await api.set({ showOverlay: e.
 $('sound').onchange = async (e) => render(await api.set({ sound: e.target.checked }));
 $('launch').onchange = async (e) => render(await api.set({ launchAtLogin: e.target.checked }));
 $('name').onchange = async (e) => render(await api.set({ name: e.target.value }));
-
-api.onState(render);
-api.getState().then(render);
 $('screen').onchange = async (e) => render(await api.set({ overlayDisplay: e.target.value }));
 $('identify').onclick = () => api.identifyScreens();
 $('test-arrival').onclick = () => api.previewEffect(state ? state.effect : 'comet');
