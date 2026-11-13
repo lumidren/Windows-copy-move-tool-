@@ -186,6 +186,8 @@ function renderUpdate(u) {
   }[u.state];
   $('version').textContent = `Version ${state.version}${line ? ` · ${line}` : ''}`;
   $('check-update').disabled = u.state === 'checking' || busy || u.state === 'ready';
+// ---------- transfers in progress ----------
+// One row per card from the app: a single large file, or a whole batch.
 }
 
 const rows = new Map();
