@@ -176,3 +176,20 @@ async function runPreflight(ctx) {
       }
     }
   }
+
+  // 11. encryption
+  if (ctx.secure) add('secure', 'Transfers are encrypted', 'ok', `TLS, with this PC's certificate pinned by the phone. Security code ${ctx.securityCode}.`);
+  else add('secure', 'Transfers are not encrypted', 'warn', 'Flingo could not create its certificate. Restart Flingo.');
+
+  // 12. things only a person can check
+  if (ctx.stage) add('awake', 'Screen will stay awake', 'ok', 'Stage mode keeps the display on while Flingo is open.');
+  else add('awake', 'Stage mode is off', 'warn', 'The screen may sleep or dim mid-demo. Turn on Stage mode.');
+  add('quiet', 'Silence other notifications', 'manual', ctx.platform === 'win32'
+    ? 'Flingo cannot switch this for you: turn on "Do not disturb" in Windows so no pop-up covers the arrival.'
+    : 'Turn on "Do not disturb" on this desktop so no pop-up covers the arrival.', ctx.platform === 'win32' ? 'notifications' : null);
+
+  const count = (s) => items.filter((i) => i.status === s).length;
+  return { items, fail: count('fail'), warn: count('warn'), at: Date.now() };
+}
+
+module.exports = { runPreflight, judgeFirewall, tcpReachable };
