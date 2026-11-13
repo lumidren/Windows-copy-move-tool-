@@ -150,6 +150,7 @@ object Net {
     fun discover(timeoutMs: Int = 2400): List<Pc> {
         val found = LinkedHashMap<String, Pc>()
         DatagramSocket().use { socket ->
+            runCatching { wifi?.bindSocket(socket) }
             socket.broadcast = true
             socket.soTimeout = 300
             val msg = MAGIC.toByteArray()
