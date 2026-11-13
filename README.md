@@ -268,7 +268,7 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 
 **Where Flingo is better:** one gesture, no account, no receiver prompt, and the only one that makes the arrival visible on screen at the spot you aimed for.
 
-**Where Flingo is worse today:** no encryption, one direction, Android-only on the phone side, and not yet in any app store. The [roadmap](ROADMAP.md) lists 20 features that close these gaps, in priority order.
+**Where Flingo is worse today:** one direction, Android-only on the phone side, installers that are not code-signed, and not yet in any app store. The [roadmap](ROADMAP.md) lists what closes these gaps, in priority order.
 
 <sub>Comparison reflects the tools as generally documented in late 2026. Check each project for its current feature set.</sub>
 
