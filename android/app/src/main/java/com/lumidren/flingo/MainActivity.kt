@@ -97,7 +97,7 @@ class MainActivity : Activity() {
         buildUi()
         updateChip()
         if (hasMediaPermission()) loadGallery() else requestMediaPermission()
-        handleShare(intent)
+        handleIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
