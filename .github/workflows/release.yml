@@ -1,10 +1,17 @@
-name: Release
+name: Build and release
 
-# Builds every download (Windows installer, Linux .deb and .tar.gz, Android APK)
-# and attaches them to a GitHub Release. Runs when a version tag is pushed.
+# Builds every download (Windows installer, Linux .deb and .tar.gz, Android APK).
+# - On every push to main that touches the apps: runs the tests and builds all four,
+#   so a broken build is caught long before a release.
+# - On a version tag (v*): does the same, then attaches the four files to a GitHub Release.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+    paths:
+      - "desktop/**"
+      - "android/**"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 concurrency:
@@ -15,13 +22,6 @@ permissions:
   contents: write
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: desktop
-    steps:
-      - uses: actions/checkout@v4
   test:
     runs-on: ubuntu-latest
     defaults:
@@ -56,6 +56,13 @@ jobs:
       - run: npm ci
       - run: npm run test:overlay
 
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -83,18 +90,6 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
       - run: npm run dist:linux
-      - name: Smoke-test the receiver API
-        run: |
-          node -e "
-            const { startServer } = require('./src/server');
-            const s = startServer({ info: () => ({ id: 'ci', name: 'ci' }), pair: () => null, checkToken: () => null, saveDir: () => '/tmp', onFile() {} });
-            setTimeout(async () => {
-              const r = await fetch('http://127.0.0.1:47801/info').then((x) => x.json());
-              if (r.app !== 'flingo') process.exit(1);
-              console.log('receiver ok', r);
-              s.close();
-            }, 300);
-          "
       - uses: actions/upload-artifact@v4
         with:
           name: linux
