@@ -520,12 +520,110 @@ function showProgress(t) {
   });
 }
 
-function endProgress(id, ok) {
-  const t = transfers.get(id);
-  transfers.delete(id);
-  if (!t) return;
-  sendMain('transfer', { id, done: true, ok, name: t.name, from: t.from });
-  if (t.shown && overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send('progress', { id, done: true, ok });
+function transferProgress(p) {
+  const batch = memberOf.get(p.key);
+  if (batch) {
+    const cur = batch.current.get(p.key);
+    if (cur) cur.received = p.received;
+    showBatch(batch);
+    return;
+  }
+  const tr = transfers.get(p.key);
+  if (!tr) return;
+  tr.received = p.received;
+  showTransfer(tr);
+}
+
+function transferEnded({ key, ok, waiting }) {
+  if (ok) return; // the file itself follows, and handleFile closes the card
+  const batch = memberOf.get(key);
+  if (batch) { batchFileFailed(batch, key, waiting); return; }
+  const tr = transfers.get(key);
+  if (!tr) return;
+  if (!waiting) { failTransfer(tr); return; }
+  tr.waiting = true;
+  tr.timer = setTimeout(() => failTransfer(tr), WAIT_MS);
+  showTransfer(tr);
+}
+
+// ---------- batches ----------
+// Many files sent in one go share a single card ("12 of 40") instead of forty flights.
+function batchFileStarted(t) {
+  const key = `${t.from}|${t.batch.id}`;
+  let b = batches.get(key);
+  if (!b) {
+    b = {
+      key, id: `batch-${t.batch.id}`, from: t.from, count: t.batch.count, bytes: t.batch.bytes,
+      done: 0, doneBytes: 0, index: 0, waiting: false, timer: null, lastPath: null,
+      current: new Map(), // transfer key -> { received, total } for files on their way
+    };
+    batches.set(key, b);
+  }
+  clearTimeout(b.timer);
+  b.waiting = false;
+  b.index = Math.max(b.index, t.batch.index);
+  b.current.set(t.key, { received: t.received, total: t.total });
+  memberOf.set(t.key, b);
+  showBatch(b);
+}
+
+function showBatch(b) {
+  let inFlight = 0;
+  let partFiles = 0;
+  for (const c of b.current.values()) {
+    inFlight += c.received;
+    if (c.total) partFiles += c.received / c.total;
+  }
+  const fraction = Math.min(1, b.bytes ? (b.doneBytes + inFlight) / b.bytes : (b.done + partFiles) / b.count);
+  const at = Math.min(b.count, Math.max(b.index, b.done + 1));
+  post(b.waiting ? {
+    id: b.id, state: 'waiting', title: 'Connection lost',
+    detail: `Waiting for ${b.from} to carry on · ${b.done} of ${b.count} received`, fraction,
+  } : {
+    id: b.id, state: 'active', title: `Receiving ${files(b.count)}`,
+    detail: `from ${b.from} · ${at} of ${b.count} · {pct}%`, fraction,
+  }, true);
+}
+
+function batchFileDone(b, file) {
+  memberOf.delete(file.key);
+  b.current.delete(file.key);
+  b.done++;
+  b.doneBytes += file.size;
+  b.lastPath = file.path;
+  if (b.done >= b.count) { closeBatch(b); return; }
+  showBatch(b);
+  clearTimeout(b.timer);
+  b.timer = setTimeout(() => closeBatch(b), BATCH_GAP_MS);
+}
+
+function batchFileFailed(b, key, waiting) {
+  // A file that was cut off stays counted at what arrived, so the bar does not jump back.
+  if (!waiting) { b.current.delete(key); memberOf.delete(key); }
+  b.waiting = true;
+  showBatch(b);
+  clearTimeout(b.timer);
+  b.timer = setTimeout(() => closeBatch(b), WAIT_MS);
+}
+
+function closeBatch(b) {
+  clearTimeout(b.timer);
+  batches.delete(b.key);
+  for (const [key, owner] of memberOf) if (owner === b) memberOf.delete(key);
+  const all = b.done >= b.count;
+  post(all ? {
+    id: b.id, state: 'done', title: `${files(b.count)} received`,
+    detail: `from ${b.from} · ${fmtSize(b.doneBytes)}`, fraction: 1, hold: 1900,
+  } : {
+    id: b.id, state: 'failed', title: `${b.done} of ${files(b.count)} received`,
+    detail: `The rest did not arrive from ${b.from}. Send them again.`, hold: 3400,
+  }, true);
+  pushState();
+  if (!settings.showOverlay && b.done) {
+    notify(`${files(b.done)} received from ${b.from}`, () => {
+      if (b.done === 1 && b.lastPath) shell.showItemInFolder(b.lastPath); else shell.openPath(settings.saveDir);
+    });
+  }
 }
 
 // ---------- pre-flight ----------
