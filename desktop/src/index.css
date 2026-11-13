@@ -162,5 +162,23 @@ code {
 .transfer.failed .label { white-space: normal; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 
+.summary { font-size: 16px; font-weight: 600; padding: 10px 14px; border-radius: 10px; margin-bottom: 10px; background: var(--panel-2); }
+.summary.ok { color: #0e1016; background: var(--ok); }
+.summary.warn { color: #0e1016; background: var(--warn); }
+.summary.fail { color: #0e1016; background: var(--bad); }
+.checks { list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow-y: auto; }
+.check { display: flex; gap: 12px; padding: 9px 2px; }
+.check + .check { border-top: 1px solid var(--line); }
+.check .mark {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; color: #0e1016; background: var(--ok); margin-top: 1px;
+}
+.check.warn .mark { background: var(--warn); }
+.check.fail .mark { background: var(--bad); }
+.check.manual .mark { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+.check-title { font-weight: 600; }
+.check-body { min-width: 0; user-select: text; }
+.check-body button { margin-top: 7px; }
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
