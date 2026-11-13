@@ -227,9 +227,16 @@ function startServer(hooks, options = {}) {
         if (tooManyFails(ip)) return json(res, 429, { error: 'Too many attempts. Wait a minute.' });
         let body;
         try { body = JSON.parse(await readSmallBody(req)); } catch { return json(res, 400, { error: 'Bad request' }); }
-        const token = hooks.pair(String(body.code || ''), String(body.deviceName || 'Phone').slice(0, 60));
-        if (!token) {
-          fails.get(ip).push(Date.now());
+        if (!body || typeof body !== 'object') return json(res, 400, { error: 'Bad request' });
+        const result = hooks.pair({
+          code: String(body.code || ''),
+          deviceName: String(body.deviceName || 'Phone').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 60) || 'Phone',
+          deviceId: String(body.deviceId || '').replace(/[^0-9a-zA-Z_-]/g, '').slice(0, 64),
+          ip,
+        }) || { error: 'wrong' };
+        if (result.error === 'locked') return json(res, 423, { error: 'Pairing is locked on this PC.' });
+        if (!result.token) {
+          noteFail(ip);
           return json(res, 403, { error: 'Wrong code' });
         }
         return json(res, 200, { token, ...hooks.info() });
