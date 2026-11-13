@@ -23,6 +23,16 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putString("pcId", v).apply()
 
     /** Height of the send zone as a percentage of the screen (10–50). */
+    /** Fingerprint of the paired PC's certificate. Every later connection must present this one. */
+    val fp: String get() = sp.getString("fp", "") ?: ""
+
+    /** Every address the paired PC was reachable at when it was paired. */
+    val hosts: List<String> get() = (sp.getString("hosts", "") ?: "").split(',').filter { it.isNotEmpty() }
+
+    /** Identifies this phone to a PC, so pairing again replaces the old entry instead of adding one. */
+    val deviceId: String
+        get() = sp.getString("deviceId", null) ?: UUID.randomUUID().toString().also { sp.edit().putString("deviceId", it).apply() }
+
     var zonePercent: Int
         get() = sp.getInt("zone", 25).coerceIn(10, 50)
         set(v) = sp.edit().putInt("zone", v.coerceIn(10, 50)).apply()
@@ -31,12 +41,14 @@ class Prefs(ctx: Context) {
 
     fun savePairing(pc: Pc, newToken: String) {
         sp.edit()
-            .putString("host", pc.host).putInt("port", pc.port)
-            .putString("pcName", pc.name).putString("pcId", pc.id)
-            .putString("token", newToken).apply()
+            .putString("host", p.pc.host).putInt("port", p.pc.port)
+            .putString("hosts", p.pc.hosts.joinToString(","))
+            .putString("pcName", p.pc.name).putString("pcId", p.pc.id)
+            .putString("fp", p.pc.fp)
+            .putString("token", p.token).apply()
     }
 
     fun clearPairing() {
-        sp.edit().remove("host").remove("port").remove("pcName").remove("pcId").remove("token").apply()
+        sp.edit().remove("host").remove("hosts").remove("port").remove("pcName").remove("pcId").remove("fp").remove("token").apply()
     }
 }
