@@ -132,7 +132,29 @@ class GalleryAdapter(
         frame.addView(badge, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.END).apply {
             marginEnd = (8 * d).toInt(); bottomMargin = (6 * d).toInt()
         })
-        return Holder(frame, image, badge)
+        val check = TextView(ctx).apply {
+            text = "✓"
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#6C8CFF"))
+                setStroke((1.5f * d).toInt(), Color.WHITE)
+            }
+            visibility = View.GONE
+        }
+        frame.addView(check, FrameLayout.LayoutParams((26 * d).toInt(), (26 * d).toInt(), Gravity.TOP or Gravity.END).apply {
+            marginEnd = (7 * d).toInt(); topMargin = (7 * d).toInt()
+        })
+        return Holder(frame, image, badge, check)
+    }
+
+    // A change of selection redraws only the tick, so the thumbnail does not flicker.
+    override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isEmpty()) onBindViewHolder(holder, position)
+        else mark(holder, items[position])
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
