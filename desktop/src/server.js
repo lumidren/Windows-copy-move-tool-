@@ -326,6 +326,18 @@ function startServer(hooks, options = {}) {
     get port() { return server.address() ? server.address().port : wantedPort; },
     status: () => ({ listening: server.listening, ...state, uploads }),
     close() { server.close(); server.closeAllConnections?.(); try { udp.close(); } catch { /* already closed */ } },
+      // How much of a named transfer this PC already has, so the phone can send only the rest.
+      if (req.method === 'GET' && url.pathname === '/resume') {
+        if (!device) return json(res, 401, { error: 'Not paired' });
+        const tid = url.searchParams.get('id') || '';
+        if (!SAFE_ID.test(tid) || !SAFE_ID.test(device.id)) return json(res, 200, { received: 0 });
+        const part = partPath(hooks.saveDir(), device, tid);
+        // The phone is asking, so the old connection is dead even if this side has not noticed yet.
+        const stop = active.get(part);
+        if (stop) { stop(); await new Promise((r) => setTimeout(r, 150)); }
+        return json(res, 200, { received: fileSize(part) });
+      }
+
   };
 }
 
