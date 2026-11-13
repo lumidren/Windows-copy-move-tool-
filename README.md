@@ -90,6 +90,7 @@
   - **Android:** *Update* downloads the APK, checks it the same way, and hands it to Android, which asks before it installs.
   - **Linux:** the offer opens the download page, because installing a package needs your password.
 - **Nothing installs without a click.** The check can be switched off in both apps, and the PC stays silent about updates in stage mode.
+- **A tidier look.** The PC window has a bar of tabs down the left (Home, Arrivals, Settings, About), the phone's pairing choice is a clear three-way card, and both apps have an About screen.
 - **Browse files.** The button that opens the phone's file browser, for a large video or any other file, is now labelled **Browse files** and outlined so it is easy to find. In 0.3.0 it is the small **Files** button.
 
 **New in 0.3.0**
