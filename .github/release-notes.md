@@ -13,6 +13,11 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 - **Linux is told, not changed.** The offer opens the download page, because installing a package needs your password.
 - **Yours to control.** Nothing installs without a click. *Check for updates* can be switched off in both apps, *Later* hides an offer, and *Check now* asks straight away.
 
+### Faster
+
+- **The PC window stays responsive during a large batch.** A new arrival adds one tile instead of redrawing the whole list, and the list is written to disk once a second instead of once per file.
+- **The phone sets up its secure connection to the PC once** and reuses it for the next file and for its regular "is the PC there" check, instead of starting from nothing every time. It also looks each file up once instead of twice.
+
 ### Good to know
 
 - The update check is the only time Flingo uses the internet. It reads a public page and sends nothing about your devices or files. Everything else still works with no internet at all.
