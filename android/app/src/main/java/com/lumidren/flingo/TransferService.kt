@@ -40,7 +40,7 @@ class TransferService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL) {
-            Transfers.cancel()
+            Transfers.cancel(this)
             return START_NOT_STICKY
         }
         val state = Transfers.state
