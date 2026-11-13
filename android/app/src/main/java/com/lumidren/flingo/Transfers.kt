@@ -128,7 +128,8 @@ object Transfers {
     private suspend fun run(ctx: Context, job: SendJob): SendResult {
         val prefs = Prefs(ctx)
         val count = job.uris.size
-        val sizes = withContext(Dispatchers.IO) { job.uris.map { Net.describe(ctx, it).second } }
+        val described = withContext(Dispatchers.IO) { job.uris.map { Net.describe(ctx, it) } }
+        val sizes = described.map { it.second }
         val total = if (sizes.all { it >= 0 }) sizes.sum() else -1L
         val long = count > LONG_COUNT || total > LONG_BYTES || total < 0
         val batch = if (count > 1) id() else ""
@@ -160,7 +161,7 @@ object Transfers {
                 currentId = options.id
                 try {
                     withContext(Dispatchers.IO) {
-                        Net.send(ctx, prefs, uri, job.x, job.search, options, { cancelled }) { fileSent, fileSize, waiting ->
+                        Net.send(ctx, prefs, uri, job.x, job.search, options, { cancelled }, described[i]) { fileSent, fileSize, waiting ->
                             val now = SystemClock.elapsedRealtime()
                             if (now - shownAt < 80 && fileSent != fileSize && !waiting) return@send
                             shownAt = now

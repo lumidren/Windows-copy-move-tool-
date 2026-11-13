@@ -499,7 +499,8 @@ object Net {
         o: SendOptions = SendOptions(), cancelled: () -> Boolean = { false },
         onProgress: (sent: Long, size: Long, waiting: Boolean) -> Unit = { _, _, _ -> },
     ): String {
-        val (name, size) = describe(ctx, uri)
+        // The queue has already asked for the name and size of every file; asking again costs a lookup per file.
+        val (name, size) = known ?: describe(ctx, uri)
         var offset = 0L
         var reached = 0L
         var lastProgress = SystemClock.elapsedRealtime()
@@ -508,6 +509,7 @@ object Net {
             if (cancelled()) throw SendCancelledException()
             try {
                 return sendOnce(ctx, prefs, uri, name, size, x, search && first, o, offset, cancelled) { sent, total ->
+        known: Pair<String, Long>? = null,
                     if (sent > reached) {
                         reached = sent
                         lastProgress = SystemClock.elapsedRealtime()
