@@ -6,7 +6,10 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
-    branches: [main]
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
