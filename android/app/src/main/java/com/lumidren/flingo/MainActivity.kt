@@ -288,6 +288,15 @@ class MainActivity : Activity() {
         val perms = mediaPermissions().toMutableList()
         if (Build.VERSION.SDK_INT >= 34) perms.add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
         requestPermissions(perms.toTypedArray(), 1)
+    private fun hideStatus() {
+        statusJob?.cancel()
+        status.visibility = View.GONE
+    }
+
+    private fun buzz(kind: Int) { root.performHapticFeedback(kind) }
+    private val hapticYes get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
+    private val hapticNo get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
+
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
