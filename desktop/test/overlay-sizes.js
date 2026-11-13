@@ -47,3 +47,25 @@ const MEASURE = `(() => {
   }
   return { cw: c.width, ch: c.height, iw: innerWidth, ih: innerHeight, dpr: devicePixelRatio, any, x0, y0, x1, y1 };
 })()`;
+
+app.whenReady().then(async () => {
+  const [size, scaleText] = CASE.split('@');
+  const [pw, ph] = size.split('x').map(Number);
+  const scale = Number(scaleText);
+  const W = Math.round(pw / scale), H = Math.round(ph / scale);
+
+  // A real but invisible window: animation frames only run in a window that is shown.
+  const win = new BrowserWindow({
+    width: 400, height: 300, show: false, frame: false, transparent: true, opacity: 0, skipTaskbar: true, focusable: false,
+    webPreferences: { preload: path.join(__dirname, '..', 'src', 'preload.js'), contextIsolation: true, backgroundThrottling: false },
+  });
+  await win.loadFile(path.join(__dirname, '..', 'src', 'overlay.html'));
+  // The emulated screen has to be set after the page loads; setting it earlier crashes Electron 33.
+  win.webContents.enableDeviceEmulation({
+    screenPosition: 'desktop', screenSize: { width: W, height: H }, viewPosition: { x: 0, y: 0 },
+    viewSize: { width: W, height: H }, deviceScaleFactor: scale, scale: 1,
+  });
+  win.showInactive();
+  await new Promise((r) => setTimeout(r, 400));
+  let idle = false;
+  ipcMain.on('overlay-idle', () => { idle = true; });
