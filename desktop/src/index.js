@@ -16,9 +16,25 @@ function el(tag, props = {}, children = []) {
 }
 
 function render(s) {
-  $('code').textContent = `${s.code.slice(0, 3)} ${s.code.slice(3)}`;
-  $('addr').textContent = s.addresses.length ? `Manual address: ${s.addresses.join(', ')}` : 'Not connected to a network';
-  $('status-text').textContent = s.addresses.length ? `Ready to receive as “${s.name}”` : 'No network';
+  state = s;
+  devices = s.devices;
+  document.body.classList.toggle('stage', s.stage);
+  $('stage-badge').hidden = !s.stage;
+  $('stage').checked = s.stage;
+
+  // pairing
+  $('pair-open').hidden = s.pairingLocked;
+  $('pair-locked').hidden = !s.pairingLocked;
+  if (!s.pairingLocked) {
+    $('code').textContent = `${s.code.slice(0, 3)} ${s.code.slice(3)}`;
+    $('addr').textContent = s.addresses.length ? s.addresses.join('\n') : 'Not connected';
+    if (s.qr) drawQr(s.qr);
+  }
+  $('secure').textContent = s.secure
+    ? `Transfers are encrypted. Security code ${s.securityCode}`
+    : 'Encryption is unavailable: restart Flingo.';
+
+  // settings
   if (document.activeElement !== $('name')) $('name').value = s.name;
   $('save-dir').textContent = s.saveDir;
   $('save-dir').title = s.saveDir;

@@ -8,8 +8,16 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo"></span><h1>Flingo</h1></div>
-  <div class="status"><span class="dot"></span><span id="status-text">Ready to receive</span></div>
+  <div class="brand"><span class="logo"></span><h1>Flingo</h1><span class="badge" id="stage-badge" hidden>Stage mode</span></div>
+  <div class="status" id="status" role="status"><span class="dot" id="dot"></span><span id="status-text">Starting…</span></div>
+  <div class="row">
+    <button id="preflight" class="ghost">Pre-flight check</button>
+    <label class="toggle compact" title="For presenting: keeps the screen awake, locks pairing, and makes this window easy to read from a distance.">
+      <input type="checkbox" id="stage">
+      <span class="switch"></span>
+      <span>Stage mode</span>
+    </label>
+  </div>
 </header>
 
 <main>
