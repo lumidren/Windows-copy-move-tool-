@@ -536,6 +536,22 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Android only replaces an app with one signed by the same key. Say what to do instead of failing oddly. */
+    private fun explainOtherKey(update: Update) {
+        AlertDialog.Builder(this)
+            .setTitle("This update has to be installed by hand")
+            .setMessage(
+                "Flingo ${update.version} is signed with a different key from the Flingo on this phone, " +
+                    "so Android will not install it over this one.\n\n" +
+                    "Uninstall Flingo, install the new version from the download page, and pair with your PC again.",
+            )
+            .setPositiveButton("Open download page") { _, _ ->
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.page))) }
+            }
+            .setNegativeButton("Not now", null)
+            .show()
+    }
+
     private fun buzz(kind: Int) { root.performHapticFeedback(kind) }
     private val hapticYes get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
     private val hapticNo get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
