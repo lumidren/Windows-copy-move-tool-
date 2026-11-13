@@ -144,6 +144,8 @@ function startServer(hooks, options = {}) {
   const discoveryPort = options.discoveryPort ?? DISCOVERY_PORT;
   const fails = new Map(); // ip -> [timestamps]
   const claimed = new Set(); // final paths picked by transfers that are still finishing
+  const active = new Map(); // partial file path -> stop(): that transfer, while it is running
+  const expiry = new Map(); // partial file path -> timer that deletes it if the phone never returns
   let totalFails = 0;
   let uploads = 0;
 
@@ -164,8 +166,6 @@ function startServer(hooks, options = {}) {
     }
   }
 
-  async function receive(req, res, url, device) {
-    const declared = Number(req.headers['content-length']);
   /** Where a transfer the phone named is kept while it is incomplete. One per phone and name. */
   function partPath(dir, device, tid) {
     return path.join(dir, `.flingo-${device.id}-${tid}.part`);
@@ -182,7 +182,13 @@ function startServer(hooks, options = {}) {
     return { quiet: q('quiet') === '1', batch };
   }
 
-    const total = Number.isFinite(declared) && declared >= 0 ? declared : null;
+  async function receive(req, res, url, device) {
+    const declared = Number(req.headers['content-length']);
+    const body = Number.isFinite(declared) && declared >= 0 ? declared : null;
+    // A transfer the phone has named can be carried on from where it stopped.
+    const tid = SAFE_ID.test(url.searchParams.get('id') || '') && SAFE_ID.test(device.id) ? url.searchParams.get('id') : null;
+    const offset = tid ? wholeNumber(url.searchParams.get('offset') || '0', 0, Number.MAX_SAFE_INTEGER) ?? 0 : 0;
+    const total = body === null ? null : offset + body;
     const limit = hooks.maxBytes ? hooks.maxBytes() : DEFAULT_MAX_BYTES;
     if (total !== null && total > limit) return refuse(req, res, 413, 'That file is too large for this PC.');
     if (uploads >= MAX_UPLOADS) return refuse(req, res, 429, 'This PC is busy receiving. Try again in a moment.');
@@ -191,7 +197,7 @@ function startServer(hooks, options = {}) {
     try { fs.mkdirSync(dir, { recursive: true }); } catch { return refuse(req, res, 500, 'The save folder on the PC cannot be used.'); }
     req.pause();
     const free = await freeBytes(dir);
-    if (free !== null && total !== null && free < total + SPACE_MARGIN) {
+    if (free !== null && body !== null && free < body + SPACE_MARGIN) {
       return refuse(req, res, 507, 'Not enough free space on the PC.');
     }
 
@@ -199,28 +205,48 @@ function startServer(hooks, options = {}) {
     try { rawName = decodeURIComponent(rawName); } catch { /* keep raw */ }
     const name = sanitizeName(rawName);
     const id = crypto.randomBytes(6).toString('hex');
-    const tmp = path.join(dir, `.flingo-${id}.part`);
-    const out = fs.createWriteStream(tmp);
-    let size = 0;
+    const key = tid || id;
+    const tmp = tid ? partPath(dir, device, tid) : path.join(dir, `.flingo-${id}.part`);
+    if (active.has(tmp)) return refuse(req, res, 409, 'That file is already on its way.');
+    // Carrying on only works from exactly where the saved part ends.
+    if (offset > 0 && fileSize(tmp) !== offset) {
+      return refuse(req, res, 409, 'The PC has a different amount of that file.', { received: fileSize(tmp) });
+    }
+    clearTimeout(expiry.get(tmp));
+    expiry.delete(tmp);
+
+    const { quiet, batch } = describe(url);
+    const out = fs.createWriteStream(tmp, { flags: offset > 0 ? 'a' : 'w' });
+    let size = offset;
     let done = false;
     let lastTick = 0;
     uploads++;
+    active.set(tmp, () => { fail(); req.destroy(); });
 
-    const finish = (ok) => {
+    const finish = (ok, waiting = false) => {
       if (done) return false;
       done = true;
       uploads--;
-      if (hooks.onEnd) hooks.onEnd({ id, ok });
+      active.delete(tmp);
+      if (hooks.onEnd) hooks.onEnd({ id, key, ok, waiting });
       return true;
     };
     const fail = (status, error) => {
-      if (!finish(false)) return;
+      // A dropped connection keeps what arrived, so the phone can carry on. A refusal does not.
+      const keep = !!tid && !status && size > 0;
+      if (!finish(false, keep)) return;
       out.destroy();
-      fs.rm(tmp, { force: true }, () => {});
+      if (keep) {
+        const timer = setTimeout(() => { expiry.delete(tmp); if (!active.has(tmp)) fs.rm(tmp, { force: true }, () => {}); }, PART_KEEP_MS);
+        timer.unref();
+        expiry.set(tmp, timer);
+      } else {
+        fs.rm(tmp, { force: true }, () => {});
+      }
       if (status && !res.headersSent) refuse(req, res, status, error);
     };
 
-    if (hooks.onStart) hooks.onStart({ id, name, from: device.name, total });
+    if (hooks.onStart) hooks.onStart({ id, key, name, from: device.name, total, received: offset, quiet, batch });
     req.setTimeout(IDLE_TIMEOUT_MS, () => { fail(); req.destroy(); });
     req.on('data', (c) => {
       size += c.length;
@@ -228,7 +254,7 @@ function startServer(hooks, options = {}) {
       const now = Date.now();
       if (hooks.onProgress && now - lastTick >= PROGRESS_EVERY_MS) {
         lastTick = now;
-        hooks.onProgress({ id, received: size, total });
+        hooks.onProgress({ id, key, received: size, total });
       }
     });
     req.on('aborted', () => fail());
@@ -247,6 +273,9 @@ function startServer(hooks, options = {}) {
         const x = Math.min(1, Math.max(0, parseFloat(url.searchParams.get('x')) || 0.5));
         hooks.onFile({
           id,
+          key,
+          quiet,
+          batch,
           path: finalPath,
           name: path.basename(finalPath),
           size,
@@ -297,6 +326,18 @@ function startServer(hooks, options = {}) {
         return device ? json(res, 200, { ok: true, ...hooks.info() }) : json(res, 401, { error: 'Not paired' });
       }
 
+      // How much of a named transfer this PC already has, so the phone can send only the rest.
+      if (req.method === 'GET' && url.pathname === '/resume') {
+        if (!device) return json(res, 401, { error: 'Not paired' });
+        const tid = url.searchParams.get('id') || '';
+        if (!SAFE_ID.test(tid) || !SAFE_ID.test(device.id)) return json(res, 200, { received: 0 });
+        const part = partPath(hooks.saveDir(), device, tid);
+        // The phone is asking, so the old connection is dead even if this side has not noticed yet.
+        const stop = active.get(part);
+        if (stop) { stop(); await new Promise((r) => setTimeout(r, 150)); }
+        return json(res, 200, { received: fileSize(part) });
+      }
+
       if (req.method === 'POST' && url.pathname === '/send') {
         if (!device) return refuse(req, res, 401, 'Not paired');
         return await receive(req, res, url, device);
@@ -342,18 +383,6 @@ function startServer(hooks, options = {}) {
     get port() { return server.address() ? server.address().port : wantedPort; },
     status: () => ({ listening: server.listening, ...state, uploads }),
     close() { server.close(); server.closeAllConnections?.(); try { udp.close(); } catch { /* already closed */ } },
-      // How much of a named transfer this PC already has, so the phone can send only the rest.
-      if (req.method === 'GET' && url.pathname === '/resume') {
-        if (!device) return json(res, 401, { error: 'Not paired' });
-        const tid = url.searchParams.get('id') || '';
-        if (!SAFE_ID.test(tid) || !SAFE_ID.test(device.id)) return json(res, 200, { received: 0 });
-        const part = partPath(hooks.saveDir(), device, tid);
-        // The phone is asking, so the old connection is dead even if this side has not noticed yet.
-        const stop = active.get(part);
-        if (stop) { stop(); await new Promise((r) => setTimeout(r, 150)); }
-        return json(res, 200, { received: fileSize(part) });
-      }
-
   };
 }
 
