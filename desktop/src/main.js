@@ -422,6 +422,25 @@ function handleFile(file) {
   }
 }
 
+// Progress for transfers that take long enough to look frozen otherwise.
+function showProgress(t) {
+  sendMain('transfer', { id: t.id, name: t.name, from: t.from, received: t.received, total: t.total });
+  const slow = t.total === null || t.total > SLOW_TRANSFER_BYTES;
+  if (!slow || !settings.showOverlay) return;
+  whenOverlayReady(() => {
+    if (!t.shown) { t.shown = true; overlayWin.showInactive(); }
+    overlayWin.webContents.send('progress', { id: t.id, name: t.name, from: t.from, received: t.received, total: t.total });
+  });
+}
+
+function endProgress(id, ok) {
+  const t = transfers.get(id);
+  transfers.delete(id);
+  if (!t) return;
+  sendMain('transfer', { id, done: true, ok, name: t.name, from: t.from });
+  if (t.shown && overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send('progress', { id, done: true, ok });
+}
+
 // ---------- app ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
