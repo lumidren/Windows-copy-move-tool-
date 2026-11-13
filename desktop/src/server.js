@@ -113,7 +113,11 @@ function readSmallBody(req, limit = 4096) {
  * }
  */
  * options: { tls: {key, cert} | null, port, discoveryPort, host }
-function startServer(hooks) {
+ */
+function startServer(hooks, options = {}) {
+  const tls = options.tls || null;
+  const wantedPort = options.port ?? HTTP_PORT;
+  const discoveryPort = options.discoveryPort ?? DISCOVERY_PORT;
   const fails = new Map(); // ip -> [timestamps]
 
   function tooManyFails(ip) {
