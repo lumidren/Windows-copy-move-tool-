@@ -53,5 +53,8 @@
       "synopsis": "Flick photos from your phone to this PC",
       "artifactName": "flingo-linux.${ext}"
     }
+  },
+  "dependencies": {
+    "qrcode-generator": "^1.4.4"
   }
 }
