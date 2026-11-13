@@ -473,15 +473,37 @@ function handleFile(file) {
   history = history.slice(0, 60);
   saveHistory();
   pushState();
-  if (settings.showOverlay) {
-    playOverlay({
-      url: entry.image ? pathToFileURL(entry.path).href : null,
-      name: entry.name, from: entry.from, x: file.x, effect: settings.effect,
-    });
-  } else if (!settings.stage && Notification.isSupported()) {
-    const n = new Notification({ title: 'Flingo', body: `${entry.name} received from ${entry.from}`, icon: ICON });
-    n.on('click', () => shell.showItemInFolder(entry.path));
-    n.show();
+  const tr = transfers.get(file.key);
+  transfers.delete(file.key);
+  const flies = settings.showOverlay && !file.quiet;
+  // Without a flight, the progress card stays a moment longer to say the file is here.
+  post({
+    id: file.key, state: 'done', title: `Received ${short(entry.name)}`,
+    detail: `from ${entry.from} · ${fmtSize(entry.size)}`, fraction: 1, hold: flies ? 260 : 1700,
+  }, flies ? !!tr && tr.onScreen : true);
+  if (flies) fly(entry, file.x);
+  else if (!settings.showOverlay) notify(`${entry.name} received from ${entry.from}`, () => shell.showItemInFolder(entry.path));
+}
+
+// ---------- progress ----------
+// A card is one line of progress: shown as a row in the window, and as a pill on the
+// arrival screen when it is worth the audience's attention. {pct} in the detail is
+// filled in by whoever draws it, so the number can glide instead of jumping.
+function post(card, onScreen) {
+  sendMain('transfer', card);
+  if (onScreen && settings.showOverlay) toOverlay('progress', card);
+}
+
+function showTransfer(tr) {
+  // Small files finish before a pill could be read; large ones would look frozen without one.
+  if (tr.total === null || tr.total > SLOW_TRANSFER_BYTES) tr.onScreen = true;
+  if (tr.waiting) {
+    post({
+      id: tr.key, state: 'waiting', title: 'Connection lost',
+      detail: `Waiting for ${tr.from} to carry on with ${short(tr.name, 24)}`,
+      fraction: tr.total ? tr.received / tr.total : null,
+    }, tr.onScreen);
+    return;
   }
 }
 
