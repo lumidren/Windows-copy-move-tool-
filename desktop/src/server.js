@@ -128,9 +128,14 @@ function readSmallBody(req, limit = 4096) {
  *   seen(device, ip): a paired phone just talked to us,
  *   saveDir(): string,
  *   maxBytes(): largest file accepted,
- *   onStart({id, name, from, total}), onProgress({id, received, total}), onEnd({id, ok}),
- *   onFile({id, path, name, size, mime, from, x})
+ *   onStart({id, key, name, from, total, received, quiet, batch}),
+ *   onProgress({id, key, received, total}), onEnd({id, key, ok, waiting}),
+ *   onFile({id, key, path, name, size, mime, from, x, quiet, batch})
  * }
+ * key is the phone's own name for a transfer when it gave one (so a transfer that is cut
+ * off and carried on later keeps one identity), otherwise the same as id.
+ * quiet: the phone asked for no arrival animation. batch: {id, index, count, bytes} | null.
+ * waiting: the transfer was cut off but its first part is kept for the phone to carry on.
  * options: { tls: {key, cert} | null, port, discoveryPort, host }
  */
 function startServer(hooks, options = {}) {
