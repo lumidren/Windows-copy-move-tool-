@@ -593,39 +593,14 @@ class MainActivity : Activity() {
         else -> "%.2f GB".format(bytes / 1073741824.0)
     }
 
-    private fun send(uris: List<Uri>, x: Float) {
-        if (sending) {
-            showStatus("Still sending the last one. Try again in a moment.")
-            return
-        }
-        sending = true
-        scope.launch {
-            var sent = 0
-            try {
-                for (uri in uris) {
-                    val prefix = if (uris.size > 1) "Sending ${sent + 1} of ${uris.size}" else "Sending"
-                    showStatus("$prefix…", sticky = true, progress = 0)
-                    var lastShown = 0L
-                    val search = online != false // already known to be out of reach: answer fast
-                    withContext(Dispatchers.IO) {
-                        Net.send(this@MainActivity, prefs, uri, x, search) progress@{ done, total ->
-                            val now = SystemClock.uptimeMillis()
-                            if (now - lastShown < 60 && done != total) return@progress
-                            lastShown = now
-                            runOnUiThread {
-                                if (total > 0) {
-                                    val pct = (done * 100 / total).toInt()
-                                    // Small files finish before a number is worth reading.
-                                    val label = if (total > 3 * 1024 * 1024) "$prefix · $pct% of ${size(total)}" else "$prefix…"
-                                    showStatus(label, sticky = true, progress = (done * 1000 / total).toInt())
-                                } else {
-                                    showStatus("$prefix · ${size(done)}", sticky = true)
-                                }
-                            }
-                        }
-                    }
-                    sent++
-                }
+    private fun showSend(s: SendState) {
+        showStatus(Words.progress(s, lines = if (s.long) 2 else 1), sticky = true, progress = Words.fraction(s), cancelable = s.long)
+    }
+
+    private fun showResult(r: SendResult) {
+        val pc = prefs.pcName
+        when (r) {
+            is SendResult.Done -> {
                 online = true
                 updateChip()
                 buzz(hapticYes)
