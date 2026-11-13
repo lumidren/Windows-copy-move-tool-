@@ -420,8 +420,25 @@ object Net {
     }
 }
 
-/** The file on this phone could not be opened or read. */
-class UnreadableFileException : IOException("Cannot read file")
+    /** How many bytes of the transfer named [id] the PC already has. 0 if none, or if it cannot say. */
+    private fun resumeAt(prefs: Prefs, id: String): Long {
+        for (host in candidates(prefs)) {
+            val c = open(host, prefs.port, "/resume?id=$id", prefs.fp, connectMs = 1500)
+            try {
+                c.http.readTimeout = 5000
+                c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+                val status = c.http.responseCode
+                if (status == 401) throw NotPairedException()
+                // A PC running an older Flingo answers 404: it keeps nothing, so start again.
+                return if (status == 200) JSONObject(c.http.body()).optLong("received", 0) else 0
+            } catch (_: IOException) {
+                // not at this address; try the next
+            } finally {
+                c.http.disconnect()
+            }
+        }
+        throw IOException("PC not reachable")
+    }
 
     private fun pause(ms: Long, cancelled: () -> Boolean) {
         val end = SystemClock.elapsedRealtime() + ms
