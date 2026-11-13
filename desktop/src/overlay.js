@@ -20,6 +20,7 @@ resize();
 const FLY = 900, REST = 1700, TUCK = 650;
 const TOTAL = FLY + REST + TUCK;
 const PALETTE = ['#6c8cff', '#9b6bff', '#ff6bb5', '#ffb84d', '#4de1c1'];
+const FONT = '"Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t) => { const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
