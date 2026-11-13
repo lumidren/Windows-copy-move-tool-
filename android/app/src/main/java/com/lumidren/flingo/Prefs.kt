@@ -48,6 +48,26 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("askedNotifications", false)
         set(v) = sp.edit().putBoolean("askedNotifications", v).apply()
 
+    /** Ask GitHub now and then whether a newer Flingo exists. Nothing installs without a tap. */
+    var checkUpdates: Boolean
+        get() = sp.getBoolean("checkUpdates", true)
+        set(v) = sp.edit().putBoolean("checkUpdates", v).apply()
+
+    /** When the release list was last read (wall clock, milliseconds). */
+    var updateCheckedAt: Long
+        get() = sp.getLong("updateCheckedAt", 0)
+        set(v) = sp.edit().putLong("updateCheckedAt", v).apply()
+
+    /** The newer release found by the last check, or null. Kept so the offer survives closing the app. */
+    var update: Update?
+        get() = sp.getString("update", null)?.let(Update::fromJson)
+        set(v) = sp.edit().putString("update", v?.toJson()).apply()
+
+    /** The version the offer was closed on. It is not offered again until asked for. */
+    var updateDismissed: String
+        get() = sp.getString("updateDismissed", "") ?: ""
+        set(v) = sp.edit().putString("updateDismissed", v).apply()
+
     // A pairing made before transfers were encrypted has no fingerprint, so it has to be made again.
     val paired: Boolean get() = token.isNotEmpty() && host.isNotEmpty() && fp.isNotEmpty()
 
