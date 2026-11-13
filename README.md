@@ -205,9 +205,9 @@ The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ### Pair
 
-1. Open Flingo on the PC. It shows a 6-digit code.
-2. Open Flingo on the phone and tap **Pair with PC**.
-3. Pick the PC from the list and type the code.
+1. Open Flingo on the PC. It shows a QR code.
+2. Open Flingo on the phone and tap **Pair with PC**, then **Scan the QR code**.
+3. Point the phone at the code. Click the code on the PC to enlarge it if you are standing back.
 
 > [!TIP]
 > Some routers block broadcast. If the PC isn't listed, tap **Enter address** and type the address shown under the code.
