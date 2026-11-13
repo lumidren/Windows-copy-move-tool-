@@ -246,15 +246,18 @@ desktop/
   src/server.js     UDP discovery + HTTPS API (pair, ping, send, resume), limits, filename sanitising
   src/cert.js       the PC's TLS identity: a self-signed X.509 certificate built by hand
   src/preflight.js  the pre-flight checklist, including the Windows Firewall reading
+  src/update.js     finds a newer release, downloads the installer, checks its SHA-256
   src/main.js       tray, windows, settings, pairing, stage mode, arrival screen, batches
   src/overlay.js    canvas arrival animation, the four effects, progress pills, sound
   src/index.*       main window: QR code, effects, phones, received list, checklist
-  test/             receiver, certificate and pre-flight tests; overlay at ten screen sizes
+  test/             receiver, certificate, pre-flight and updater tests; overlay at ten screen sizes
 android/
   app/src/main/java/com/lumidren/flingo/
     Net.kt          pinned TLS, pairing, streaming upload that resumes, reconnection
     Transfers.kt    the send queue: batches, progress, speed, cancel
     TransferService.kt  keeps a long transfer alive in the background, with a notification
+    Updater.kt      finds a newer release, downloads and checks the APK, hands it to Android
+    UpdateReceiver.kt   opens Android's install prompt and reports how it went
     Gallery.kt      MediaStore query, thumbnail cache, grid adapter with selection
     MainActivity.kt hold-and-flick gesture, selection, pairing, connection status, share target
     ScanActivity.kt the QR scanner screen
@@ -276,9 +279,10 @@ android/
 | **Hostile filenames** | Names are cut to a base name, stripped of characters Windows rejects and of invisible direction-override characters, guarded against device names like `CON` and `NUL`, and de-duplicated with ` (1)`, ` (2)`. Files that would run when opened are shown in their folder instead. |
 | **Hostile clients** | One code per phone; five wrong guesses per address per minute; the code is replaced after twelve misses from anyone; pairing can be locked; uploads are capped in size, number and idle time; free space is checked first. |
 | **Virtual network adapters** | VirtualBox, VMware, Hyper-V and WSL adapters are hidden, so the address shown is one a phone can actually reach. |
+| **Updating without an app store** | Each app reads GitHub's public release list, and only trusts a download that comes from this project's releases and matches the SHA-256 the release declares. The phone also compares who signed the APK before asking Android to install it, so a mismatch is explained instead of failing oddly. The PC never checks while in stage mode. |
 | **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
 
-**Tested how.** `npm test` runs 24 tests on the receiver, the certificate and the pre-flight logic, including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
+**Tested how.** `npm test` runs 37 tests on the receiver, the certificate, the pre-flight logic and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
