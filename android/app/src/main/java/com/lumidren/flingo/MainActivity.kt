@@ -359,7 +359,13 @@ class MainActivity : Activity() {
 
     private fun setZoneActive(active: Boolean) {
         val target = if (prefs.paired) prefs.pcName else "your PC"
-        zone.text = if (active) "Release to send to $target" else "↑  Flick up to send"
+        val many = dragUris.size
+        zone.text = when {
+            active && many > 1 -> "Release to send $many to $target"
+            active -> "Release to send to $target"
+            many > 1 -> "↑  Flick up to send $many"
+            else -> "↑  Flick up to send"
+        }
         zone.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(if (active) Color.parseColor("#F06C8CFF") else Color.parseColor("#996C8CFF"), Color.TRANSPARENT),
