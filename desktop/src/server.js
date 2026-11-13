@@ -244,7 +244,8 @@ function startServer(hooks, options = {}) {
 
       const auth = req.headers.authorization || '';
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-      const from = token ? hooks.checkToken(token) : null;
+      const device = token ? hooks.checkToken(token) : null;
+      if (device && hooks.seen) hooks.seen(device, ip);
 
       if (req.method === 'GET' && url.pathname === '/ping') {
         return from ? json(res, 200, { ok: true, ...hooks.info() }) : json(res, 401, { error: 'Not paired' });
