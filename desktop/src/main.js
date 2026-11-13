@@ -424,6 +424,39 @@ function isImage(mime, name) {
   return /^image\//.test(mime) || /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
 }
 
+function fmtSize(n) {
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+  return `${(n / 1024 ** 3).toFixed(2)} GB`;
+}
+const short = (name, max = 30) => (name.length > max ? `${name.slice(0, max - 1)}…` : name);
+const files = (n) => `${n} file${n === 1 ? '' : 's'}`;
+
+function notify(body, onClick) {
+  if (settings.stage || !Notification.isSupported()) return;
+  const n = new Notification({ title: 'Flingo', body, icon: ICON });
+  n.on('click', onClick);
+  n.show();
+}
+
+function remember(file) {
+  const entry = {
+    path: file.path, name: file.name, size: file.size, from: file.from,
+    image: isImage(file.mime, file.name), at: Date.now(),
+  };
+  history.unshift(entry);
+  history = history.slice(0, HISTORY_MAX);
+  saveHistory();
+  return entry;
+}
+
+function fly(entry, x) {
+  playOverlay({
+    url: entry.image ? pathToFileURL(entry.path).href : null,
+    name: entry.name, from: entry.from, x, effect: settings.effect,
+  });
+}
+
 function handleFile(file) {
   if (file.from === SELF_TEST) {
     // A pre-flight transfer: check it, play it, and leave no trace.
