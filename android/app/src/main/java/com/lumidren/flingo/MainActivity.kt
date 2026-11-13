@@ -69,10 +69,16 @@ class MainActivity : Activity() {
     private var lastY = 0f
     private var tracker: VelocityTracker? = null
     private var statusJob: Job? = null
+    private var wasInZone = false
     private var pendingShare: List<Uri> = emptyList()
 
+    private var healthJob: Job? = null
     private val accent = Color.parseColor("#6C8CFF")
     private fun dp(v: Float) = v * resources.displayMetrics.density
+    /** Whether the paired PC answered the last time it was asked. Null until the first answer. */
+    private var online: Boolean? = null
+    private var sending = false
+
     private fun dpi(v: Float) = dp(v).toInt()
 
     private fun pill(color: Int, radius: Float) = GradientDrawable().apply {
