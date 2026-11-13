@@ -424,7 +424,10 @@ if (!app.requestSingleInstanceLock()) {
     });
     ipcMain.handle('clear-history', () => { history = []; saveHistory(); return publicState(); });
     ipcMain.on('open-folder', () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); });
-    ipcMain.on('open-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.openPath(p); });
+    ipcMain.on('open-file', (_e, p) => {
+      if (!history.some((h) => h.path === p)) return;
+      if (RUNNABLE.test(p)) shell.showItemInFolder(p); else shell.openPath(p);
+    });
     ipcMain.on('reveal-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.showItemInFolder(p); });
     ipcMain.on('preview-effect', (_e, effect) => {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
