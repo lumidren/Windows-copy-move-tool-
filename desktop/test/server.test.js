@@ -87,3 +87,13 @@ test('pairing can be locked', async () => {
     assert.equal(r.status, 423);
   } finally { t.close(); }
 });
+
+test('unpaired phones cannot ping or send', async () => {
+  const t = await boot();
+  try {
+    assert.equal((await fetch(`${t.base}/ping`)).status, 401);
+    assert.equal((await t.send('a.jpg', Buffer.from('x'), 'wrong')).status, 401);
+    assert.deepEqual(fs.readdirSync(t.dir), []);
+    assert.equal((await fetch(`${t.base}/ping`, { headers: { Authorization: `Bearer ${TOKEN}` } })).status, 200);
+  } finally { t.close(); }
+});
