@@ -70,3 +70,47 @@ class TransferService : Service() {
         live = false
         super.onDestroy()
     }
+
+    companion object {
+        private const val ACTION_CANCEL = "com.lumidren.flingo.CANCEL"
+        private const val CHANNEL_PROGRESS = "progress"
+        private const val CHANNEL_RESULT = "result"
+        private const val ONGOING = 1
+        private const val RESULT = 2
+        @Volatile private var live = false
+        private var updatedAt = 0L
+
+        private fun manager(ctx: Context) = ctx.getSystemService(NotificationManager::class.java)
+
+        private fun channels(ctx: Context) {
+            val m = manager(ctx)
+            m.createNotificationChannel(NotificationChannel(CHANNEL_PROGRESS, "Transfers in progress", NotificationManager.IMPORTANCE_LOW))
+            m.createNotificationChannel(NotificationChannel(CHANNEL_RESULT, "Finished transfers", NotificationManager.IMPORTANCE_DEFAULT))
+        }
+
+        private fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
+            ctx, 0,
+            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+        private fun sending(ctx: Context, s: SendState?): Notification {
+            channels(ctx)
+            val cancel = PendingIntent.getService(
+                ctx, 1,
+                Intent(ctx, TransferService::class.java).setAction(ACTION_CANCEL),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val b = Notification.Builder(ctx, CHANNEL_PROGRESS)
+                .setSmallIcon(android.R.drawable.stat_sys_upload)
+                .setContentTitle("Sending to ${Prefs(ctx).pcName.ifEmpty { "your PC" }}")
+                .setContentText(if (s == null) "Getting ready…" else Words.progress(s))
+                .setContentIntent(openApp(ctx))
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setCategory(Notification.CATEGORY_PROGRESS)
+                .addAction(Notification.Action.Builder(null, "Cancel", cancel).build())
+            val fraction = s?.let(Words::fraction)
+            if (s != null && !s.waiting) b.setProgress(1000, fraction ?: 0, fraction == null)
+            return b.build()
+        }
