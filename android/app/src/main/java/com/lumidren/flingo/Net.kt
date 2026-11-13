@@ -354,11 +354,18 @@ object Net {
                 input.use { src ->
                     conn.outputStream.use { dst ->
                         val buf = ByteArray(64 * 1024)
+                    var skipped = 0L
+                    while (skipped < offset) {
+                        val n = try { src.skip(offset - skipped) } catch (e: IOException) { 0L }
+                        if (n <= 0) throw UnreadableFileException()
+                        skipped += n
+                    }
                         var sent = 0L
                         while (true) {
                             val n = try { src.read(buf) } catch (e: IOException) { throw UnreadableFileException() }
                             if (n < 0) break
                             dst.write(buf, 0, n)
+                            if (cancelled()) throw SendCancelledException()
                             sent += n
                             onProgress(sent, size)
                         }
@@ -368,6 +375,7 @@ object Net {
                 if (e is UnreadableFileException) throw e
                 if (isMismatch(e)) throw WrongPcException()
                 // The PC may have refused part-way (too large, no space) and hung up. Its answer says why.
+                if (cancelled()) throw SendCancelledException()
                 val status = runCatching { conn.responseCode }.getOrDefault(-1)
                 if (status == 401) throw NotPairedException()
                 if (status >= 400) throw PcRefusedException(status, conn.error("The PC could not take the file."))
@@ -414,3 +422,60 @@ object Net {
 
 /** The file on this phone could not be opened or read. */
 class UnreadableFileException : IOException("Cannot read file")
+
+    private fun pause(ms: Long, cancelled: () -> Boolean) {
+        val end = SystemClock.elapsedRealtime() + ms
+        while (SystemClock.elapsedRealtime() < end) {
+            if (cancelled()) throw SendCancelledException()
+            Thread.sleep(100)
+        }
+    }
+
+    /**
+     * Sends one file to the paired PC. [onProgress] reports bytes sent, the file's size (-1 if
+     * unknown), and whether the connection is currently lost.
+     *
+     * With [SendOptions.patienceMs] above zero, a dropped connection is not the end: it keeps
+     * trying for that long since the last byte got through, and carries on from where the PC
+     * says it stopped instead of starting again. With [search] off, a PC that is already known
+     * to be out of reach is not looked for, so a single flick is answered quickly.
+     */
+    fun send(
+        ctx: Context, prefs: Prefs, uri: Uri, x: Float, search: Boolean = true,
+        o: SendOptions = SendOptions(), cancelled: () -> Boolean = { false },
+        onProgress: (sent: Long, size: Long, waiting: Boolean) -> Unit = { _, _, _ -> },
+    ): String {
+        val (name, size) = describe(ctx, uri)
+        var offset = 0L
+        var reached = 0L
+        var lastProgress = SystemClock.elapsedRealtime()
+        var first = true
+        while (true) {
+            if (cancelled()) throw SendCancelledException()
+            try {
+                return sendOnce(ctx, prefs, uri, name, size, x, search && first, o, offset, cancelled) { sent, total ->
+                    if (sent > reached) {
+                        reached = sent
+                        lastProgress = SystemClock.elapsedRealtime()
+                    }
+                    onProgress(sent, total, false)
+                }
+            } catch (e: UnreadableFileException) {
+                throw e
+            } catch (e: PcRefusedException) {
+                // 409: the PC and the phone disagree about where to carry on. Anything else is final.
+                if (e.status != 409 || SystemClock.elapsedRealtime() - lastProgress >= o.patienceMs) throw e
+            } catch (e: IOException) {
+                if (SystemClock.elapsedRealtime() - lastProgress >= o.patienceMs) throw e
+            }
+            first = false
+            onProgress(reached, size, true)
+            pause(1200, cancelled)
+            // Ask the PC how much it kept. If it cannot be asked yet, the next attempt will fail too and wait again.
+            offset = if (o.id.isNotEmpty() && size > 0 && reached > 0) {
+                try { resumeAt(prefs, o.id).coerceIn(0, size) } catch (_: IOException) { 0L }
+            } else 0L
+        }
+    }
+
+    private const val BUFFER = 256 * 1024
