@@ -176,7 +176,15 @@ function publicState() {
 function sendMain(channel, payload) {
   if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send(channel, payload);
 }
-function pushState() { sendMain('state', publicState()); }
+function pushState() {
+  clearTimeout(stateTimer);
+  stateTimer = null;
+  sendMain('state', publicState());
+}
+/** For bursts: a batch of 200 photos refreshes the window a few times a second, not 200 times. */
+function pushStateSoon() {
+  if (!stateTimer) stateTimer = setTimeout(pushState, 350);
+}
 
 // ---------- windows ----------
 function createMainWindow() {
