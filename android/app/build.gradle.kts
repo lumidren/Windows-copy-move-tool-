@@ -32,4 +32,6 @@ android {
 dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // QR scanner for pairing. Runs on the device: no Play services, no network.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 }
