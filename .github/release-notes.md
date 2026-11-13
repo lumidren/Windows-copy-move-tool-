@@ -1,37 +1,27 @@
-## Flingo 0.3.0
+## Flingo 0.4.0
 
-Flick a photo off your phone and watch it land on your PC. This release is about moving a lot at once: many photos, any kind of file, and large files that do not start again when the Wi-Fi blips.
+Flick a photo off your phone and watch it land on your PC. This release teaches both apps to update themselves, so this is the last version you have to install by hand.
 
 > [!NOTE]
-> 0.3.0 works with 0.2.0 on the other side, but the new features need 0.3.0 on both the phone and the PC. Neither works with 0.1.0.
+> 0.4.0 works with 0.3.0 and 0.2.0 on the other side. Getting to 0.4.0 is still a manual install, because older versions have no updater: run the new installer on the PC, and on the phone uninstall Flingo, install this APK and pair again.
 
 ### New
 
-- **Send many at once.** Tap photos to select them, or pick "Today", "The last 7 days", "The last 30 days" or "Everything", then press **Send**. They arrive quietly: the PC shows one card that counts them in, with no flight per photo.
-- **Flick a stack.** With photos selected, hold and flick one of them. That one flies in; the rest follow quietly.
-- **Any file.** The **Files** button opens the phone's file picker, for documents, archives and anything else that is not in the gallery.
-- **Large files survive a dropped connection.** The PC keeps what arrived, the phone asks how much that was, and sends only the rest. It keeps trying for 45 seconds after the last byte got through.
-- **Keeps going in the background.** A long transfer continues when you switch apps or the screen turns off. A notification shows progress, speed and time left, with a Cancel button.
-- **Cancel** a long transfer from the phone at any time.
-- **A queue.** Flick or send again while something is on its way and it is added behind it.
-
-### Better
-
-- The PC keeps the last 200 received files in its list, up from 60, and stays responsive while a large batch arrives.
-- A file that is sent quietly is confirmed on the PC with a short "Received" card.
-- When a large transfer is cut off, the PC says it is waiting for the phone to carry on, instead of calling it failed at once.
-
-### Changed
-
-- A **tap** on a photo now selects it. Holding and flicking works as before.
+- **Update offers.** Each app asks GitHub which release is the newest and tells you when it is not the one you have.
+- **Windows updates in place.** *Update now* downloads the installer, checks it against the release's SHA-256, and *Restart and install* swaps the app and opens it again. Paired phones and settings are kept.
+- **Android updates in place.** *Update* downloads the APK, checks it the same way, and hands it to Android, which asks you to confirm. The first time, Android also asks you to allow Flingo to install apps.
+- **Linux is told, not changed.** The offer opens the download page, because installing a package needs your password.
+- **Yours to control.** Nothing installs without a click. *Check for updates* can be switched off in both apps, *Later* hides an offer, and *Check now* asks straight away.
 
 ### Good to know
 
-- This release was tested on an Android emulator and a Windows PC. Background sending with the screen off depends on the phone maker's battery settings; if a long transfer stops on your phone, please open an issue.
-- A transfer that is carried on after a drop is not checksummed end to end. TLS protects each part in flight and the PC checks the final size.
-- Files in a batch are sent one after another over separate connections, so thousands of very small files are slower than they could be.
-- The Windows installer is not code-signed, so Windows shows a "Windows protected your PC" box. Choose **More info**, then **Run anyway**.
-- The APK is signed with a debug key, so uninstall the old app before installing this one.
+- The update check is the only time Flingo uses the internet. It reads a public page and sends nothing about your devices or files. Everything else still works with no internet at all.
+- In stage mode the PC does not check and shows no offer.
+- From this release on the APK is signed with the project's own key, which is what lets one version install over another. Older APKs were signed with throwaway keys, so this one cannot install over them: uninstall the old app first.
+- Android may show a Google Play Protect prompt the first time, because the app does not come from the Play Store.
+- The Windows installer is not code-signed, so Windows shows a "Windows protected your PC" box when you run it by hand. Choose **More info**, then **Run anyway**.
+- A copy of the PC app that was not installed with the installer (an unpacked folder) is offered the download page instead of updating itself.
+- Tested on an Android emulator and a Windows PC against a stand-in release list. Updating through a real release is first possible with the release after this one.
 
 ### Downloads
 
