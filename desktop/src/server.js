@@ -130,7 +130,8 @@ function readSmallBody(req, limit = 4096) {
  *   maxBytes(): largest file accepted,
  *   onStart({id, key, name, from, total, received, quiet, batch}),
  *   onProgress({id, key, received, total}), onEnd({id, key, ok, waiting}),
- *   onFile({id, key, path, name, size, mime, from, x, quiet, batch})
+ *   onFile({id, key, path, name, size, mime, from, x, quiet, batch}),
+ *   onCancel({key, from}): the phone's owner stopped that transfer
  * }
  * key is the phone's own name for a transfer when it gave one (so a transfer that is cut
  * off and carried on later keeps one identity), otherwise the same as id.
@@ -220,6 +221,7 @@ function startServer(hooks, options = {}) {
     let size = offset;
     let done = false;
     let lastTick = 0;
+    let dropped = false; // stopped on purpose: nothing is kept for later
     uploads++;
     active.set(tmp, () => { fail(); req.destroy(); });
 
@@ -233,7 +235,7 @@ function startServer(hooks, options = {}) {
     };
     const fail = (status, error) => {
       // A dropped connection keeps what arrived, so the phone can carry on. A refusal does not.
-      const keep = !!tid && !status && size > 0;
+      const keep = !!tid && !status && size > 0 && !dropped;
       if (!finish(false, keep)) return;
       out.destroy();
       if (keep) {
@@ -336,6 +338,25 @@ function startServer(hooks, options = {}) {
         const stop = active.get(part);
         if (stop) { stop(); await new Promise((r) => setTimeout(r, 150)); }
         return json(res, 200, { received: fileSize(part) });
+      }
+
+      // The phone's owner pressed Cancel: stop the transfer and keep nothing of it.
+      if (req.method === 'POST' && url.pathname === '/cancel') {
+        req.resume();
+        if (!device) return json(res, 401, { error: 'Not paired' });
+        const tid = url.searchParams.get('id') || '';
+        if (SAFE_ID.test(tid) && SAFE_ID.test(device.id)) {
+          const part = partPath(hooks.saveDir(), device, tid);
+          if (hooks.onCancel) hooks.onCancel({ key: tid, from: device.name });
+          const stop = active.get(part);
+          if (stop) stop(true);
+          else {
+            clearTimeout(expiry.get(part));
+            expiry.delete(part);
+            fs.rm(part, { force: true }, () => {});
+          }
+        }
+        return json(res, 200, { ok: true });
       }
 
       if (req.method === 'POST' && url.pathname === '/send') {
