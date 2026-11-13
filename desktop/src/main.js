@@ -758,6 +758,19 @@ async function downloadUpdate() {
   }
 }
 
+function installUpdate() {
+  if (update.state !== 'ready' || !installer) return;
+  if (transfers.size || batches.size) { setUpdate({ message: 'A file is arriving. Install when it has finished.' }); return; }
+  if (updateDev.dryRun) {
+    setUpdate({ message: `Dry run: ${path.basename(installer)} was checked but not started.` });
+    return;
+  }
+  // The installer replaces this copy and starts the new one, so this one steps aside.
+  const child = spawn(installer, ['--updated'], { detached: true, stdio: 'ignore' });
+  child.once('error', () => setUpdate({ message: 'The installer could not be started. Use "What\'s new" to download it by hand.' }));
+  child.once('spawn', () => { child.unref(); quitting = true; app.quit(); });
+}
+
 // ---------- pre-flight ----------
 /** Sends a real file through the real receiver from this PC, checks it byte for byte, and times the animation. */
 function selfTest() {
