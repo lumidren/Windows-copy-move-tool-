@@ -503,6 +503,12 @@ class MainActivity : Activity() {
                 builder.setTitle("Choose your PC")
                     .setItems(pcs.map { it.name }.toTypedArray()) { _, i -> showCodeDialog(pcs[i]) }
             }
+        if (intent.action == Intent.ACTION_VIEW) {
+            val data = intent.data
+            intent.action = Intent.ACTION_MAIN // don't act on it again after rotation
+            if (data != null) handleLink(data, scannedHere = false)
+            return
+        }
             builder.show()
         }
     }
