@@ -1,16 +1,17 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification, powerSaveBlocker, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const qrcode = require('qrcode-generator');
 const { startServer, cleanStaleParts, HTTP_PORT } = require('./server');
 const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
 const { runPreflight } = require('./preflight');
+const updates = require('./update');
 
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
@@ -23,6 +24,8 @@ const HISTORY_MAX = 200;
 const WAIT_MS = 30_000; // how long a cut-off transfer waits for the phone to carry on
 const BATCH_GAP_MS = 8_000; // a batch with nothing arriving for this long is over
 const PART_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const UPDATE_FIRST_CHECK_MS = 20_000; // after the window is up, so starting stays quick
+const UPDATE_EVERY_MS = 12 * 60 * 60 * 1000;
 // Opening one of these by double-click would run it, so the app shows it in its folder instead.
 const RUNNABLE = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|ps1|vbs|vbe|js|jse|wsf|wsh|hta|jar|reg|cpl|msc|dll|sh|desktop|appimage|run|apk)$/i;
 const startHidden = process.argv.includes('--hidden');
@@ -884,3 +887,13 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('before-quit', () => { quitting = true; });
 }
+    ipcMain.on('update', (_e, what) => {
+      if (what === 'check') checkForUpdate(true);
+      if (what === 'download') downloadUpdate();
+      if (what === 'install') installUpdate();
+      if (what === 'later') dismissUpdate();
+      if (what === 'notes' && found) shell.openExternal(found.page);
+    });
+    setTimeout(checkForUpdate, UPDATE_FIRST_CHECK_MS);
+    setInterval(checkForUpdate, UPDATE_EVERY_MS);
+
