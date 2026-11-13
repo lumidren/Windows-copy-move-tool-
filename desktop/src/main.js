@@ -66,11 +66,17 @@ function loadSettings() {
   try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; }
   catch { settings = defaults; }
   if (!EFFECTS.includes(settings.effect)) settings.effect = 'comet';
+  if (!Array.isArray(settings.devices)) settings.devices = [];
   saveSettings();
   try { history = JSON.parse(fs.readFileSync(historyFile(), 'utf8')); } catch { history = []; }
+  if (!Array.isArray(history)) history = [];
 }
-function saveSettings() { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); }
-function saveHistory() { fs.writeFileSync(historyFile(), JSON.stringify(history.slice(0, 60))); }
+function saveSettings() {
+  try { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); } catch { /* disk full or read-only: keep running */ }
+}
+function saveHistory() {
+  try { fs.writeFileSync(historyFile(), JSON.stringify(history.slice(0, 60))); } catch { /* keep running */ }
+}
 
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
