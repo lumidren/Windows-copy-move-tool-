@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only used by a build made with -PflingoUpdateFeed=http://… to test the updater on the
+     emulator (see app/build.gradle.kts). Released builds use network_security_config.xml.
+     10.0.2.2 is the emulator's name for the computer it runs on. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
