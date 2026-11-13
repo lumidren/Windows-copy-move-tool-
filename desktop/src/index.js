@@ -75,3 +75,9 @@ $('test-arrival').onclick = () => api.previewEffect(state ? state.effect : 'come
 $('preflight').onclick = runPreflight;
 $('preflight-again').onclick = runPreflight;
 $('preflight-close').onclick = () => { $('preflight-card').hidden = true; };
+
+api.onState(render);
+api.onDevices((d) => { devices = d; renderDevices(); });
+api.onTransfer(onTransfer);
+api.getState().then(render);
+setInterval(renderDevices, 2000); // a phone that goes quiet turns grey without waiting for an event
