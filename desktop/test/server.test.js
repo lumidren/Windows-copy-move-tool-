@@ -157,8 +157,151 @@ test('an upload that is cut off leaves no partial file', async () => {
     await new Promise((res) => setTimeout(res, 300));
     assert.deepEqual(fs.readdirSync(t.dir), []);
     assert.equal(t.files.length, 0);
-    assert.deepEqual(t.events.at(-1), ['end', { id: t.events[0][1].id, ok: false }]);
+    const { id } = t.events[0][1];
+    assert.deepEqual(t.events.at(-1), ['end', { id, key: id, ok: false, waiting: false }]);
     assert.equal(t.s.status().uploads, 0);
+  } finally { t.close(); }
+});
+
+/** Starts an upload of `body`, sends only its first `cut` bytes, then drops the connection. */
+function cutOff(t, query, name, body, cut) {
+  return new Promise((resolve) => {
+    const req = http.request(`${t.base}/send?${query}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': name, 'Content-Length': body.length },
+    });
+    req.on('error', () => {});
+    req.write(body.subarray(0, cut), () => setTimeout(() => { req.destroy(); setTimeout(resolve, 300); }, 150));
+  });
+}
+
+const resumeAt = async (t, id, token = TOKEN) => {
+  const r = await fetch(`${t.base}/resume?id=${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  return { status: r.status, ...(await r.json()) };
+};
+
+test('a named transfer that is cut off is carried on from where it stopped', async () => {
+  const t = await boot();
+  try {
+    const body = crypto.randomBytes(2_000_000);
+    await cutOff(t, 'id=abc123def456', 'big.bin', body, 700_000);
+    assert.deepEqual(t.events.at(-1)[1], { id: t.events[0][1].id, key: 'abc123def456', ok: false, waiting: true });
+    assert.equal(t.files.length, 0);
+    assert.deepEqual(parts(t.dir), ['.flingo-d1-abc123def456.part']);
+
+    const { status, received } = await resumeAt(t, 'abc123def456');
+    assert.equal(status, 200);
+    assert.ok(received > 0 && received <= 700_000, `kept ${received} bytes`);
+
+    const r = await fetch(`${t.base}/send?id=abc123def456&offset=${received}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'big.bin' },
+      body: body.subarray(received),
+    });
+    assert.equal(r.status, 200);
+    assert.ok(fs.readFileSync(path.join(t.dir, 'big.bin')).equals(body), 'joined file is identical');
+    assert.equal(t.files[0].size, body.length);
+    assert.equal(t.files[0].key, 'abc123def456');
+    const second = t.events.filter((e) => e[0] === 'start')[1][1];
+    assert.equal(second.received, received);
+    assert.equal(second.total, body.length);
+    assert.deepEqual(parts(t.dir), []);
+    assert.equal(t.s.status().uploads, 0);
+  } finally { t.close(); }
+});
+
+test('carrying on is refused from the wrong place, and says the right one', async () => {
+  const t = await boot();
+  try {
+    const body = crypto.randomBytes(900_000);
+    await cutOff(t, 'id=feed01', 'clip.mp4', body, 300_000);
+    const { received } = await resumeAt(t, 'feed01');
+    // The PC answers before the body is sent, so the phone wastes nothing on a wrong guess.
+    const wrong = await new Promise((resolve, reject) => {
+      const req = http.request(`${t.base}/send?id=feed01&offset=${received + 5}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'clip.mp4', 'Content-Length': body.length - received - 5 },
+      }, (res) => {
+        let text = '';
+        res.on('data', (c) => { text += c; });
+        res.on('end', () => { req.destroy(); resolve({ status: res.statusCode, ...JSON.parse(text) }); });
+      });
+      req.on('error', reject);
+      req.flushHeaders();
+    });
+    assert.equal(wrong.status, 409);
+    assert.equal(wrong.received, received);
+    assert.equal(t.files.length, 0);
+    assert.equal(fs.statSync(path.join(t.dir, '.flingo-d1-feed01.part')).size, received, 'the kept part is untouched');
+
+    // Starting again from nothing is always allowed and replaces the kept part.
+    const again = await fetch(`${t.base}/send?id=feed01`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'clip.mp4' },
+      body,
+    });
+    assert.equal(again.status, 200);
+    assert.ok(fs.readFileSync(path.join(t.dir, 'clip.mp4')).equals(body));
+    assert.deepEqual(parts(t.dir), []);
+  } finally { t.close(); }
+});
+
+test('asking where to carry on needs pairing, and unknown transfers start at zero', async () => {
+  const t = await boot();
+  try {
+    assert.equal((await resumeAt(t, 'abc', 'nope')).status, 401);
+    assert.deepEqual(await resumeAt(t, 'neverseen'), { status: 200, received: 0 });
+    assert.deepEqual(await resumeAt(t, '../../etc'), { status: 200, received: 0 });
+  } finally { t.close(); }
+});
+
+test('asking to carry on ends the old connection, even if it still looks alive', async () => {
+  const t = await boot();
+  try {
+    const body = crypto.randomBytes(1_500_000);
+    const req = http.request(`${t.base}/send?id=stuck99`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'stuck.bin', 'Content-Length': body.length },
+    });
+    req.on('error', () => {});
+    await new Promise((resolve) => req.write(body.subarray(0, 400_000), () => setTimeout(resolve, 200)));
+    // The first connection is still open here: the phone has lost it, the PC has not noticed.
+    const { received } = await resumeAt(t, 'stuck99');
+    assert.ok(received > 0 && received <= 400_000);
+    const r = await fetch(`${t.base}/send?id=stuck99&offset=${received}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'stuck.bin' },
+      body: body.subarray(received),
+    });
+    assert.equal(r.status, 200);
+    assert.ok(fs.readFileSync(path.join(t.dir, 'stuck.bin')).equals(body));
+    assert.equal(t.files.length, 1);
+    req.destroy();
+  } finally { t.close(); }
+});
+
+test('a batch says which file of how many, and whether to arrive quietly', async () => {
+  const t = await boot();
+  try {
+    const post = (query) => fetch(`${t.base}/send?${query}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'a.jpg' },
+      body: Buffer.from('hello'),
+    });
+    assert.equal((await post('quiet=1&batch=b1b2b3&i=2&n=40&bytes=123456')).status, 200);
+    assert.equal(t.files[0].quiet, true);
+    assert.deepEqual(t.files[0].batch, { id: 'b1b2b3', index: 2, count: 40, bytes: 123456 });
+    assert.deepEqual(t.events[0][1].batch, t.files[0].batch);
+
+    assert.equal((await post('x=0.5')).status, 200);
+    assert.equal(t.files[1].quiet, false);
+    assert.equal(t.files[1].batch, null);
+
+    // Nonsense is ignored instead of trusted.
+    for (const bad of ['batch=../x&i=1&n=2', 'batch=ok&i=9&n=2', 'batch=ok&i=0&n=2', 'batch=ok&i=1&n=1e9', 'batch=ok']) {
+      assert.equal((await post(bad)).status, 200);
+      assert.equal(t.files.at(-1).batch, null, bad);
+    }
   } finally { t.close(); }
 });
 
