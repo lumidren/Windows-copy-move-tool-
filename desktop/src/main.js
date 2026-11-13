@@ -47,6 +47,7 @@ const transfers = new Map(); // transfer id -> { id, name, from, total, received
 // ---------- settings ----------
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const historyFile = () => path.join(app.getPath('userData'), 'history.json');
+const identityFile = () => path.join(app.getPath('userData'), 'identity.json');
 
 function loadSettings() {
   const defaults = {
