@@ -83,6 +83,18 @@ function render(s) {
   if (s.stage) showTab('home'); // the bar of tabs is hidden on stage, so make sure Home is what shows
   $('side-version').textContent = `Flingo ${s.version}`;
 
+  // Home is one thing at a time. With no phone paired it is how to pair one; after that it is
+  // what has arrived, and pairing moves to the Phones tab. On stage both stay side by side.
+  const pairingOnHome = s.stage || s.devices.length === 0;
+  const side = $(pairingOnHome ? 'home-side' : 'phones-side');
+  for (const id of ['pair-card', 'phones-card']) if ($(id).parentNode !== side) side.append($(id));
+  $('home-side').hidden = !pairingOnHome;
+  $('phones-card').hidden = s.devices.length === 0;
+  const phonesTab = document.querySelector('.tab[data-tab="phones"]');
+  phonesTab.hidden = pairingOnHome;
+  if (pairingOnHome && phonesTab.classList.contains('active')) showTab('home');
+  document.querySelector('.page[data-page="home"]').classList.toggle('first-run', !s.stage && s.devices.length === 0 && s.history.length === 0);
+
   // pairing
   if (s.pairingLocked) $('qr').classList.remove('big');
   $('pair-open').hidden = s.pairingLocked;
