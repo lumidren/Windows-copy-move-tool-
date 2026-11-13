@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Network
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.util.Base64
 import org.json.JSONObject
@@ -52,7 +53,6 @@ class PcRefusedException(val status: Int, message: String) : Exception(message)
 /** Something answered at the PC's address with a different certificate than the one pinned. */
 class WrongPcException : IOException("A different computer answered")
 
-/** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
 /** The person stopped the transfer. Not an IOException, so nothing mistakes it for a network fault. */
 class SendCancelledException : RuntimeException("Cancelled")
 
@@ -72,6 +72,7 @@ data class SendOptions(
     val patienceMs: Long = 0,
 )
 
+/** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
 object Net {
     const val HTTP_PORT = 47801
     private const val DISCOVERY_PORT = 47800
@@ -341,6 +342,7 @@ object Net {
     ): String {
         val c = open(host, prefs.port, sendPath(x, o, offset), prefs.fp, connectMs = 1500)
         val conn = c.http
+        inFlight = conn
         try {
             conn.requestMethod = "POST"
             conn.doOutput = true
@@ -348,34 +350,35 @@ object Net {
             conn.setRequestProperty("Authorization", "Bearer ${prefs.token}")
             conn.setRequestProperty("X-Filename", URLEncoder.encode(name, "UTF-8").replace("+", "%20"))
             conn.setRequestProperty("Content-Type", ctx.contentResolver.getType(uri) ?: "application/octet-stream")
-            if (size >= 0) conn.setFixedLengthStreamingMode(size) else conn.setChunkedStreamingMode(64 * 1024)
+            if (size >= 0) conn.setFixedLengthStreamingMode(size - offset) else conn.setChunkedStreamingMode(BUFFER)
             val input = try { ctx.contentResolver.openInputStream(uri) } catch (e: Exception) { null } ?: throw UnreadableFileException()
             try {
                 input.use { src ->
-                    conn.outputStream.use { dst ->
-                        val buf = ByteArray(64 * 1024)
                     var skipped = 0L
                     while (skipped < offset) {
                         val n = try { src.skip(offset - skipped) } catch (e: IOException) { 0L }
                         if (n <= 0) throw UnreadableFileException()
                         skipped += n
                     }
-                        var sent = 0L
+                    conn.outputStream.use { dst ->
+                        val buf = ByteArray(BUFFER)
+                        var sent = offset
+                        onProgress(sent, size)
                         while (true) {
+                            if (cancelled()) throw SendCancelledException()
                             val n = try { src.read(buf) } catch (e: IOException) { throw UnreadableFileException() }
                             if (n < 0) break
                             dst.write(buf, 0, n)
-                            if (cancelled()) throw SendCancelledException()
                             sent += n
                             onProgress(sent, size)
                         }
                     }
                 }
             } catch (e: IOException) {
+                if (cancelled()) throw SendCancelledException()
                 if (e is UnreadableFileException) throw e
                 if (isMismatch(e)) throw WrongPcException()
                 // The PC may have refused part-way (too large, no space) and hung up. Its answer says why.
-                if (cancelled()) throw SendCancelledException()
                 val status = runCatching { conn.responseCode }.getOrDefault(-1)
                 if (status == 401) throw NotPairedException()
                 if (status >= 400) throw PcRefusedException(status, conn.error("The PC could not take the file."))
@@ -386,25 +389,27 @@ object Net {
             if (status != 200) throw PcRefusedException(status, conn.error("The PC could not take the file."))
             return name
         } finally {
+            if (inFlight === conn) inFlight = null
             conn.disconnect()
         }
     }
 
     /**
-     * Sends one file to the paired PC, reporting bytes sent. If the PC is not where it was
-     * (new DHCP lease, different network), tries its other known addresses, then looks for it by id.
-     * With [search] off it skips that last step: used when the PC is already known to be out of
-     * reach and being looked for in the background, so the answer comes back quickly.
+     * One attempt at every address the PC is known by. If it is at none of them (new DHCP lease,
+     * different network) and [search] is on, looks for it by id and tries there.
      */
-    fun send(ctx: Context, prefs: Prefs, uri: Uri, x: Float, search: Boolean = true, onProgress: (Long, Long) -> Unit = { _, _ -> }): String {
+    private fun sendOnce(
+        ctx: Context, prefs: Prefs, uri: Uri, name: String, size: Long, x: Float, search: Boolean,
+        o: SendOptions, offset: Long, cancelled: () -> Boolean, onProgress: (Long, Long) -> Unit,
+    ): String {
         var last: IOException? = null
         val tried = mutableSetOf<String>()
         for (host in candidates(prefs)) {
             tried.add(host)
             try {
-                val name = sendTo(ctx, host, prefs, uri, x, onProgress)
+                val sent = sendTo(ctx, host, prefs, uri, name, size, x, o, offset, cancelled, onProgress)
                 if (host != prefs.host) prefs.host = host
-                return name
+                return sent
             } catch (e: UnreadableFileException) {
                 throw e
             } catch (e: IOException) {
@@ -414,11 +419,10 @@ object Net {
         if (!search) throw last ?: IOException("PC not reachable")
         val moved = runCatching { discover(1800) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId && it.host !in tried }
             ?: throw last ?: IOException("PC not reachable")
-        val name = sendTo(ctx, moved.host, prefs, uri, x, onProgress)
+        val sent = sendTo(ctx, moved.host, prefs, uri, name, size, x, o, offset, cancelled, onProgress)
         prefs.host = moved.host
-        return name
+        return sent
     }
-}
 
     /** How many bytes of the transfer named [id] the PC already has. 0 if none, or if it cannot say. */
     private fun resumeAt(prefs: Prefs, id: String): Long {
@@ -496,3 +500,7 @@ object Net {
     }
 
     private const val BUFFER = 256 * 1024
+}
+
+/** The file on this phone could not be opened or read. */
+class UnreadableFileException : IOException("Cannot read file")
