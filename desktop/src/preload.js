@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('flingo', {
   newCode: () => ipcRenderer.invoke('new-code'),
   removeDevice: (id) => ipcRenderer.invoke('remove-device', id),
   clearHistory: () => ipcRenderer.invoke('clear-history'),
+  preflight: () => ipcRenderer.invoke('preflight'),
   openFolder: () => ipcRenderer.send('open-folder'),
   openFile: (p) => ipcRenderer.send('open-file', p),
   revealFile: (p) => ipcRenderer.send('reveal-file', p),
