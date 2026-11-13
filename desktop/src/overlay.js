@@ -3,10 +3,14 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0, dpr = 1;
+// Everything is sized as a share of the screen, so the arrival looks the same on a
+// laptop panel, a 1080p projector and a 4K wall. S is 1 on an 864-point-high screen.
+let S = 1;
 
 function resize() {
   dpr = window.devicePixelRatio || 1;
   W = window.innerWidth; H = window.innerHeight;
+  S = Math.max(0.6, Math.min(W, H) / 864);
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
