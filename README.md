@@ -65,7 +65,14 @@
 <td colspan="2" align="center">
   <img src="docs/window.png" alt="Flingo on Windows: pairing code, effect picker and received photos" width="88%"><br>
   <b>On the PC</b><br>
-  <sub>Pairing code, effect picker, and everything you've received. Drag any tile into another app.</sub>
+  <sub>Scan the QR code to pair. Received photos sit on the right: drag any tile into another app.</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" align="center">
+  <img src="docs/stage.png" alt="Flingo in stage mode with the pre-flight check showing every item ready" width="88%"><br>
+  <b>Stage mode and pre-flight</b><br>
+  <sub>For presenting: pairing locks, the display stays awake, and one button checks the whole path with a real test transfer.</sub>
 </td>
 </tr>
 </table>
