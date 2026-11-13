@@ -250,7 +250,7 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 | Linux | ✅ | ❌ | ❌ | ✅ | ✅ | browser |
 | Needs an account | no | optional | Microsoft account | no | no | no |
 | Works with no internet | ✅ | ✅ | partly | ✅ | ✅ | needs its server to connect |
-| Encrypted in transit | ❌ *(roadmap #1)* | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Encrypted in transit | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | PC → phone | ❌ *(roadmap #6)* | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Steps to send a photo | hold + flick | share → pick device → accept | open app, find photo, drag | open app → pick file → pick device → accept | share → pick device | open tab on both → pick file |
 | Arrival on the PC | animated, on screen, where you aimed | notification | inside the app | notification | notification | browser download |
