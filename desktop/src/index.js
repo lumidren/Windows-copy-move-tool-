@@ -179,6 +179,41 @@ function onTransfer(t) {
   row.node.classList.toggle('unknown', pct === null);
 }
 
+// ---------- pre-flight ----------
+const MARK = { ok: '✓', warn: '!', fail: '✕', manual: '☐' };
+const ACTIONS = { firewall: 'Open firewall settings', notifications: 'Open notification settings', folder: 'Open folder' };
+
+async function runPreflight() {
+  $('preflight-card').hidden = false;
+  $('preflight').disabled = $('preflight-again').disabled = true;
+  $('preflight-summary').className = 'summary running';
+  $('preflight-summary').textContent = 'Checking… a test photo will fly across the arrival screen.';
+  $('preflight-list').replaceChildren();
+  let r;
+  try { r = await api.preflight(); }
+  catch { r = { items: [], fail: 1, warn: 0 }; }
+  $('preflight').disabled = $('preflight-again').disabled = false;
+  const manual = r.items.filter((i) => i.status === 'manual').length;
+  const summary = $('preflight-summary');
+  if (!r.items.length) { summary.className = 'summary fail'; summary.textContent = 'The check could not run. Restart Flingo and try again.'; return; }
+  if (r.fail) { summary.className = 'summary fail'; summary.textContent = `Not ready: ${r.fail} thing${r.fail > 1 ? 's' : ''} must be fixed.`; }
+  else if (r.warn) { summary.className = 'summary warn'; summary.textContent = `Nearly ready: ${r.warn} thing${r.warn > 1 ? 's' : ''} to look at.`; }
+  else { summary.className = 'summary ok'; summary.textContent = `Ready. ${manual ? `${manual} thing${manual > 1 ? 's' : ''} only you can check.` : ''}`; }
+  const order = { fail: 0, warn: 1, manual: 2, ok: 3 };
+  $('preflight-list').replaceChildren(...[...r.items].sort((a, b) => order[a.status] - order[b.status]).map((i) => {
+    const body = el('div', { className: 'check-body' }, [
+      el('div', { className: 'check-title', textContent: i.title }),
+      el('div', { className: 'muted', textContent: i.detail }),
+    ]);
+    if (i.action && ACTIONS[i.action]) {
+      const b = el('button', { className: 'ghost', textContent: ACTIONS[i.action] });
+      b.onclick = () => api.openSettings(i.action);
+      body.append(b);
+    }
+    return el('li', { className: `check ${i.status}` }, [el('span', { className: 'mark', textContent: MARK[i.status] }), body]);
+  }));
+}
+
 $('new-code').onclick = async () => render(await api.newCode());
 $('lock').onclick = async () => render(await api.set({ pairingLocked: true }));
 $('unlock').onclick = async () => render(await api.set({ pairingLocked: false }));
