@@ -122,3 +122,42 @@ test('a file is saved byte for byte, with progress, and duplicates get a new nam
     assert.deepEqual(parts(t.dir), []);
   } finally { t.close(); }
 });
+
+test('a hostile file name stays inside the save folder', async () => {
+  const t = await boot();
+  try {
+    const r = await t.send('..\\..\\..\\outside.txt', Buffer.from('x'));
+    assert.equal((await r.json()).name, 'outside.txt');
+    assert.ok(fs.existsSync(path.join(t.dir, 'outside.txt')));
+    assert.ok(!fs.existsSync(path.join(t.dir, '..', 'outside.txt')));
+  } finally { t.close(); }
+});
+
+test('an oversized file is refused and leaves nothing behind', async () => {
+  const t = await boot({ maxBytes: 1000 });
+  try {
+    const r = await t.send('big.bin', Buffer.alloc(5000));
+    assert.equal(r.status, 413);
+    await new Promise((res) => setTimeout(res, 100));
+    assert.deepEqual(fs.readdirSync(t.dir), []);
+  } finally { t.close(); }
+});
+
+test('an upload that is cut off leaves no partial file', async () => {
+  const t = await boot();
+  try {
+    await new Promise((resolve) => {
+      const req = http.request(`${t.base}/send`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'cut.jpg', 'Content-Length': 5_000_000 },
+      });
+      req.on('error', () => {});
+      req.write(Buffer.alloc(200_000), () => setTimeout(() => { req.destroy(); resolve(); }, 150));
+    });
+    await new Promise((res) => setTimeout(res, 300));
+    assert.deepEqual(fs.readdirSync(t.dir), []);
+    assert.equal(t.files.length, 0);
+    assert.deepEqual(t.events.at(-1), ['end', { id: t.events[0][1].id, ok: false }]);
+    assert.equal(t.s.status().uploads, 0);
+  } finally { t.close(); }
+});
