@@ -689,3 +689,6 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('before-quit', () => { quitting = true; });
 }
+      // Stay up while something is still on its way: its next progress tick is already coming.
+      if (batches.size || [...transfers.values()].some((t) => t.onScreen)) return;
+      overlayShown = false;
