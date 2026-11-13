@@ -465,13 +465,15 @@ function handleFile(file) {
     setTimeout(() => fs.rm(file.path, { force: true }, () => {}), 8000);
     return;
   }
-  const entry = {
-    path: file.path, name: file.name, size: file.size, from: file.from,
-    image: isImage(file.mime, file.name), at: Date.now(),
-  };
-  history.unshift(entry);
-  history = history.slice(0, 60);
-  saveHistory();
+  const entry = remember(file);
+  const batch = memberOf.get(file.key);
+  if (batch) {
+    // One of many: no flight of its own unless the phone flicked this very one.
+    pushStateSoon();
+    if (!file.quiet && settings.showOverlay) fly(entry, file.x);
+    batchFileDone(batch, file);
+    return;
+  }
   pushState();
   const tr = transfers.get(file.key);
   transfers.delete(file.key);
