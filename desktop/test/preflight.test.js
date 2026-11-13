@@ -22,3 +22,30 @@ test('firewall verdicts', () => {
     'single values arrive unwrapped from PowerShell');
   assert.equal(judgeFirewall({ categories: [], profiles: on('Public'), rules: [] }).state, 'unknown');
 });
+
+async function check(overrides = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flingo-pf-'));
+  const server = net.createServer().listen(0, '127.0.0.1');
+  await new Promise((r) => server.once('listening', r));
+  const ctx = {
+    platform: 'win32', exePath: 'C:\\Flingo\\Flingo.exe', port: server.address().port, addresses: ['127.0.0.1'],
+    secure: true, securityCode: 'AB12 CD34', saveDir: dir, stage: true, pairingLocked: true, showOverlay: true,
+    server: { listening: true, httpError: null, udpBound: true, udpError: null },
+    devices: [{ name: 'Pixel 8', lastSeen: Date.now() - 2000, ip: '::ffff:192.168.1.50' }],
+    overlay: async () => ({ screen: 2, display: { width: 1920, height: 1080 }, window: { width: 1920, height: 1080 }, renderer: { w: 1920, h: 1080, dpr: 1 }, pixels: { width: 1920, height: 1080 }, scale: 100 }),
+    selfTest: async () => ({ ok: true, ms: 20, fps: 60, worstMs: 18 }),
+    firewall: { state: 'allowed', network: 'Private' },
+    ...overrides,
+  };
+  try { return await runPreflight(ctx); } finally { server.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+}
+const status = (r, id) => r.items.find((i) => i.id === id)?.status;
+
+test('a ready stage machine passes with nothing to fix', async () => {
+  const r = await check();
+  assert.equal(r.fail, 0);
+  assert.equal(r.warn, 0);
+  assert.equal(status(r, 'firewall'), 'ok');
+  assert.match(r.items.find((i) => i.id === 'firewall').detail, /Pixel 8 reached this PC/);
+  assert.equal(status(r, 'quiet'), 'manual');
+});
