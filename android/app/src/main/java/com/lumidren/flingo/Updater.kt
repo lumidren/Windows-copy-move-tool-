@@ -65,3 +65,21 @@ object Updater {
      * Reads GitHub's description of a release. Null unless it is a finished release, newer than
      * [current], with an APK that comes from this project's downloads and has a known checksum.
      */
+    fun readRelease(json: String, current: String, downloads: String = BuildConfig.UPDATE_DOWNLOADS): Update? {
+        val release = runCatching { JSONObject(json) }.getOrNull() ?: return null
+        if (release.optBoolean("draft") || release.optBoolean("prerelease")) return null
+        val version = parseVersion(release.optString("tag_name"))?.joinToString(".") ?: return null
+        if (!isNewer(version, current)) return null
+        val assets = release.optJSONArray("assets") ?: return null
+        for (i in 0 until assets.length()) {
+            val a = assets.optJSONObject(i) ?: continue
+            if (a.optString("name") != ASSET) continue
+            val sha = DIGEST.find(a.optString("digest"))?.groupValues?.get(1) ?: return null
+            val url = a.optString("browser_download_url")
+            val size = a.optLong("size", -1)
+            if (!url.startsWith(downloads) || size <= 0 || size > MAX_BYTES) return null
+            val page = release.optString("html_url").takeIf { it.startsWith(RELEASES) } ?: LATEST_PAGE
+            return Update(version, url, size, sha, page)
+        }
+        return null
+    }
