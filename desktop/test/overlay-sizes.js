@@ -98,3 +98,14 @@ app.whenReady().then(async () => {
     const png = await win.webContents.executeJavaScript("document.getElementById('c').toDataURL('image/png')");
     fs.writeFileSync(path.join(OUT, `rest-${size}@${scaleText}.png`), nativeImage.createFromDataURL(png).resize({ width: Math.min(960, pw) }).toPNG());
   }
+
+  await at(4400); // flight over (3.25 s) and every ring faded
+  const after = await win.webContents.executeJavaScript(MEASURE);
+  check(after.any === 0, `${after.any} pixels left on screen after the arrival`);
+  check(idle, 'overlay never reported that it was finished');
+
+  const label = `${size} at ${Math.round(scale * 100)}%`.padEnd(22) + `logical ${W}x${H}`;
+  if (errors.length) console.log(`FAIL  ${label}\n      ${errors.join('\n      ')}`);
+  else console.log(`ok    ${label}`);
+  app.exit(errors.length ? 1 : 0);
+});
