@@ -87,6 +87,13 @@ object Net {
     private fun decodeFp(fp: String): ByteArray? =
         if (fp.isEmpty()) null else runCatching { Base64.decode(fp, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP) }.getOrNull()
 
+    /** A short form of the fingerprint that people can compare by eye, e.g. "4F2A 91C3". */
+    fun securityCode(fp: String): String {
+        val bytes = decodeFp(fp) ?: return ""
+        val hex = bytes.take(4).joinToString("") { "%02X".format(it) }
+        return hex.substring(0, 4) + " " + hex.substring(4)
+    }
+
     private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000): Conn {
         val trust = Pinning(decodeFp(pin))
         val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
