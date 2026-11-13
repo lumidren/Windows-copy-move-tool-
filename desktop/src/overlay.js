@@ -8,7 +8,7 @@ let W = 0, H = 0, dpr = 1;
 let S = 1;
 
 function resize() {
-  dpr = window.devicePixelRatio || 1;
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth; H = window.innerHeight;
   S = Math.max(0.6, Math.min(W, H) / 864);
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
