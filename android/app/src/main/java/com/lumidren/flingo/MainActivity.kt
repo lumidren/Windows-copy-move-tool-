@@ -67,6 +67,10 @@ class MainActivity : Activity() {
     private lateinit var empty: TextView
     private lateinit var selectBar: LinearLayout
     private lateinit var selectCount: TextView
+    private lateinit var updateBar: LinearLayout
+    private lateinit var updateText: TextView
+    private lateinit var updateGo: TextView
+    private lateinit var updateClose: TextView
 
     // drag state
     private var dragging = false
@@ -229,6 +233,44 @@ class MainActivity : Activity() {
             onPickUp = ::startDrag,
             onSelection = ::updateSelectBar,
         )
+        // Shown when a newer Flingo has been released: what it is, a button to get it, and a way to close the offer.
+        updateText = TextView(this).apply {
+            textSize = 14f
+            setTextColor(Color.WHITE)
+        }
+        updateGo = TextView(this).apply {
+            text = "Update"
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = pill(accent, 18f)
+            setPadding(dpi(18f), 0, dpi(18f), 0)
+            minHeight = dpi(36f)
+        }
+        updateClose = TextView(this).apply {
+            text = "✕"
+            textSize = 16f
+            setTextColor(Color.parseColor("#C5CAD8"))
+            gravity = Gravity.CENTER
+            contentDescription = "Not now"
+        }
+        updateBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = pill(Color.parseColor("#1F2330"), 14f)
+            setPadding(dpi(14f), dpi(6f), dpi(4f), dpi(6f))
+            visibility = View.GONE
+            addView(updateText, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(updateGo)
+            addView(updateClose, LinearLayout.LayoutParams(dpi(44f), dpi(44f)))
+        }
+        column.addView(updateBar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+            leftMargin = dpi(12f)
+            rightMargin = dpi(12f)
+            bottomMargin = dpi(10f)
+        })
+
         grid = RecyclerView(this).apply {
             layoutManager = GridLayoutManager(this@MainActivity, 3)
             adapter = this@MainActivity.adapter
