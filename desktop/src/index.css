@@ -1,7 +1,9 @@
 :root {
   --bg: #0e1016; --panel: #171a23; --panel-2: #1f2330; --line: #2a2f3f;
   --text: #eef0f6; --muted: #9097aa; --accent: #6c8cff; --accent-2: #9b6bff; --ok: #4de1a1;
+  --warn: #ffb84d; --bad: #ff6b81;
 }
+[hidden] { display: none !important; }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
