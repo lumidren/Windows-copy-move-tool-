@@ -562,7 +562,8 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     loadSettings();
     try { identity = loadOrCreateIdentity(identityFile(), 'Flingo'); } catch { identity = null; }
-    cleanStaleParts(settings.saveDir);
+    // Recent partial files stay: a phone may still be waiting to carry on with one.
+    cleanStaleParts(settings.saveDir, PART_MAX_AGE_MS);
     applyStage();
     createMainWindow();
     // On Linux the compositor needs a moment before it hands out a transparent visual.
