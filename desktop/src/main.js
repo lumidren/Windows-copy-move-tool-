@@ -571,7 +571,7 @@ function batchFileStarted(t) {
   if (!b) {
     b = {
       key, id: `batch-${t.batch.id}`, from: t.from, count: t.batch.count, bytes: t.batch.bytes,
-      done: 0, doneBytes: 0, index: 0, waiting: false, timer: null, lastPath: null,
+      done: 0, doneBytes: 0, index: 0, waiting: false, timer: null, lastPath: null, ended: false, stopped: false,
       current: new Map(), // transfer key -> { received, total } for files on their way
     };
     batches.set(key, b);
@@ -608,7 +608,10 @@ function batchFileDone(b, file) {
   b.done++;
   b.doneBytes += file.size;
   b.lastPath = file.path;
-  if (b.done >= b.count) { closeBatch(b); return; }
+  // The last file of a batch ends it even when the count falls short: the phone leaves out
+  // files it cannot open, and a PC app restarted mid-batch only sees the second half.
+  if (file.batch && file.batch.index >= b.count) b.ended = true;
+  if (b.done >= b.count || b.ended) { closeBatch(b); return; }
   showBatch(b);
   clearTimeout(b.timer);
   b.timer = setTimeout(() => closeBatch(b), BATCH_GAP_MS);
@@ -629,7 +632,7 @@ function closeBatch(b) {
   for (const [key, owner] of memberOf) if (owner === b) memberOf.delete(key);
   const all = b.done >= b.count;
   post(all ? {
-    id: b.id, state: 'done', title: `${files(b.count)} received`,
+    id: b.id, state: 'done', title: `${files(b.done)} received`,
     detail: `from ${b.from} · ${fmtSize(b.doneBytes)}`, fraction: 1, hold: 1900,
   } : {
     id: b.id, state: 'failed', title: `${b.done} of ${files(b.count)} received`,
