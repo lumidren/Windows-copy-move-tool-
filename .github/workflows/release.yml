@@ -129,6 +129,12 @@ jobs:
         env:
           FLINGO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       - run: cp app/build/outputs/apk/debug/app-debug.apk flingo.apk
+      # The same fingerprint in every release means updates will install over each other.
+      - name: Show which key signed the APK
+        continue-on-error: true
+        run: |
+          apksigner="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
+          "$apksigner" verify --print-certs flingo.apk | grep "certificate SHA-256"
       - uses: actions/upload-artifact@v4
         with:
           name: android
