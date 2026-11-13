@@ -103,3 +103,23 @@ Stay calm and keep talking. Each row is in the order to try it.
 - Turn Stage mode off. This does not unlock pairing: press **Pair a phone** when you next need to.
 - Received photos are in the folder shown under "This PC" (by default `Pictures\Flingo`).
 - If the laptop was on a network other people use, remove phones you do not recognise under "Paired phones".
+
+## What has been verified, and what has not
+
+Verified by automated tests and by running the real apps:
+
+- 18 automated tests of the receiver, the certificate and the pre-flight logic, including 140 transfers in a row with every file checked byte for byte
+- The arrival overlay at 10 screen configurations: 1080p at 100%, 125% and 150%; 4K at 100%, 150% and 200%; 720p; 4:3; ultrawide; portrait
+- Animation speed on the development laptop: 110 to 140 frames per second on a 144 Hz panel
+- Pairing over pinned TLS, flicking photos, a 34 MB file with progress on both sides, an interrupted transfer, and automatic reconnection after the PC app was stopped and restarted (Android emulator against the real desktop app)
+- Pairing while locked is refused with a clear message; typed-address pairing works
+- The QR code shown by the app decodes with the same decoder library the phone uses
+- The Windows installer, both Linux packages and the APK all build in CI
+
+Not verified, so rehearse them:
+
+- **The phone's camera scanning the QR code.** The scanner screen opens and shows the camera on the emulator, but a real scan needs a real camera. Fallback: type the address and code.
+- **A phone hotspot as the network.** Nothing in Flingo treats a hotspot differently, but it has not been run on one.
+- **A second screen in Extend mode.** The overlay is placed by the same code that passed on one screen, and pre-flight measures it, but it has not been seen on a real projector. Fallback: Duplicate mode.
+- **The Windows installer and Linux packages on a clean machine.** They build; nobody has installed them yet.
+- **Real phone hardware in general.** All phone testing so far was on an emulator.
