@@ -101,6 +101,7 @@ $('preflight-close').onclick = () => { $('preflight-card').hidden = true; };
 
 api.onState(render);
 api.onDevices((d) => { devices = d; renderDevices(); });
+  $('launch-label').textContent = s.platform === 'win32' ? 'Start with Windows' : 'Start when I log in';
 api.onTransfer(onTransfer);
 api.getState().then(render);
 setInterval(renderDevices, 2000); // a phone that goes quiet turns grey without waiting for an event
