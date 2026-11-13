@@ -134,3 +134,16 @@ async function runPreflight(ctx) {
   // 7. pairing lock
   if (ctx.pairingLocked) add('lock', 'Pairing is locked', 'ok', 'Nobody new can pair, even if they see this screen.');
   else add('lock', 'Pairing is open', 'warn', 'Anyone who can see the pairing code could pair their phone and send to this screen. Lock pairing before you go on.');
+
+  // 8. save folder
+  try {
+    fs.mkdirSync(ctx.saveDir, { recursive: true });
+    const probe = path.join(ctx.saveDir, `.flingo-check-${process.pid}`);
+    fs.writeFileSync(probe, 'ok');
+    fs.rmSync(probe, { force: true });
+    const free = await new Promise((resolve) => (fs.statfs ? fs.statfs(ctx.saveDir, (e, s) => resolve(e ? null : Number(s.bavail) * Number(s.bsize))) : resolve(null)));
+    if (free !== null && free < 2 * 1024 ** 3) add('folder', 'Save folder is almost full', 'warn', `Only ${gb(free)} free in ${ctx.saveDir}.`, 'folder');
+    else add('folder', 'Save folder is ready', 'ok', free === null ? ctx.saveDir : `${ctx.saveDir} (${gb(free)} free).`);
+  } catch {
+    add('folder', 'Save folder cannot be written', 'fail', `Flingo cannot write to ${ctx.saveDir}. Choose another folder under "This PC".`, 'folder');
+  }
