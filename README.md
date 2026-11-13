@@ -156,6 +156,9 @@ sequenceDiagram
 
 Every download is built by GitHub Actions from this repository and attached to the [latest release](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest).
 
+> [!NOTE]
+> The phone and the PC must run the same version: 0.2.0 encrypts every connection, so it cannot talk to 0.1.0. Check that the release you download says **0.2.0** on both.
+
 | Platform | Download | Notes |
 |---|---|---|
 | **Android** 10+ | [`flingo.apk`](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo.apk) | Open it on the phone and allow installing from your browser. |
