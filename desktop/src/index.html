@@ -33,7 +33,17 @@
   </div>
 </div>
 
+<div class="shell">
+<nav class="side" id="nav" aria-label="Sections">
+  <button class="tab active" data-tab="home" aria-current="page"><span class="tab-icon" aria-hidden="true">&#8962;</span>Home</button>
+  <button class="tab" data-tab="arrivals"><span class="tab-icon" aria-hidden="true">&#10022;</span>Arrivals</button>
+  <button class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">&#9881;</span>Settings</button>
+  <button class="tab" data-tab="about"><span class="tab-icon" aria-hidden="true">&#9432;</span>About</button>
+  <div class="side-foot muted small" id="side-version"></div>
+</nav>
+
 <main>
+  <div class="page" data-page="home">
   <section class="col">
     <div class="card pair">
       <h2>Pair a phone</h2>
@@ -64,55 +74,6 @@
     <div class="card">
       <h2>Paired phones</h2>
       <ul id="devices" class="devices"></ul>
-    </div>
-
-    <div class="card">
-      <h2>Arrival effect</h2>
-      <div class="effects" id="effects"></div>
-      <div class="field" id="screen-field">Show arrivals on
-        <div class="row">
-          <select id="screen" aria-label="Arrival screen"></select>
-          <button id="identify" class="ghost" title="Shows a number on each screen for two seconds">Identify</button>
-        </div>
-      </div>
-      <button id="test-arrival" class="ghost wide-btn">Play a test arrival</button>
-      <label class="toggle">
-        <input type="checkbox" id="show-overlay">
-        <span class="switch"></span>
-        <span>Show arrivals on this PC<br><small class="muted">Off: files save quietly with a notification.</small></span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" id="sound">
-        <span class="switch"></span>
-        <span>Play a sound when a photo lands</span>
-      </label>
-    </div>
-
-    <div class="card thispc">
-      <h2>This PC</h2>
-      <label class="field">Name shown on the phone
-        <input type="text" id="name" maxlength="40" spellcheck="false">
-      </label>
-      <div class="field">Save received files to
-        <div class="row">
-          <code id="save-dir"></code>
-          <button id="choose-folder" class="ghost">Change</button>
-        </div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="launch">
-        <span class="switch"></span>
-        <span id="launch-label">Start with Windows</span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" id="auto-update">
-        <span class="switch"></span>
-        <span>Check for updates<br><small class="muted">Asks GitHub which version is the newest. Nothing installs without a click.</small></span>
-      </label>
-      <div class="row spread version-row">
-        <span class="muted small" id="version" role="status"></span>
-        <button id="check-update" class="ghost">Check now</button>
-      </div>
     </div>
   </section>
 
@@ -147,7 +108,93 @@
       </div>
     </div>
   </section>
+  </div>
+
+  <div class="page" data-page="arrivals" hidden>
+  <section class="col solo">
+    <div class="card">
+      <h2>Arrival effect</h2>
+      <div class="effects" id="effects"></div>
+      <div class="field" id="screen-field">Show arrivals on
+        <div class="row">
+          <select id="screen" aria-label="Arrival screen"></select>
+          <button id="identify" class="ghost" title="Shows a number on each screen for two seconds">Identify</button>
+        </div>
+      </div>
+      <button id="test-arrival" class="ghost wide-btn">Play a test arrival</button>
+      <label class="toggle">
+        <input type="checkbox" id="show-overlay">
+        <span class="switch"></span>
+        <span>Show arrivals on this PC<br><small class="muted">Off: files save quietly with a notification.</small></span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="sound">
+        <span class="switch"></span>
+        <span>Play a sound when a photo lands</span>
+      </label>
+    </div>
+  </section>
+  </div>
+
+  <div class="page" data-page="settings" hidden>
+  <section class="col solo">
+    <div class="card thispc">
+      <h2>This PC</h2>
+      <label class="field">Name shown on the phone
+        <input type="text" id="name" maxlength="40" spellcheck="false">
+      </label>
+      <div class="field">Save received files to
+        <div class="row">
+          <code id="save-dir"></code>
+          <button id="choose-folder" class="ghost">Change</button>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="launch">
+        <span class="switch"></span>
+        <span id="launch-label">Start with Windows</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="auto-update">
+        <span class="switch"></span>
+        <span>Check for updates<br><small class="muted">Asks GitHub which version is the newest. Nothing installs without a click.</small></span>
+      </label>
+      <div class="row spread version-row">
+        <span class="muted small" id="version" role="status"></span>
+        <button id="check-update" class="ghost">Check now</button>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <div class="page" data-page="about" hidden>
+  <section class="col solo">
+    <div class="card about">
+      <h2>About</h2>
+      <div class="about-head">
+        <span class="logo big"></span>
+        <div>
+          <div><b class="about-name">Flingo</b> <span class="muted small" id="about-version"></span></div>
+          <div class="muted small">Flick a photo off your phone. Watch it land on your PC.</div>
+        </div>
+      </div>
+      <div class="maker">
+        <div class="maker-label">Made by</div>
+        <div class="maker-name">lumidren</div>
+        <div class="maker-line">No cable. No cloud. No account. Just throw it.</div>
+      </div>
+      <div class="links">
+        <button class="ghost" data-link="website">Website</button>
+        <button class="ghost" data-link="github">GitHub</button>
+        <button class="ghost" data-link="linkedin">LinkedIn</button>
+        <button class="ghost" data-link="source">Source code</button>
+      </div>
+      <p class="muted small about-promise">Open source under the MIT licence. No account, no cloud, no tracking.</p>
+    </div>
+  </section>
+  </div>
 </main>
+</div>
 <script src="index.js"></script>
 </body>
 </html>
