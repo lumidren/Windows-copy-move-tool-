@@ -51,6 +51,8 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 
 class MainActivity : Activity() {
+    private companion object { const val PICK_FILES = 7 }
+
     private val scope = MainScope()
     private lateinit var prefs: Prefs
     private lateinit var root: FrameLayout
@@ -780,6 +782,13 @@ class MainActivity : Activity() {
             searching.dismiss()
             val builder = AlertDialog.Builder(this@MainActivity).setNegativeButton("Cancel", null)
             if (pcs.isEmpty()) {
+        if (requestCode == PICK_FILES) {
+            val uris = if (resultCode == RESULT_OK) pickedFiles(data) else emptyList()
+            if (uris.isEmpty()) return
+            if (prefs.paired) send(uris, 0.5f, animateFirst = false)
+            else { pendingShare = uris; showPairDialog() }
+            return
+        }
                 builder.setTitle("No PC found")
                     .setMessage("Some Wi-Fi networks stop devices from finding each other. Scanning the QR code shown in Flingo on the PC works on any network.")
                     .setPositiveButton("Scan QR code") { _, _ -> scanQr() }
