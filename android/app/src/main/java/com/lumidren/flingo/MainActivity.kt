@@ -221,14 +221,18 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor("#9097AA"))
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         hintRow.addView(TextView(this).apply {
-            text = "Files"
-            textSize = 13f
+            // Opens the phone's own file browser: the way to send a large video, a document or
+            // anything else that is not a photo in the grid. Outlined so it reads as a button.
+            text = "Browse files"
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            background = pill(Color.parseColor("#1F2330"), 18f)
-            setPadding(dpi(14f), 0, dpi(14f), 0)
-            minHeight = dpi(36f)
-            contentDescription = "Send files that are not in the gallery"
+            maxLines = 1
+            background = pill(Color.parseColor("#1F2330"), 20f).apply { setStroke(dpi(1.5f), accent) }
+            setPadding(dpi(16f), 0, dpi(16f), 0)
+            minHeight = dpi(40f)
+            contentDescription = "Browse the phone's files to send any file, such as a large video or a document"
             setOnClickListener { pickFiles() }
         }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { leftMargin = dpi(10f) })
         column.addView(hintRow)
