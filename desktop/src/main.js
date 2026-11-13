@@ -73,6 +73,8 @@ function loadSettings() {
     pairingLocked: false,
     overlayDisplay: 'auto', // or a display id
     launchAtLogin: false,
+    autoUpdate: true, // look for a newer release now and then; nothing installs without a click
+    updateDismissed: '', // the version "Later" was pressed on
     devices: [], // {id, name, deviceId, hash, added}
   };
   try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; }
@@ -860,6 +862,7 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('reveal-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.showItemInFolder(p); });
     ipcMain.on('preview-effect', (_e, effect) => {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
+      if (typeof patch.autoUpdate === 'boolean') settings.autoUpdate = patch.autoUpdate;
     });
     ipcMain.on('identify-screens', identifyScreens);
     ipcMain.on('open-settings', (_e, what) => {
