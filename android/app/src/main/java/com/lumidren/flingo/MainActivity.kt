@@ -192,8 +192,19 @@ class MainActivity : Activity() {
             text = "Hold a photo, then flick it up toward your PC."
             textSize = 13f
             setTextColor(Color.parseColor("#9097AA"))
-            setPadding(dpi(18f), 0, dpi(18f), dpi(10f))
-        })
+        }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        hintRow.addView(TextView(this).apply {
+            text = "Files"
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = pill(Color.parseColor("#1F2330"), 18f)
+            setPadding(dpi(14f), 0, dpi(14f), 0)
+            minHeight = dpi(36f)
+            contentDescription = "Send files that are not in the gallery"
+            setOnClickListener { pickFiles() }
+        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { leftMargin = dpi(10f) })
+        column.addView(hintRow)
 
         adapter = GalleryAdapter(
             this,
