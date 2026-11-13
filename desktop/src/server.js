@@ -45,6 +45,24 @@ function uniquePath(dir, name) {
 }
 
 function json(res, status, body) {
+/** Removes half-received files left behind by a crash or a power cut. */
+function cleanStaleParts(dir) {
+  let removed = 0;
+  try {
+    for (const f of fs.readdirSync(dir)) {
+      if (/^\.flingo-[0-9a-f]+\.part$/.test(f)) { fs.rmSync(path.join(dir, f), { force: true }); removed++; }
+    }
+  } catch { /* folder does not exist yet */ }
+  return removed;
+}
+
+function freeBytes(dir) {
+  return new Promise((resolve) => {
+    if (!fs.statfs) return resolve(null);
+    fs.statfs(dir, (err, s) => resolve(err ? null : Number(s.bavail) * Number(s.bsize)));
+  });
+}
+
   const data = JSON.stringify(body);
   res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) });
   res.end(data);
@@ -176,4 +194,4 @@ function startServer(hooks) {
   };
 }
 
-module.exports = { startServer, sanitizeName, HTTP_PORT, DISCOVERY_PORT };
+module.exports = { startServer, sanitizeName, cleanStaleParts, HTTP_PORT, DISCOVERY_PORT, PROTOCOL_VERSION };
