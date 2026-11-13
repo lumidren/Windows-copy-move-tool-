@@ -66,6 +66,30 @@ function fileCard(name) {
   return c;
 }
 
+// The framed photo with its glow is drawn once. Each frame then only moves that one
+// picture, so a 50-megapixel photo costs the same per frame as a thumbnail.
+function makeSprite(img, w, h, effect) {
+  const pad = 10 * S;
+  const blur = (effect === 'comet' ? 60 : 40) * S;
+  const drop = 14 * S;
+  const m = Math.ceil(pad + blur * 1.6 + drop);
+  const c = document.createElement('canvas');
+  c.width = Math.ceil((w + m * 2) * dpr); c.height = Math.ceil((h + m * 2) * dpr);
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr);
+  g.translate(m + w / 2, m + h / 2);
+  g.shadowColor = effect === 'comet' ? 'rgba(108,140,255,.9)' : 'rgba(0,0,0,.55)';
+  g.shadowBlur = blur * dpr;
+  g.shadowOffsetY = drop * dpr;
+  g.fillStyle = '#fff';
+  g.beginPath(); g.roundRect(-w / 2 - pad, -h / 2 - pad, w + pad * 2, h + pad * 2, 18 * S); g.fill();
+  g.shadowColor = 'transparent';
+  g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, 10 * S); g.clip();
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(img, -w / 2, -h / 2, w, h);
+  return { canvas: c, m };
+}
+
 function addFlight(item, img) {
   const maxSide = Math.min(W, H) * 0.42;
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
