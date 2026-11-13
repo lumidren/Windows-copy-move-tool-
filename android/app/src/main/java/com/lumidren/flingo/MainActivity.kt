@@ -235,6 +235,45 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             // Keep the label at the top edge so the dragged photo and the finger don't cover it.
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+
+        // Shown while photos are selected: how many, a way to select more at once, and Send.
+        selectCount = TextView(this).apply {
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dpi(48f)
+            setPadding(dpi(6f), 0, dpi(6f), 0)
+            setOnClickListener { showSelectMenu() }
+        }
+        selectBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.parseColor("#171A23"))
+            setPadding(dpi(8f), dpi(8f), dpi(12f), dpi(8f))
+            visibility = View.GONE
+            addView(TextView(this@MainActivity).apply {
+                text = "✕"
+                textSize = 18f
+                setTextColor(Color.parseColor("#C5CAD8"))
+                gravity = Gravity.CENTER
+                contentDescription = "Clear selection"
+                setOnClickListener { adapter.clearSelection() }
+            }, LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
+            addView(selectCount, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(TextView(this@MainActivity).apply {
+                text = "Send"
+                textSize = 15f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                background = pill(accent, 24f)
+                setPadding(dpi(26f), 0, dpi(26f), 0)
+                minHeight = dpi(48f)
+                contentDescription = "Send the selected photos without the arrival animation"
+                setOnClickListener { sendSelection() }
+            })
+        }
+        column.addView(selectBar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             alpha = 0f
             visibility = View.GONE
         }
