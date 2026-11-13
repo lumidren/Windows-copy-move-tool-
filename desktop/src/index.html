@@ -24,11 +24,21 @@
   <section class="col">
     <div class="card pair">
       <h2>Pair a phone</h2>
-      <p class="muted">Open Flingo on your Android phone, pick this PC, and type this code.</p>
-      <div class="code" id="code" aria-label="Pairing code"></div>
-      <div class="row">
-        <button id="new-code" class="ghost">New code</button>
-        <span class="muted small" id="addr"></span>
+      <div id="pair-open">
+        <p class="muted">On the phone, tap <b>Pair with PC</b>, then <b>Scan QR code</b>.</p>
+        <div class="qr-row">
+          <canvas id="qr" width="10" height="10" role="img" aria-label="Pairing QR code"></canvas>
+          <div class="qr-side">
+            <div class="muted small">No camera? Type this code</div>
+            <div class="code" id="code" aria-label="Pairing code"></div>
+            <div class="muted small">This PC's address</div>
+            <div class="addr" id="addr"></div>
+          </div>
+        </div>
+        <div class="row spread">
+          <button id="new-code" class="ghost">New code</button>
+          <button id="lock" class="ghost">Lock pairing</button>
+        </div>
       </div>
     </div>
 
