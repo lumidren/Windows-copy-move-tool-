@@ -149,6 +149,36 @@ function render(s) {
   }));
 }
 
+// ---------- transfers in progress ----------
+const rows = new Map();
+function onTransfer(t) {
+  let row = rows.get(t.id);
+  if (t.done) {
+    if (!row) return;
+    rows.delete(t.id);
+    if (t.ok) { row.node.remove(); return; }
+    row.node.classList.add('failed');
+    row.label.textContent = `${t.name} from ${t.from} did not finish. Send it again from the phone.`;
+    row.bar.style.width = '100%';
+    setTimeout(() => row.node.remove(), 6000);
+    return;
+  }
+  if (!row) {
+    const label = el('div', { className: 'label' });
+    const bar = el('div', { className: 'bar' });
+    const node = el('div', { className: 'transfer' }, [label, el('div', { className: 'track' }, [bar])]);
+    row = { node, label, bar };
+    rows.set(t.id, row);
+    $('transfers').append(node);
+  }
+  const pct = t.total ? Math.round((t.received / t.total) * 100) : null;
+  row.label.textContent = pct === null
+    ? `Receiving ${t.name} from ${t.from} · ${fmtSize(t.received)}`
+    : `Receiving ${t.name} from ${t.from} · ${pct}% of ${fmtSize(t.total)}`;
+  row.bar.style.width = `${pct === null ? 100 : pct}%`;
+  row.node.classList.toggle('unknown', pct === null);
+}
+
 $('new-code').onclick = async () => render(await api.newCode());
 $('lock').onclick = async () => render(await api.set({ pairingLocked: true }));
 $('unlock').onclick = async () => render(await api.set({ pairingLocked: false }));
