@@ -552,6 +552,11 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun updateFailed(message: String) {
+        showUpdate(prefs.update)
+        showStatus(message, holdMs = 5000)
+    }
+
     private fun buzz(kind: Int) { root.performHapticFeedback(kind) }
     private val hapticYes get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
     private val hapticNo get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
