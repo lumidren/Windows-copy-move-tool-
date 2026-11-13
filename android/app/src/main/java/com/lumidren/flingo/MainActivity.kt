@@ -437,7 +437,18 @@ class MainActivity : Activity() {
                 updateChip()
                 showStatus("That PC no longer knows this phone. Pair again.")
             } catch (_: Exception) {
+    private fun size(bytes: Long): String = when {
+        bytes < 1024 * 1024 -> "${maxOf(1, bytes / 1024)} KB"
+        bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / 1048576.0)
+        else -> "%.2f GB".format(bytes / 1073741824.0)
+    }
+
                 showStatus("Couldn't reach ${prefs.pcName}. Is Flingo open on the PC, on the same Wi-Fi?")
+        if (sending) {
+            showStatus("Still sending the last one. Try again in a moment.")
+            return
+        }
+        sending = true
             }
         }
     }
