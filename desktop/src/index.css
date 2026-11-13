@@ -69,7 +69,13 @@ button {
 }
 button.ghost { background: var(--panel-2); border: 1px solid var(--line); }
 button.ghost:hover { border-color: var(--accent); }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wide-btn { width: 100%; margin-bottom: 12px; }
+select {
+  flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px;
+}
 
 .effects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
 .effect {
