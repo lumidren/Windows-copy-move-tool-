@@ -181,7 +181,7 @@ object Net {
         return name to size
     }
 
-    private fun sendTo(ctx: Context, host: String, prefs: Prefs, uri: Uri, x: Float): String {
+    private fun sendTo(ctx: Context, host: String, prefs: Prefs, uri: Uri, x: Float, onProgress: (Long, Long) -> Unit): String {
         val (name, size) = describe(ctx, uri)
         val conn = open(host, prefs.port, "/send?x=$x")
         try {
@@ -192,11 +192,33 @@ object Net {
             conn.setRequestProperty("X-Filename", URLEncoder.encode(name, "UTF-8").replace("+", "%20"))
             conn.setRequestProperty("Content-Type", ctx.contentResolver.getType(uri) ?: "application/octet-stream")
             if (size >= 0) conn.setFixedLengthStreamingMode(size) else conn.setChunkedStreamingMode(64 * 1024)
-            val input = ctx.contentResolver.openInputStream(uri) ?: throw IOException("Cannot read file")
-            input.use { src -> conn.outputStream.use { dst -> src.copyTo(dst, 64 * 1024) } }
-            val code = conn.responseCode
-            if (code == 401) throw NotPairedException()
-            if (code != 200) throw IOException("PC answered $code")
+            val input = try { ctx.contentResolver.openInputStream(uri) } catch (e: Exception) { null } ?: throw UnreadableFileException()
+            try {
+                input.use { src ->
+                    conn.outputStream.use { dst ->
+                        val buf = ByteArray(64 * 1024)
+                        var sent = 0L
+                        while (true) {
+                            val n = try { src.read(buf) } catch (e: IOException) { throw UnreadableFileException() }
+                            if (n < 0) break
+                            dst.write(buf, 0, n)
+                            sent += n
+                            onProgress(sent, size)
+                        }
+                    }
+                }
+            } catch (e: IOException) {
+                if (e is UnreadableFileException) throw e
+                if (isMismatch(e)) throw WrongPcException()
+                // The PC may have refused part-way (too large, no space) and hung up. Its answer says why.
+                val status = runCatching { conn.responseCode }.getOrDefault(-1)
+                if (status == 401) throw NotPairedException()
+                if (status >= 400) throw PcRefusedException(status, conn.error("The PC could not take the file."))
+                throw e
+            }
+            val status = conn.responseCode
+            if (status == 401) throw NotPairedException()
+            if (status != 200) throw PcRefusedException(status, conn.error("The PC could not take the file."))
             return name
         } finally {
             conn.disconnect()
