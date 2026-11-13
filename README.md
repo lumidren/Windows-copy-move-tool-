@@ -174,7 +174,7 @@ sequenceDiagram
 Every download is built by GitHub Actions from this repository and attached to the [latest release](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest).
 
 > [!NOTE]
-> 0.2.0 encrypts every connection, so it cannot talk to 0.1.0: check that the release you download says **0.2.0** or newer on both the phone and the PC.
+> The latest release is **0.3.0**. It works with 0.2.0 on the other side, but selecting many photos, the Files button and resuming need 0.3.0 on both the phone and the PC. 0.1.0 cannot talk to anything newer, because every connection has been encrypted since 0.2.0.
 
 | Platform | Download | Notes |
 |---|---|---|
