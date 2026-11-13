@@ -11,8 +11,25 @@ android {
         applicationId = "com.lumidren.flingo"
         minSdk = 29
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = (findProperty("flingoVersionCode") as String?)?.toInt() ?: 4
+        versionName = (findProperty("flingoVersionName") as String?) ?: "0.4.0"
+        buildConfigField("String", "UPDATE_FEED", "\"$updateFeed\"")
+        buildConfigField("String", "UPDATE_DOWNLOADS", "\"$updateDownloads\"")
+        manifestPlaceholders["networkConfig"] =
+            if (updateFeed.startsWith("http://")) "@xml/network_security_config_test" else "@xml/network_security_config"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    signingConfigs {
+        if (keystore != null) create("stable") {
+            storeFile = file(keystore)
+            storePassword = System.getenv("FLINGO_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("FLINGO_KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "flingo"
+            keyPassword = System.getenv("FLINGO_KEYSTORE_PASSWORD")
+        }
     }
 
     buildTypes {
