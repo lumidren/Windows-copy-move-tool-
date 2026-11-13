@@ -733,6 +733,38 @@ class MainActivity : Activity() {
         views.forEach { addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
     }
 
+    /** Address and code on one screen, for when the camera or discovery cannot be used. */
+    private fun showManualDialog(presetHost: String = "") {
+        val address = field("PC address, e.g. 192.168.1.20", numeric = false).apply { setText(presetHost) }
+        val code = field("000000", numeric = true)
+        AlertDialog.Builder(this)
+            .setTitle("Type the PC's details")
+            .setMessage("Both are shown under Pair a phone in Flingo on the PC.")
+            .setView(box(address, code))
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Pair") { _, _ ->
+                val host = address.text.toString().trim().removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore(':')
+                val digits = code.text.toString().trim()
+                if (host.isEmpty() || digits.length != 6) {
+                    showStatus("Enter the PC's address and the 6-digit code.", holdMs = 4000)
+                    showManualDialog(host)
+                    return@setPositiveButton
+                }
+                showStatus("Connecting to $host…", sticky = true)
+                scope.launch {
+                    val pc = withContext(Dispatchers.IO) { Net.info(host) }
+                    if (pc == null) {
+                        buzz(hapticNo)
+                        showStatus("No Flingo PC answered at $host. Check the address, and that both are on the same network.", holdMs = 7000)
+                    } else {
+                        pairWithCode(pc, digits)
+                    }
+                }
+            }
+            .show()
+        (if (presetHost.isEmpty()) address else code).requestFocus()
+    }
+
     private fun showCodeDialog(pc: Pc) {
         val code = field("000000", numeric = true)
         AlertDialog.Builder(this)
