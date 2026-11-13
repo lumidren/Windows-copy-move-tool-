@@ -188,7 +188,7 @@ function placeOverlay() {
   overlayWin.setBounds(bounds);
   const send = () => {
     overlayWin.showInactive();
-    overlayWin.webContents.send('arrive', item);
+    overlayWin.webContents.send('arrive', { ...item, sound: settings.sound });
     const cap = process.env.FLINGO_DEBUG_CAPTURE;
     if (cap) {
       setTimeout(async () => {
@@ -213,9 +213,7 @@ function placeOverlay() {
       };
       grab();
     }
-  };
-  if (overlayWin.webContents.isLoading()) overlayWin.webContents.once('did-finish-load', send);
-  else send();
+  });
 }
 
 function showMain() {
