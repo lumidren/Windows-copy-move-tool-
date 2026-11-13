@@ -53,6 +53,25 @@ class PcRefusedException(val status: Int, message: String) : Exception(message)
 class WrongPcException : IOException("A different computer answered")
 
 /** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
+/** The person stopped the transfer. Not an IOException, so nothing mistakes it for a network fault. */
+class SendCancelledException : RuntimeException("Cancelled")
+
+/** How one file is sent, and what the PC is told about it. */
+data class SendOptions(
+    /** Save without the arrival animation. */
+    val quiet: Boolean = false,
+    /** Shared by every file sent in one go, so the PC shows them as one. Empty for a file on its own. */
+    val batch: String = "",
+    val index: Int = 1,
+    val count: Int = 1,
+    /** Size of the whole batch, or -1 if not known. */
+    val batchBytes: Long = -1,
+    /** Names this transfer, so it can be carried on from where it stopped after a dropped connection. */
+    val id: String = "",
+    /** How long to keep trying after the last byte got through. 0 gives up at the first failure. */
+    val patienceMs: Long = 0,
+)
+
 object Net {
     const val HTTP_PORT = 47801
     private const val DISCOVERY_PORT = 47800
