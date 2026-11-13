@@ -23,7 +23,24 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 import java.net.URLEncoder
 
-data class Pc(val id: String, val name: String, val host: String, val port: Int)
+/**
+ * A Flingo PC. [fp] is the SHA-256 fingerprint of its certificate (base64url), empty until known.
+ * [hosts] lists every address it may be reached at; [host] is the one to try first.
+ */
+data class Pc(
+    val id: String,
+    val name: String,
+    val host: String,
+    val port: Int,
+    val fp: String = "",
+    val hosts: List<String> = listOf(host),
+)
+
+/** What a pairing QR code carries: the PC and its one-time code. */
+data class PairLink(val pc: Pc, val code: String)
+
+/** The result of pairing: the token to keep, and the PC as it really answered. */
+data class Paired(val token: String, val pc: Pc)
 
 class NotPairedException : Exception("Not paired")
 class WrongCodeException(message: String) : Exception(message)
