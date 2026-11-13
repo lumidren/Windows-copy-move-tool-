@@ -3,7 +3,7 @@
 Twenty features, grouped by what they improve. Size is a rough guess: **S** is a day or two, **M** about a week, **L** several weeks.
 
 **Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14).
-**Done on `main` for 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
+**Shipped in 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
 
 Finished items stay in the tables below, marked ✅, so the numbering other documents refer to does not move.
 
