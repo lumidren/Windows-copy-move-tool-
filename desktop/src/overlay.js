@@ -76,11 +76,10 @@ function addFlight(item, img) {
     effect: item.effect, from: item.from, name: item.name, sound: !!item.sound,
     startX: lerp(W * 0.2, W * 0.8, item.x ?? 0.5),
     tilt: rand(-0.09, 0.09),
-    t0: performance.now(), landed: false, lastTrail: 0,
+    t0: 0, warm: 0, landed: false, lastTrail: 0,
     hue: Math.floor(rand(0, PALETTE.length)),
   });
-  if (item.effect === 'ripple') spawnRings(lerp(W * 0.2, W * 0.8, item.x ?? 0.5), H, 4);
-  if (!running) { running = true; requestAnimationFrame(frame); }
+  kick();
 }
 
 function spawnRings(x, y, n) {
@@ -236,11 +235,15 @@ function drawRings(now) {
 
 function frame(now) {
   ctx.clearRect(0, 0, W, H);
-  flights = flights.filter((f) => now - f.t0 < TOTAL);
+  flights = flights.filter((f) => !f.t0 || now - f.t0 < TOTAL);
   drawRings(now);
-  for (const f of flights) drawFlight(f, now);
-  drawParticles(now);
-  if (flights.length || particles.length || rings.length) {
+  for (const f of flights) {
+    if (!f.t0) { if (++f.warm < 3) continue; launch(f, now); }
+    drawFlight(f, now);
+  }
+  drawParticles(now, dt / 16.667);
+  drawPills(now);
+  if (flights.length || particles.length || rings.length || pills.size) {
     requestAnimationFrame(frame);
   } else {
     running = false;
