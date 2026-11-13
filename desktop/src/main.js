@@ -354,7 +354,11 @@ if (!app.requestSingleInstanceLock()) {
         const a = Buffer.from(sha(code)); const b = Buffer.from(sha(pairCode));
         if (!crypto.timingSafeEqual(a, b)) return { error: 'wrong' };
         const token = crypto.randomBytes(32).toString('hex');
-        settings.devices.push({ id: crypto.randomBytes(6).toString('hex'), name: deviceName, hash: sha(token), added: Date.now() });
+        // One entry per phone: pairing the same phone again replaces its old entry.
+        if (deviceId) settings.devices = settings.devices.filter((d) => d.deviceId !== deviceId);
+        settings.devices.push({ id: crypto.randomBytes(6).toString('hex'), name: deviceName, deviceId, hash: sha(token), added: Date.now() });
+        settings.devices = settings.devices.slice(-20);
+        if (settings.stage) settings.pairingLocked = true; // on stage, one phone in and the door shuts
         saveSettings();
         pairCode = newCode(); // one code, one phone
         pushState();
