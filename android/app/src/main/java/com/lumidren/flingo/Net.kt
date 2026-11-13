@@ -234,6 +234,41 @@ object Net {
         }
     }
 
+    // ---------- staying connected ----------
+    private fun candidates(prefs: Prefs): List<String> = (listOf(prefs.host) + prefs.hosts).filter { it.isNotEmpty() }.distinct()
+
+    /**
+     * True if the paired PC answers. Tries every address it is known by and remembers the one that works.
+     * Throws [NotPairedException] if the PC answers but has forgotten this phone.
+     */
+    fun ping(prefs: Prefs): Boolean {
+        for (host in candidates(prefs)) {
+            val c = open(host, prefs.port, "/ping", prefs.fp, connectMs = 1500)
+            try {
+                c.http.readTimeout = 4000
+                c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+                val status = c.http.responseCode
+                if (status == 401) throw NotPairedException()
+                if (status == 200) {
+                    if (host != prefs.host) prefs.host = host
+                    return true
+                }
+            } catch (_: IOException) {
+                // not at this address; try the next
+            } finally {
+                c.http.disconnect()
+            }
+        }
+        return false
+    }
+
+    /** Looks for the paired PC by name-and-id broadcast, for when its address has changed. */
+    fun relocate(prefs: Prefs): Boolean {
+        val moved = runCatching { discover(1500) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId } ?: return false
+        prefs.host = moved.host
+        return true
+    }
+
     // ---------- sending ----------
     private fun describe(ctx: Context, uri: Uri): Pair<String, Long> {
         var name = uri.lastPathSegment ?: "file"
