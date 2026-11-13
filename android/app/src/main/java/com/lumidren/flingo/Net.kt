@@ -2,6 +2,7 @@ package com.lumidren.flingo
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Network
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
@@ -57,6 +58,14 @@ object Net {
     private const val DISCOVERY_PORT = 47800
     private const val MAGIC = "FLINGO_DISCOVER"
     private const val MISMATCH = "fingerprint mismatch"
+
+    /**
+     * The Wi-Fi network the phone is on, if any. A hotspot or a travel router usually has no
+     * internet, and Android then sends an app's traffic over mobile data instead, where the PC
+     * cannot be reached. Every connection is therefore tied to Wi-Fi explicitly. It is null when
+     * the phone is itself the hotspot; the system then routes to its own clients correctly.
+     */
+    @Volatile var wifi: Network? = null
 
     // ---------- certificate pinning ----------
     // The PC's certificate is self-signed, so there is no authority to ask. Instead the phone
