@@ -120,3 +120,17 @@ async function runPreflight(ctx) {
   } else {
     add('firewall', 'Firewall not checked on this system', 'manual', `If a firewall is on, allow UDP 47800 and TCP ${ctx.port}. Open Flingo on the phone to prove it gets through.`);
   }
+
+  // 6. phone
+  if (!ctx.devices.length) {
+    add('phone', 'No phone is paired', 'fail', 'Pair the phone you will use: on the phone tap "Pair with PC" and scan the QR code.');
+  } else {
+    const live = ctx.devices.filter((d) => d.lastSeen && now - d.lastSeen < ONLINE_MS);
+    if (live.length) add('phone', `${live.map((d) => d.name).join(' and ')} connected`, 'ok', `Last heard from ${ago(now - Math.max(...live.map((d) => d.lastSeen)))}.`);
+    else add('phone', 'Paired phone is not connected', 'warn', `${ctx.devices.map((d) => d.name).join(', ')} is paired but silent. Open Flingo on the phone and check it shows this PC as connected.`);
+    if (ctx.devices.length > 2) add('phones', `${ctx.devices.length} phones are paired`, 'warn', 'Every paired phone can send to this screen. Remove any you will not use.');
+  }
+
+  // 7. pairing lock
+  if (ctx.pairingLocked) add('lock', 'Pairing is locked', 'ok', 'Nobody new can pair, even if they see this screen.');
+  else add('lock', 'Pairing is open', 'warn', 'Anyone who can see the pairing code could pair their phone and send to this screen. Lock pairing before you go on.');
