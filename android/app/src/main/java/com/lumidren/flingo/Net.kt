@@ -9,11 +9,11 @@ import org.json.JSONObject
 import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
@@ -21,7 +21,6 @@ import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
-import java.net.URLEncoder
 
 /**
  * A Flingo PC. [fp] is the SHA-256 fingerprint of its certificate (base64url), empty until known.
@@ -56,6 +55,7 @@ class WrongPcException : IOException("A different computer answered")
 object Net {
     const val HTTP_PORT = 47801
     private const val DISCOVERY_PORT = 47800
+    private const val MAGIC = "FLINGO_DISCOVER"
     private const val MISMATCH = "fingerprint mismatch"
 
     private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000): Conn {
@@ -87,8 +87,8 @@ object Net {
         }
         return false
     }
-    private const val MAGIC = "FLINGO_DISCOVER"
 
+    // ---------- finding the PC ----------
     private fun broadcastAddresses(): List<InetAddress> {
         val out = mutableListOf<InetAddress>()
         runCatching {
@@ -140,33 +140,17 @@ object Net {
 
     /** Asks whatever is at [host] who it is. The returned [Pc.fp] is the certificate it presented. */
     fun info(host: String, port: Int = HTTP_PORT): Pc? = runCatching {
-        val conn = open(host, port, "/info")
+        val c = open(host, port, "/info", pin = "")
         try {
-            val json = JSONObject(conn.body())
+            val json = JSONObject(c.http.body())
             if (json.optString("app") != "flingo") null
-            else Pc(json.getString("id"), json.getString("name"), host, port)
+            else Pc(json.getString("id"), json.getString("name"), host, port, c.fp)
         } finally {
-            conn.disconnect()
+            c.http.disconnect()
         }
     }.getOrNull()
 
-    /** Returns the token to store. */
-    fun pair(pc: Pc, code: String, deviceName: String): String {
-        val conn = open(pc.host, pc.port, "/pair")
-        try {
-            conn.requestMethod = "POST"
-            conn.doOutput = true
-            conn.setRequestProperty("Content-Type", "application/json")
-            val payload = JSONObject().put("code", code).put("deviceName", deviceName).toString().toByteArray()
-            conn.outputStream.use { it.write(payload) }
-            val json = runCatching { JSONObject(conn.body()) }.getOrDefault(JSONObject())
-            if (conn.responseCode != 200) throw WrongCodeException(json.optString("error", "Pairing failed"))
-            return json.getString("token")
-        } finally {
-            conn.disconnect()
-        }
-    }
-
+    // ---------- sending ----------
     private fun describe(ctx: Context, uri: Uri): Pair<String, Long> {
         var name = uri.lastPathSegment ?: "file"
         var size = -1L
@@ -183,7 +167,8 @@ object Net {
 
     private fun sendTo(ctx: Context, host: String, prefs: Prefs, uri: Uri, x: Float, onProgress: (Long, Long) -> Unit): String {
         val (name, size) = describe(ctx, uri)
-        val conn = open(host, prefs.port, "/send?x=$x")
+        val c = open(host, prefs.port, "/send?x=$x", prefs.fp, connectMs = 1500)
+        val conn = c.http
         try {
             conn.requestMethod = "POST"
             conn.doOutput = true
@@ -226,22 +211,15 @@ object Net {
     }
 
     /**
-     * Sends one file to the paired PC. If the PC's address changed (new DHCP lease),
-     * finds it again by its id and retries once.
+     * Sends one file to the paired PC, reporting bytes sent. If the PC is not where it was
+     * (new DHCP lease, different network), tries its other known addresses, then looks for it by id.
+     * With [search] off it skips that last step: used when the PC is already known to be out of
+     * reach and being looked for in the background, so the answer comes back quickly.
      */
     fun send(ctx: Context, prefs: Prefs, uri: Uri, x: Float, search: Boolean = true, onProgress: (Long, Long) -> Unit = { _, _ -> }): String {
         var last: IOException? = null
-        if (!search) throw last ?: IOException("PC not reachable")
-        val moved = runCatching { discover(1800) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId && it.host !in tried }
-            ?: throw last ?: IOException("PC not reachable")
-        val name = sendTo(ctx, moved.host, prefs, uri, x, onProgress)
-        prefs.host = moved.host
-        return name
         val tried = mutableSetOf<String>()
         for (host in candidates(prefs)) {
-
-/** The file on this phone could not be opened or read. */
-class UnreadableFileException : IOException("Cannot read file")
             tried.add(host)
             try {
                 val name = sendTo(ctx, host, prefs, uri, x, onProgress)
@@ -253,5 +231,14 @@ class UnreadableFileException : IOException("Cannot read file")
                 last = e
             }
         }
+        if (!search) throw last ?: IOException("PC not reachable")
+        val moved = runCatching { discover(1800) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId && it.host !in tried }
+            ?: throw last ?: IOException("PC not reachable")
+        val name = sendTo(ctx, moved.host, prefs, uri, x, onProgress)
+        prefs.host = moved.host
+        return name
     }
 }
+
+/** The file on this phone could not be opened or read. */
+class UnreadableFileException : IOException("Cannot read file")
