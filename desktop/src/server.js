@@ -166,6 +166,22 @@ function startServer(hooks, options = {}) {
 
   async function receive(req, res, url, device) {
     const declared = Number(req.headers['content-length']);
+  /** Where a transfer the phone named is kept while it is incomplete. One per phone and name. */
+  function partPath(dir, device, tid) {
+    return path.join(dir, `.flingo-${device.id}-${tid}.part`);
+  }
+
+  /** What the phone said about this transfer beyond the file itself. */
+  function describe(url) {
+    const q = (k) => url.searchParams.get(k) || '';
+    const count = wholeNumber(q('n'), 1, 100000);
+    const index = wholeNumber(q('i'), 1, 100000);
+    const batch = SAFE_ID.test(q('batch')) && count && index && index <= count
+      ? { id: q('batch'), index, count, bytes: wholeNumber(q('bytes') || 'x', 0, Number.MAX_SAFE_INTEGER) }
+      : null;
+    return { quiet: q('quiet') === '1', batch };
+  }
+
     const total = Number.isFinite(declared) && declared >= 0 ? declared : null;
     const limit = hooks.maxBytes ? hooks.maxBytes() : DEFAULT_MAX_BYTES;
     if (total !== null && total > limit) return refuse(req, res, 413, 'That file is too large for this PC.');
