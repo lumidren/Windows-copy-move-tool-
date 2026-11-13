@@ -83,6 +83,14 @@
 | **Runs as** | A real window with a launcher entry; tray icon where the desktop has one | Regular app + system share target |
 | **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~6 MB APK |
 
+**Coming in 0.3.0** (on `main` now; the downloads below are still 0.2.0)
+
+- **Send many at once.** Tap photos to select them, or pick "Today", "The last 7 days" or "Everything", then press **Send**. They arrive quietly: one progress card on the PC counts them in, with no flight per photo.
+- **Flick a stack.** With photos selected, hold and flick one of them: that one flies in, the rest follow quietly.
+- **Any file.** The **Files** button opens the phone's file picker for documents, archives and anything else.
+- **Large files survive a dropped connection.** If the Wi-Fi blips, the phone waits, asks the PC how much arrived, and sends only the rest.
+- **Keeps going in the background.** A long transfer continues when you switch apps or the screen turns off, with progress, speed and time left in a notification, and a Cancel button.
+
 **New in 0.2.0**
 
 - **Encrypted.** Every connection is TLS, and the phone pins the PC's certificate when it pairs.
