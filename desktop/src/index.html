@@ -40,6 +40,17 @@
           <button id="lock" class="ghost">Lock pairing</button>
         </div>
       </div>
+      <div id="pair-locked" hidden>
+        <p class="lock-line"><span class="lock-icon" aria-hidden="true"></span><b>Pairing is locked</b></p>
+        <p class="muted">Phones that are already paired keep working. Nobody new can pair.</p>
+        <button id="unlock">Pair a phone</button>
+      </div>
+      <p class="muted small secure" id="secure"></p>
+    </div>
+
+    <div class="card">
+      <h2>Paired phones</h2>
+      <ul id="devices" class="devices"></ul>
     </div>
 
     <div class="card">
