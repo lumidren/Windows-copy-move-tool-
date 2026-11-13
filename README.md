@@ -63,7 +63,7 @@
 </tr>
 <tr>
 <td colspan="2" align="center">
-  <img src="docs/window.png" alt="Flingo on Windows: pairing code, effect picker and received photos" width="88%"><br>
+  <img src="docs/window.png" alt="Flingo on Windows: pairing QR code, paired phone, effect picker and received photos" width="88%"><br>
   <b>On the PC</b><br>
   <sub>Scan the QR code to pair. Received photos sit on the right: drag any tile into another app.</sub>
 </td>
@@ -127,11 +127,7 @@ Flingo is also a **share target**: from any app, *Share → Flingo* sends files 
 sequenceDiagram
     autonumber
     participant P as Android phone
-    participant W as Windows PC
-
-    Note over P,W: Discovery
-    P-->>W: UDP broadcast :47800 "FLINGO_DISCOVER"
-    W-->>P: { id, name, port }
+    participant W as PC (Windows or Linux)
 
     Note over P,W: Pairing (once)
     W->>W: make a TLS certificate, show a QR code:<br/>address + one-time code + certificate fingerprint
@@ -140,16 +136,20 @@ sequenceDiagram
     P->>W: POST /pair { code, deviceName, deviceId }
     W->>P: 256-bit token (PC keeps only its SHA-256)
 
+    Note over P,W: While the app is open
+    P->>W: GET /ping every few seconds (pinned TLS, Bearer token)
+
     Note over P,W: Every flick
-    P->>W: POST /send?x=0.62 (Bearer token, raw file body)
-    W->>W: stream to .part file, rename when complete
+    P->>W: POST /send?x=0.62 (pinned TLS, Bearer token, raw file body)
+    W->>W: stream to .part file, report progress, rename when complete
     W->>P: 200 OK
     W->>W: play arrival effect, add to Received
 ```
 
-- **Discovery.** The phone broadcasts one small UDP datagram on each network interface. Any PC running Flingo answers with its name and port.
-- **Pairing.** The PC shows a random 6-digit code. Each code works for one phone, then rotates. Five wrong guesses from one address lock it out for a minute.
+- **Pairing.** The QR code carries everything the phone needs: where the PC is, a six-digit code that works once, and the fingerprint of the PC's certificate. Nothing has to be discovered, so it works on networks that isolate devices. Without a camera, the phone can find the PC by UDP broadcast or take a typed address, and then asks for the code.
+- **Encryption.** The PC makes its own certificate on first run. The phone does not trust it through a certificate authority: it remembers the fingerprint from pairing and accepts only that certificate afterwards, at any address. Plain HTTP is switched off in the Android app altogether.
 - **Sending.** The file is streamed as the raw request body, so memory stays flat even for long videos. A dropped connection never leaves a half-written file.
+- **Staying connected.** The phone pings the PC while the app is open. If the PC stops answering it tries every address it knows, then looks for the PC by id, so a new address is found before the next flick rather than during it.
 - **Arrival.** The flick's horizontal position travels with the upload, so the photo enters the PC screen where you aimed it.
 
 ## Get it
@@ -210,7 +210,9 @@ The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 3. Point the phone at the code. Click the code on the PC to enlarge it if you are standing back.
 
 > [!TIP]
-> Some routers block broadcast. If the PC isn't listed, tap **Enter address** and type the address shown under the code.
+> No camera? Choose **Find my PC on this Wi-Fi**, or **Type the PC's address and code**. Both are shown next to the QR code.
+
+Presenting to a room? Turn on **Stage mode** and read the [live demo runbook](DEMO.md).
 
 ## Under the hood
 
@@ -225,19 +227,28 @@ desktop/
   test/             receiver, certificate and pre-flight tests; overlay at ten screen sizes
 android/
   app/src/main/java/com/lumidren/flingo/
-    Net.kt          discovery, pairing, streaming upload, address recovery
+    Net.kt          pinned TLS, pairing, streaming upload with progress, reconnection
     Gallery.kt      MediaStore query, thumbnail cache, grid adapter
-    MainActivity.kt hold-and-flick gesture, pairing dialogs, share target
+    MainActivity.kt hold-and-flick gesture, pairing, connection status, share target
+    ScanActivity.kt the QR scanner screen
     Prefs.kt        stored pairing and settings
 ```
 
 | Problem | How Flingo handles it |
 |---|---|
+| **Trust without a certificate authority** | The PC's certificate is self-signed, so the phone pins its SHA-256 fingerprint instead. The QR code delivers the fingerprint by a path an attacker on the network cannot touch: light from the screen to the camera. |
+| **Making a certificate with no dependencies** | Node can sign and parse certificates but cannot create one. `cert.js` encodes the X.509 structure in DER by hand (about 40 lines), signs it with ECDSA P-256, and the tests check it with Node's own parser and a real TLS handshake. |
+| **Networks that isolate devices** | The QR code carries the PC's addresses, so pairing never depends on discovery. |
+| **Wi-Fi with no internet** | Android sends an app's traffic over mobile data when Wi-Fi has no internet, which would make a hotspot or travel router useless. Every connection is bound to the Wi-Fi network explicitly. |
 | **Scrolling vs. picking up** | A long press hands the touch stream from the scrolling list to the activity (a synthetic `ACTION_CANCEL` stops the list), so the two never fight. |
-| **The PC's IP changes** | The phone remembers the PC by id, not just address. If a send fails it rediscovers the PC and retries once. |
-| **Hostile filenames** | Names are cut to a base name, stripped of characters Windows rejects, guarded against device names like `CON` and `NUL`, and de-duplicated with ` (1)`, ` (2)`. |
+| **The PC's address changes** | The phone remembers the PC by id and by every address it had. A background ping notices the change and finds the PC again before the next flick. |
+| **Any screen, any refresh rate** | Sizes are a share of the screen and motion is measured in time, not frames. The photo is drawn once into a sprite, so a 50-megapixel picture costs the same per frame as a thumbnail. |
+| **Hostile filenames** | Names are cut to a base name, stripped of characters Windows rejects and of invisible direction-override characters, guarded against device names like `CON` and `NUL`, and de-duplicated with ` (1)`, ` (2)`. Files that would run when opened are shown in their folder instead. |
+| **Hostile clients** | One code per phone; five wrong guesses per address per minute; the code is replaced after twelve misses from anyone; pairing can be locked; uploads are capped in size, number and idle time; free space is checked first. |
 | **Virtual network adapters** | VirtualBox, VMware, Hyper-V and WSL adapters are hidden, so the address shown is one a phone can actually reach. |
-| **Protocol dependencies** | None. The PC uses Node's `http`, `dgram`, `fs`, `crypto`; the phone uses `HttpURLConnection` and `DatagramSocket`. |
+| **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
+
+**Tested how.** `npm test` runs 18 tests on the receiver, the certificate and the pre-flight logic, including 140 transfers in a row with every file compared byte for byte. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
@@ -274,8 +285,7 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 
 ## Limits
 
-- Both devices must be on the same local network.
-- Transfers are authenticated but **not encrypted**. Use it on networks you trust, such as home Wi-Fi.
+- Both devices must be on the same local network, or one must be the other's hotspot.
 - One direction only: phone to PC.
 - Pairing by **typed code** trusts the certificate the PC presents on that first connection. Pairing by **QR code** does not have that gap, because the fingerprint arrives through the camera. After a typed pairing, compare the security code on the phone with the one on the PC.
 - The arrival shows the picture itself for JPEG, PNG, GIF, WebP and AVIF. Videos, HEIC photos and other files arrive intact but animate as a file card.
