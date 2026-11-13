@@ -37,7 +37,13 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("zone", 25).coerceIn(10, 50)
         set(v) = sp.edit().putInt("zone", v.coerceIn(10, 50)).apply()
 
-    val paired: Boolean get() = token.isNotEmpty() && host.isNotEmpty()
+    /** Keep the phone's screen on while Flingo is open, so it is ready the moment it is needed. */
+    var keepAwake: Boolean
+        get() = sp.getBoolean("keepAwake", true)
+        set(v) = sp.edit().putBoolean("keepAwake", v).apply()
+
+    // A pairing made before transfers were encrypted has no fingerprint, so it has to be made again.
+    val paired: Boolean get() = token.isNotEmpty() && host.isNotEmpty() && fp.isNotEmpty()
 
     fun savePairing(pc: Pc, newToken: String) {
         sp.edit()
