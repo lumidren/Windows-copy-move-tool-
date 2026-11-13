@@ -1034,6 +1034,78 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- about ----------
+    private fun openLink(url: String) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .onFailure { showStatus("This phone has no browser to open that link.", holdMs = 4000) }
+    }
+
+    private fun linkButton(label: String, url: String) = TextView(this).apply {
+        text = label
+        textSize = 14f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        minHeight = dpi(46f)
+        background = pressable(Color.parseColor("#1F2330"), 16f, outline = false)
+        contentDescription = "Open $label in the browser"
+        setOnClickListener { openLink(url) }
+    }
+
+    private fun linkRow(first: View, second: View) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        addView(first, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        addView(second, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { leftMargin = dpi(10f) })
+    }
+
+    /** What Flingo is, who made it, and where to find both. */
+    private fun showAbout() {
+        sheet { dialog ->
+            fun centred(words: String, size: Float, color: Int, bold: Boolean = false) = TextView(this@MainActivity).apply {
+                text = words
+                textSize = size
+                setTextColor(color)
+                gravity = Gravity.CENTER
+                if (bold) setTypeface(typeface, Typeface.BOLD)
+            }
+            fun below(dp: Float) = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dpi(dp) }
+            addView(ImageView(this@MainActivity).apply { setImageResource(R.mipmap.ic_launcher) },
+                LinearLayout.LayoutParams(dpi(76f), dpi(76f)).apply { gravity = Gravity.CENTER_HORIZONTAL })
+            addView(centred("Flingo", 24f, Color.WHITE, bold = true), below(10f))
+            addView(centred("Version ${BuildConfig.VERSION_NAME}", 13f, Color.parseColor("#9097AA")), below(2f))
+            addView(centred(About.PITCH, 15f, Color.parseColor("#C5CAD8")), below(12f))
+
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                background = pill(Color.parseColor("#222A48"), 18f).apply { setStroke(dpi(1.5f), accent) }
+                setPadding(dpi(18f), dpi(16f), dpi(18f), dpi(16f))
+                addView(TextView(this@MainActivity).apply {
+                    text = "MADE BY"
+                    textSize = 11f
+                    letterSpacing = 0.12f
+                    setTextColor(Color.parseColor("#9097AA"))
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = About.MAKER
+                    textSize = 22f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(Color.WHITE)
+                    setPadding(0, dpi(2f), 0, dpi(6f))
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = About.TAGLINE
+                    textSize = 14f
+                    setTextColor(Color.parseColor("#C5CAD8"))
+                })
+            }, below(18f))
+
+            addView(linkRow(linkButton("Website", About.WEBSITE), linkButton("GitHub", About.GITHUB)), below(12f))
+            addView(linkRow(linkButton("LinkedIn", About.LINKEDIN), linkButton("Source code", About.SOURCE)), below(10f))
+            addView(centred(About.PROMISE, 12f, Color.parseColor("#9097AA")), below(16f))
+            addView(sheetClose(dialog, "Close"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.END; topMargin = dpi(4f) })
+        }
+    }
+
     private fun scanQr() {
         IntentIntegrator(this)
             .setCaptureActivity(ScanActivity::class.java)
