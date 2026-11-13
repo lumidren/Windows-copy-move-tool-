@@ -285,7 +285,7 @@ object Net {
      */
     fun ping(prefs: Prefs): Boolean {
         for (host in candidates(prefs)) {
-            val c = open(host, prefs.port, "/ping", prefs.fp, connectMs = 1500)
+            val c = open(host, prefs.port, "/ping", prefs.fp, connectMs = 1500, reuse = true)
             try {
                 c.http.readTimeout = 4000
                 c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
@@ -351,7 +351,7 @@ object Net {
         ctx: Context, host: String, prefs: Prefs, uri: Uri, name: String, size: Long, x: Float,
         o: SendOptions, offset: Long, cancelled: () -> Boolean, onProgress: (Long, Long) -> Unit,
     ): String {
-        val c = open(host, prefs.port, sendPath(x, o, offset), prefs.fp, connectMs = 1500)
+        val c = open(host, prefs.port, sendPath(x, o, offset), prefs.fp, connectMs = 1500, reuse = true)
         val conn = c.http
         inFlight = conn
         try {
@@ -438,7 +438,7 @@ object Net {
     /** How many bytes of the transfer named [id] the PC already has. 0 if none, or if it cannot say. */
     private fun resumeAt(prefs: Prefs, id: String): Long {
         for (host in candidates(prefs)) {
-            val c = open(host, prefs.port, "/resume?id=$id", prefs.fp, connectMs = 1500)
+            val c = open(host, prefs.port, "/resume?id=$id", prefs.fp, connectMs = 1500, reuse = true)
             try {
                 c.http.readTimeout = 5000
                 c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
@@ -459,7 +459,7 @@ object Net {
     fun cancelOnPc(prefs: Prefs, id: String) {
         if (id.isEmpty()) return
         for (host in candidates(prefs)) {
-            val c = open(host, prefs.port, "/cancel?id=$id", prefs.fp, connectMs = 1500)
+            val c = open(host, prefs.port, "/cancel?id=$id", prefs.fp, connectMs = 1500, reuse = true)
             try {
                 c.http.requestMethod = "POST"
                 c.http.readTimeout = 4000
