@@ -222,3 +222,25 @@ object Updater {
             session.commit(status.intentSender)
         }
     }
+
+    // ---------- how the install went ----------
+    /** Set by the screen while it is in front. */
+    @Volatile var onFailure: ((String) -> Unit)? = null
+    @Volatile private var missed: String? = null
+
+    /** A failure that arrived while no screen was listening. */
+    fun takeFailure(): String? = missed.also { missed = null }
+
+    fun failed(status: Int) {
+        val text = when (status) {
+            PackageInstaller.STATUS_FAILURE_ABORTED -> "Update cancelled."
+            PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
+                "Android refused the update: it does not match the Flingo on this phone."
+            PackageInstaller.STATUS_FAILURE_STORAGE -> "Not enough free space to update."
+            PackageInstaller.STATUS_FAILURE_BLOCKED -> "This phone does not allow Flingo to install updates."
+            else -> "The update could not be installed."
+        }
+        val listener = onFailure
+        if (listener != null) listener(text) else missed = text
+    }
+}
