@@ -127,7 +127,95 @@ function startServer(hooks, options = {}) {
     return list.length >= MAX_PAIR_FAILS;
   }
 
-  const server = http.createServer(async (req, res) => {
+  function noteFail(ip) {
+    fails.set(ip, [...(fails.get(ip) || []), Date.now()]);
+    if (++totalFails >= MAX_TOTAL_FAILS) {
+      totalFails = 0;
+      if (hooks.rotateCode) hooks.rotateCode();
+    }
+  }
+
+  async function receive(req, res, url, device) {
+    const declared = Number(req.headers['content-length']);
+    const total = Number.isFinite(declared) && declared >= 0 ? declared : null;
+    const limit = hooks.maxBytes ? hooks.maxBytes() : DEFAULT_MAX_BYTES;
+    if (total !== null && total > limit) return refuse(req, res, 413, 'That file is too large for this PC.');
+    if (uploads >= MAX_UPLOADS) return refuse(req, res, 429, 'This PC is busy receiving. Try again in a moment.');
+
+    const dir = hooks.saveDir();
+    try { fs.mkdirSync(dir, { recursive: true }); } catch { return refuse(req, res, 500, 'The save folder on the PC cannot be used.'); }
+    req.pause();
+    const free = await freeBytes(dir);
+    if (free !== null && total !== null && free < total + SPACE_MARGIN) {
+      return refuse(req, res, 507, 'Not enough free space on the PC.');
+    }
+
+    let rawName = req.headers['x-filename'] || 'file';
+    try { rawName = decodeURIComponent(rawName); } catch { /* keep raw */ }
+    const name = sanitizeName(rawName);
+    const id = crypto.randomBytes(6).toString('hex');
+    const tmp = path.join(dir, `.flingo-${id}.part`);
+    const out = fs.createWriteStream(tmp);
+    let size = 0;
+    let done = false;
+    let lastTick = 0;
+    uploads++;
+
+    const finish = (ok) => {
+      if (done) return false;
+      done = true;
+      uploads--;
+      if (hooks.onEnd) hooks.onEnd({ id, ok });
+      return true;
+    };
+    const fail = (status, error) => {
+      if (!finish(false)) return;
+      out.destroy();
+      fs.rm(tmp, { force: true }, () => {});
+      if (status && !res.headersSent) refuse(req, res, status, error);
+    };
+
+    if (hooks.onStart) hooks.onStart({ id, name, from: device.name, total });
+    req.setTimeout(IDLE_TIMEOUT_MS, () => { fail(); req.destroy(); });
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limit) { fail(413, 'That file is too large for this PC.'); return; }
+      const now = Date.now();
+      if (hooks.onProgress && now - lastTick >= PROGRESS_EVERY_MS) {
+        lastTick = now;
+        hooks.onProgress({ id, received: size, total });
+      }
+    });
+    req.on('aborted', () => fail());
+    req.on('error', () => fail());
+    req.on('close', () => { if (!req.complete) fail(); });
+    out.on('error', () => fail(500, 'The PC could not save the file.'));
+    out.on('finish', () => {
+      if (done) return;
+      if (total !== null && size !== total) return fail(400, 'The file arrived incomplete.');
+      const finalPath = uniquePath(dir, name, claimed);
+      claimed.add(finalPath);
+      fs.rename(tmp, finalPath, (err) => {
+        claimed.delete(finalPath);
+        if (err) return fail(500, 'The PC could not save the file.');
+        if (!finish(true)) return;
+        const x = Math.min(1, Math.max(0, parseFloat(url.searchParams.get('x')) || 0.5));
+        hooks.onFile({
+          id,
+          path: finalPath,
+          name: path.basename(finalPath),
+          size,
+          mime: String(req.headers['content-type'] || 'application/octet-stream'),
+          from: device.name,
+          x,
+        });
+        json(res, 200, { ok: true, name: path.basename(finalPath) });
+      });
+    });
+    req.pipe(out);
+  }
+
+  const handler = async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const ip = req.socket.remoteAddress || '';
     try {
