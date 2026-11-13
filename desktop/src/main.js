@@ -401,6 +401,27 @@ if (!app.requestSingleInstanceLock()) {
         showProgress(t);
       },
       onEnd: ({ id, ok }) => endProgress(id, ok),
+      onFile: handleFile,
+    }, { tls: identity });
+    receiver.ready.then(pushState);
+
+    ipcMain.handle('get-state', () => publicState());
+    ipcMain.handle('set', (_e, patch) => {
+      if (typeof patch.name === 'string' && patch.name.trim()) settings.name = patch.name.trim().slice(0, 40);
+      if (EFFECTS.includes(patch.effect)) settings.effect = patch.effect;
+      if (typeof patch.showOverlay === 'boolean') settings.showOverlay = patch.showOverlay || settings.stage;
+      if (typeof patch.sound === 'boolean') settings.sound = patch.sound;
+      if (typeof patch.pairingLocked === 'boolean') settings.pairingLocked = patch.pairingLocked;
+      if (typeof patch.stage === 'boolean') setStage(patch.stage);
+      if (typeof patch.overlayDisplay === 'string') {
+        settings.overlayDisplay = patch.overlayDisplay === 'auto' || screen.getAllDisplays().some((d) => String(d.id) === patch.overlayDisplay)
+          ? patch.overlayDisplay : 'auto';
+        placeOverlay();
+      }
+      if (typeof patch.launchAtLogin === 'boolean') {
+        settings.launchAtLogin = patch.launchAtLogin;
+        setLaunchAtLogin(patch.launchAtLogin);
+      }
       saveSettings();
       return publicState();
     });
