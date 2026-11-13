@@ -277,7 +277,10 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 - Both devices must be on the same local network.
 - Transfers are authenticated but **not encrypted**. Use it on networks you trust, such as home Wi-Fi.
 - One direction only: phone to PC.
-- The Linux build is produced and smoke-tested by CI, but the overlay has not yet been checked on real Kali hardware.
+- Pairing by **typed code** trusts the certificate the PC presents on that first connection. Pairing by **QR code** does not have that gap, because the fingerprint arrives through the camera. After a typed pairing, compare the security code on the phone with the one on the PC.
+- The arrival shows the picture itself for JPEG, PNG, GIF, WebP and AVIF. Videos, HEIC photos and other files arrive intact but animate as a file card.
+- The installers are not code-signed, and the APK is signed with a debug key, so a new version does not install over an old one.
+- Tested on an Android emulator, on Windows 11, and in CI. Not yet checked on real Kali hardware, on a phone hotspot, or on a second screen in extended mode. The [demo runbook](DEMO.md) lists exactly what is and is not verified.
 
 <sub>The screenshots and animation above are real captures from the running apps. The landscape pictures in them are generated sample images, not anyone's photos.</sub>
 
