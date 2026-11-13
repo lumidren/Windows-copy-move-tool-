@@ -367,7 +367,12 @@ if (!app.requestSingleInstanceLock()) {
       checkToken: (token) => {
         const h = sha(token);
         const d = settings.devices.find((x) => x.hash === h);
-        return d ? d.name : null;
+        return d ? { id: d.id, name: d.name } : null;
+      },
+      seen: (device, ip) => {
+        if (device.id === 'self') return;
+        lastSeen.set(device.id, { at: Date.now(), ip });
+        sendMain('devices', devicesState());
       },
       saveDir: () => settings.saveDir,
       onFile: handleFile,
@@ -378,6 +383,7 @@ if (!app.requestSingleInstanceLock()) {
       if (typeof patch.name === 'string' && patch.name.trim()) settings.name = patch.name.trim().slice(0, 40);
       rotateCode: () => { pairCode = newCode(); pushState(); },
       if (EFFECTS.includes(patch.effect)) settings.effect = patch.effect;
+        if (selfToken && token === selfToken) return { id: 'self', name: SELF_TEST };
       if (typeof patch.showOverlay === 'boolean') settings.showOverlay = patch.showOverlay;
       if (typeof patch.launchAtLogin === 'boolean') {
         settings.launchAtLogin = patch.launchAtLogin;
