@@ -83,7 +83,7 @@
 | **Runs as** | A real window with a launcher entry; tray icon where the desktop has one | Regular app + system share target |
 | **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~6 MB APK |
 
-**Coming in 0.3.0** (on `main` now; the downloads below are still 0.2.0)
+**New in 0.3.0**
 
 - **Send many at once.** Tap photos to select them, or pick "Today", "The last 7 days" or "Everything", then press **Send**. They arrive quietly: one progress card on the PC counts them in, with no flight per photo.
 - **Flick a stack.** With photos selected, hold and flick one of them: that one flies in, the rest follow quietly.
