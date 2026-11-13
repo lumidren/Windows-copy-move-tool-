@@ -389,6 +389,18 @@ if (!app.requestSingleInstanceLock()) {
         settings.launchAtLogin = patch.launchAtLogin;
         setLaunchAtLogin(patch.launchAtLogin);
       }
+      onStart: (t) => {
+        if (t.from === SELF_TEST) return;
+        transfers.set(t.id, { ...t, received: 0, shown: false });
+        showProgress(transfers.get(t.id));
+      },
+      onProgress: (p) => {
+        const t = transfers.get(p.id);
+        if (!t) return;
+        t.received = p.received;
+        showProgress(t);
+      },
+      onEnd: ({ id, ok }) => endProgress(id, ok),
       saveSettings();
       return publicState();
     });
