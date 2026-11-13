@@ -70,6 +70,7 @@ class MainActivity : Activity() {
     private var tracker: VelocityTracker? = null
     private var statusJob: Job? = null
     private var wasInZone = false
+    private var healthJob: Job? = null
     private var pendingShare: List<Uri> = emptyList()
 
     private var healthJob: Job? = null
@@ -363,6 +364,7 @@ class MainActivity : Activity() {
 
     private fun fingerInZone(): Boolean = (lastY - rootOnScreen()[1]) < root.height * prefs.zonePercent / 100f
 
+        wasInZone = false
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         lastX = ev.rawX
         lastY = ev.rawY
@@ -380,7 +382,12 @@ class MainActivity : Activity() {
                     it.x = lastX - base[0] - grabDx
                     it.y = lastY - base[1] - grabDy
                 }
-                setZoneActive(fingerInZone())
+                val inZone = fingerInZone()
+                if (inZone != wasInZone) {
+                    wasInZone = inZone
+                    setZoneActive(inZone)
+                    if (inZone) buzz(HapticFeedbackConstants.CLOCK_TICK) // a tick as the photo crosses into the send zone
+                }
             }
             MotionEvent.ACTION_UP -> finishDrag(cancelled = false)
             MotionEvent.ACTION_CANCEL -> finishDrag(cancelled = true)
