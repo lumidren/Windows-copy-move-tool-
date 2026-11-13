@@ -589,3 +589,14 @@ class MainActivity : Activity() {
         builder.show()
     }
 }
+        val awake = CheckBox(this).apply {
+            text = "Keep the screen on while Flingo is open"
+            textSize = 15f
+            isChecked = prefs.keepAwake
+            setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
+            setOnCheckedChangeListener { _, on ->
+                prefs.keepAwake = on
+                if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
