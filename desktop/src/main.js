@@ -941,7 +941,11 @@ if (!app.requestSingleInstanceLock()) {
       onEnd: transferEnded,
       onCancel: transferCancelled,
       onFile: handleFile,
-    }, { tls: identity });
+    }, {
+      tls: identity,
+      // Only for working on Flingo itself: a test copy on another port, next to the one you really use.
+      ...(!app.isPackaged && Number(process.env.FLINGO_PORT) ? { port: Number(process.env.FLINGO_PORT) } : {}),
+    });
     receiver.ready.then(pushState);
 
     ipcMain.handle('get-state', () => publicState());
@@ -990,11 +994,11 @@ if (!app.requestSingleInstanceLock()) {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
     });
     ipcMain.on('identify-screens', identifyScreens);
+    ipcMain.on('open-link', (_e, which) => { if (Object.hasOwn(LINKS, which)) shell.openExternal(LINKS[which]); });
     ipcMain.on('open-settings', (_e, what) => {
       if (what === 'folder') { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); }
       if (process.platform !== 'win32') return;
       if (what === 'firewall') execFile('control.exe', ['firewall.cpl'], () => {});
-    ipcMain.on('open-link', (_e, which) => { if (Object.hasOwn(LINKS, which)) shell.openExternal(LINKS[which]); });
       if (what === 'notifications') shell.openExternal('ms-settings:notifications');
     });
     ipcMain.on('drag-file', (e, p) => {
