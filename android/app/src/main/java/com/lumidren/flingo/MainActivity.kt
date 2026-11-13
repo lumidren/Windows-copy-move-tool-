@@ -202,7 +202,8 @@ class MainActivity : Activity() {
         }
         root.addView(zone, FrameLayout.LayoutParams(MATCH_PARENT, dpi(160f), Gravity.TOP))
 
-        status = TextView(this).apply {
+        // Status pill: one line of text, plus a progress bar while a file is on its way.
+        statusText = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.WHITE)
             background = pill(Color.parseColor("#F01F2330"), 22f)
