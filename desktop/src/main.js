@@ -771,6 +771,13 @@ function installUpdate() {
   child.once('spawn', () => { child.unref(); quitting = true; app.quit(); });
 }
 
+function dismissUpdate() {
+  if (!found) return;
+  settings.updateDismissed = found.version;
+  saveSettings();
+  setUpdate({});
+}
+
 // ---------- pre-flight ----------
 /** Sends a real file through the real receiver from this PC, checks it byte for byte, and times the animation. */
 function selfTest() {
