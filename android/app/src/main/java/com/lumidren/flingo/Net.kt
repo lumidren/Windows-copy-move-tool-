@@ -1,8 +1,10 @@
 package com.lumidren.flingo
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Base64
 import org.json.JSONObject
 import java.io.IOException
 import java.net.DatagramPacket
@@ -12,6 +14,13 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.SocketTimeoutException
 import java.net.URL
+import java.security.MessageDigest
+import java.security.cert.CertificateException
+import java.security.cert.X509Certificate
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 import java.net.URLEncoder
 
 data class Pc(val id: String, val name: String, val host: String, val port: Int)
