@@ -17,6 +17,9 @@ const IDLE_TIMEOUT_MS = 30_000; // a stalled upload is dropped after this long w
 const DEFAULT_MAX_BYTES = 32 * 1024 ** 3;
 const SPACE_MARGIN = 64 * 1024 ** 2;
 const PROGRESS_EVERY_MS = 80;
+const PART_KEEP_MS = 60 * 60 * 1000; // a half-received file waits this long for the phone to carry on
+const SAFE_ID = /^[0-9a-zA-Z]{1,32}$/;
+const PART_FILE = /^\.flingo-[0-9a-zA-Z]+(-[0-9a-zA-Z]+)?\.part$/;
 
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 // Zero-width and direction-override characters can disguise a file's real extension.
@@ -45,12 +48,19 @@ function uniquePath(dir, name, claimed) {
   return candidate;
 }
 
-/** Removes half-received files left behind by a crash or a power cut. */
-function cleanStaleParts(dir) {
+/**
+ * Removes half-received files left behind by a crash or a power cut. With olderThanMs,
+ * recent ones are kept, so a phone can still carry on with a transfer after the PC app restarts.
+ */
+function cleanStaleParts(dir, olderThanMs = 0) {
   let removed = 0;
   try {
     for (const f of fs.readdirSync(dir)) {
-      if (/^\.flingo-[0-9a-f]+\.part$/.test(f)) { fs.rmSync(path.join(dir, f), { force: true }); removed++; }
+      if (!PART_FILE.test(f)) continue;
+      const file = path.join(dir, f);
+      if (olderThanMs && Date.now() - fs.statSync(file).mtimeMs < olderThanMs) continue;
+      fs.rmSync(file, { force: true });
+      removed++;
     }
   } catch { /* folder does not exist yet */ }
   return removed;
