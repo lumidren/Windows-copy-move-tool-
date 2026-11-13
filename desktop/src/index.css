@@ -33,6 +33,18 @@ header {
 .dot.bad { background: var(--bad); box-shadow: 0 0 10px var(--bad); }
 .dot.off { background: var(--line); box-shadow: none; }
 
+.update-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin: 14px 22px 0; padding: 10px 14px; border-radius: 12px;
+  background: var(--panel-2); border: 1px solid var(--accent);
+}
+.update-text { min-width: 0; flex: 1; }
+.update-text b { font-weight: 600; margin-right: 8px; }
+.update-bar .row { flex: none; }
+.update-bar .track { height: 5px; border-radius: 3px; background: var(--line); margin-top: 8px; overflow: hidden; max-width: 420px; }
+.update-bar .bar { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .15s linear; }
+.version-row { margin-top: 12px; }
+
 main { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 16px 22px 22px; }
 .col { width: 330px; flex: none; display: flex; flex-direction: column; gap: 16px; overflow: hidden auto; padding-right: 4px; }
 .col.wide { flex: 1; width: auto; min-width: 0; }
