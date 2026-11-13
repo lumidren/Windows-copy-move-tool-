@@ -104,3 +104,28 @@ object Updater {
             conn.disconnect()
         }
     }
+
+    private fun dir(ctx: Context) = File(ctx.cacheDir, "updates")
+
+    /** Deletes downloaded updates. They are only needed until Android has installed them. */
+    fun clean(ctx: Context, keep: String = "") {
+        dir(ctx).listFiles()?.forEach { if (it.name != keep) it.delete() }
+    }
+
+    private fun sha256(file: File): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buf = ByteArray(256 * 1024)
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Downloads [update] into the app's cache and checks it against the size and checksum the
+     * release declared. A file that does not match is deleted and [BadDownloadException] thrown.
+     */
