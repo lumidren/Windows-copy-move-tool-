@@ -117,3 +117,64 @@ object Transfers {
         }
         running = false
     }
+
+    private suspend fun run(ctx: Context, job: SendJob): SendResult {
+        val prefs = Prefs(ctx)
+        val count = job.uris.size
+        val sizes = withContext(Dispatchers.IO) { job.uris.map { Net.describe(ctx, it).second } }
+        val total = if (sizes.all { it >= 0 }) sizes.sum() else -1L
+        val long = count > LONG_COUNT || total > LONG_BYTES || total < 0
+        val batch = if (count > 1) id() else ""
+        var before = 0L // bytes of the files already finished
+        var sent = 0
+        var skipped = 0
+        val meter = Meter()
+
+        fun report(index: Int, fileSent: Long, waiting: Boolean) {
+            val bytes = before + fileSent
+            val s = SendState(index, count, bytes, total, meter.speed(bytes, waiting), waiting, long, queue.size)
+            state = s
+            listener?.onProgress(s)
+            TransferService.update(ctx, s)
+        }
+
+        if (long) TransferService.start(ctx)
+        report(1, 0, false)
+        try {
+            for ((i, uri) in job.uris.withIndex()) {
+                if (cancelled) return SendResult.Cancelled(sent, count)
+                val options = SendOptions(
+                    quiet = !(job.animateFirst && i == 0),
+                    batch = batch, index = i + 1, count = count, batchBytes = total,
+                    id = id(),
+                    patienceMs = if (long) PATIENCE_MS else 0,
+                )
+                var shownAt = 0L
+                try {
+                    withContext(Dispatchers.IO) {
+                        Net.send(ctx, prefs, uri, job.x, job.search, options, { cancelled }) { fileSent, fileSize, waiting ->
+                            val now = SystemClock.elapsedRealtime()
+                            if (now - shownAt < 80 && fileSent != fileSize && !waiting) return@send
+                            shownAt = now
+                            main.post { if (running && !cancelled) report(i + 1, fileSent, waiting) }
+                        }
+                    }
+                    sent++
+                } catch (e: UnreadableFileException) {
+                    // One unreadable photo should not stop the other two hundred.
+                    if (count == 1) return SendResult.Failed(0, 1, SendResult.Why.UNREADABLE)
+                    skipped++
+                }
+                before += sizes[i].coerceAtLeast(0)
+            }
+            return SendResult.Done(sent, skipped)
+        } catch (_: SendCancelledException) {
+            return SendResult.Cancelled(sent, count)
+        } catch (_: NotPairedException) {
+            return SendResult.Failed(sent, count, SendResult.Why.NOT_PAIRED)
+        } catch (e: PcRefusedException) {
+            return SendResult.Failed(sent, count, SendResult.Why.REFUSED, e.message ?: "")
+        } catch (_: Exception) {
+            return if (cancelled) SendResult.Cancelled(sent, count) else SendResult.Failed(sent, count, SendResult.Why.UNREACHABLE)
+        }
+    }
