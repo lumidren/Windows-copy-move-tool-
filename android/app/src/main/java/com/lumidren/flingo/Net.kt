@@ -106,7 +106,8 @@ object Net {
     private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000): Conn {
         val trust = Pinning(decodeFp(pin))
         val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
-        val conn = URL("https", host, port, path).openConnection() as HttpsURLConnection
+        val url = URL("https", host, port, path)
+        val conn = (wifi?.openConnection(url) ?: url.openConnection()) as HttpsURLConnection
         conn.sslSocketFactory = tls.socketFactory
         // The address is an IP on the local network, so there is no name to check. The pin is the check.
         conn.hostnameVerifier = HostnameVerifier { _, _ -> true }
