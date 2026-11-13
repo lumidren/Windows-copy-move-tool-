@@ -147,3 +147,19 @@ async function runPreflight(ctx) {
   } catch {
     add('folder', 'Save folder cannot be written', 'fail', `Flingo cannot write to ${ctx.saveDir}. Choose another folder under "This PC".`, 'folder');
   }
+
+  // 9. arrival screen
+  let overlay = null;
+  if (!ctx.showOverlay) {
+    add('overlay', 'Arrivals are hidden', 'fail', 'Turn on "Show arrivals on this PC", or the audience will see nothing.');
+  } else {
+    try { overlay = await ctx.overlay(); } catch { overlay = null; }
+    if (!overlay) add('overlay', 'Arrival overlay did not start', 'fail', 'Restart Flingo.');
+    else {
+      const fits = Math.abs(overlay.window.width - overlay.display.width) <= 2 && Math.abs(overlay.window.height - overlay.display.height) <= 2
+        && Math.abs(overlay.renderer.w - overlay.display.width) <= 2 && Math.abs(overlay.renderer.h - overlay.display.height) <= 2;
+      const what = `Screen ${overlay.screen}, ${overlay.pixels.width}×${overlay.pixels.height} at ${overlay.scale}%`;
+      if (fits) add('overlay', 'Arrival screen is set', 'ok', `Photos will land on ${what}.`);
+      else add('overlay', 'Arrival overlay does not fill the screen', 'fail', `${what}: the overlay is ${overlay.renderer.w}×${overlay.renderer.h} but the screen is ${overlay.display.width}×${overlay.display.height}. Pick the arrival screen again, or restart Flingo.`);
+    }
+  }
