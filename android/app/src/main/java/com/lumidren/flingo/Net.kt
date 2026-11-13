@@ -300,7 +300,8 @@ object Net {
     }
 
     // ---------- sending ----------
-    private fun describe(ctx: Context, uri: Uri): Pair<String, Long> {
+    /** A file's name and its size in bytes, or -1 when the phone cannot tell. */
+    fun describe(ctx: Context, uri: Uri): Pair<String, Long> {
         var name = uri.lastPathSegment ?: "file"
         var size = -1L
         runCatching {
