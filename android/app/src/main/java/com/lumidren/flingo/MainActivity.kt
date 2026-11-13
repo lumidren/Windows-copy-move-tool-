@@ -642,6 +642,53 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun deviceName(): String = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Android phone"
+
+    private fun onPaired(p: Paired) {
+        prefs.savePairing(p)
+        online = true
+        updateChip()
+        startHealthChecks()
+        buzz(hapticYes)
+        showStatus("Paired with ${p.pc.name} ✓")
+        if (pendingShare.isNotEmpty()) {
+            val uris = pendingShare
+            pendingShare = emptyList()
+            send(uris, 0.5f)
+        }
+    }
+
+    /** Pairs from a QR code: tries each address in it, pinned to the certificate in it. */
+    private fun pairWith(link: PairLink) {
+        showStatus("Pairing with ${link.pc.name}…", sticky = true)
+        scope.launch {
+            var problem = "Can't reach ${link.pc.name}. Put the phone and the PC on the same Wi-Fi or hotspot, then scan again."
+            val paired = withContext(Dispatchers.IO) {
+                for (host in link.pc.hosts) {
+                    try {
+                        return@withContext Net.pair(link.pc.copy(host = host), link.code, deviceName(), prefs.deviceId)
+                    } catch (_: WrongCodeException) {
+                        problem = "That QR code has already been used. The PC is showing a new one: scan it again."
+                        break
+                    } catch (_: PairingLockedException) {
+                        problem = "Pairing is locked on ${link.pc.name}. On the PC, press Pair a phone, then scan again."
+                        break
+                    } catch (e: PcRefusedException) {
+                        problem = e.message ?: problem
+                        break
+                    } catch (_: WrongPcException) {
+                        problem = "A different computer answered at that address. Scan the code on your own PC again."
+                    } catch (_: IOException) {
+                        // not reachable at this address; try the next one
+                    }
+                }
+                null
+            }
+            if (paired != null) onPaired(paired)
+            else { buzz(hapticNo); showStatus(problem, holdMs = 7000) }
+        }
+    }
+
     private fun searchForPc() {
         val searching = AlertDialog.Builder(this)
             .setTitle("Looking for your PC…")
