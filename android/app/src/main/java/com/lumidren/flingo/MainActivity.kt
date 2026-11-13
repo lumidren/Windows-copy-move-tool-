@@ -233,11 +233,6 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { leftMargin = dpi(10f) })
         column.addView(hintRow)
 
-        adapter = GalleryAdapter(
-            this,
-            onPickUp = ::startDrag,
-            onSelection = ::updateSelectBar,
-        )
         // Shown when a newer Flingo has been released: what it is, a button to get it, and a way to close the offer.
         updateText = TextView(this).apply {
             textSize = 14f
@@ -276,6 +271,11 @@ class MainActivity : Activity() {
             bottomMargin = dpi(10f)
         })
 
+        adapter = GalleryAdapter(
+            this,
+            onPickUp = ::startDrag,
+            onSelection = ::updateSelectBar,
+        )
         grid = RecyclerView(this).apply {
             layoutManager = GridLayoutManager(this@MainActivity, 3)
             adapter = this@MainActivity.adapter
@@ -484,6 +484,20 @@ class MainActivity : Activity() {
             if (update == null) Updater.clean(this@MainActivity)
             showUpdate(update)
             if (manual && update == null) showStatus("You have the newest version.")
+        }
+    }
+
+    private fun showUpdate(update: Update?) {
+        val offer = update != null && Updater.isNewer(update.version, BuildConfig.VERSION_NAME) && prefs.updateDismissed != update.version
+        updateBar.visibility = if (offer) View.VISIBLE else View.GONE
+        if (!offer || update == null) return
+        updateText.text = "Flingo ${update.version} is available"
+        updateGo.visibility = View.VISIBLE
+        updateClose.visibility = View.VISIBLE
+        updateGo.setOnClickListener { startUpdate(update) }
+        updateClose.setOnClickListener {
+            prefs.updateDismissed = update.version
+            updateBar.visibility = View.GONE
         }
     }
 
@@ -1122,8 +1136,41 @@ class MainActivity : Activity() {
         box.addView(label)
         box.addView(bar)
         box.addView(note)
+        val updates = CheckBox(this).apply {
+            text = "Check for updates"
+            textSize = 15f
+            isChecked = prefs.checkUpdates
+            setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
+            setOnCheckedChangeListener { _, on -> prefs.checkUpdates = on }
+        }
+        val checkNow = TextView(this).apply {
+            text = "Check now"
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(accent)
+            gravity = Gravity.CENTER
+            minHeight = dpi(44f)
+            setPadding(dpi(12f), 0, dpi(4f), 0)
+        }
+        val versionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = "Version ${BuildConfig.VERSION_NAME}. Flingo asks GitHub which version is the newest; nothing installs without a tap."
+                textSize = 13f
+                alpha = 0.7f
+            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(checkNow)
+        }
         box.addView(awake)
+        box.addView(updates)
+        box.addView(versionRow)
 
-        AlertDialog.Builder(this).setTitle("Settings").setView(box).setPositiveButton("Done", null).show()
+        val dialog = AlertDialog.Builder(this).setTitle("Settings").setView(box).setPositiveButton("Done", null).show()
+        checkNow.setOnClickListener {
+            dialog.dismiss()
+            showStatus("Checking for updates…")
+            checkForUpdate(manual = true)
+        }
     }
 }
