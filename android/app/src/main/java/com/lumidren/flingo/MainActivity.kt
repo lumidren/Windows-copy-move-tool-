@@ -317,6 +317,7 @@ class MainActivity : Activity() {
             empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
         }
     }
+        if (requestCode != 1) return
 
     // ---------- drag + flick ----------
     private fun rootOnScreen(): IntArray = IntArray(2).also { root.getLocationOnScreen(it) }
