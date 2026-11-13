@@ -70,6 +70,7 @@ object Transfers {
     private val queue = ArrayDeque<SendJob>()
     private val random = SecureRandom()
     @Volatile private var cancelled = false
+    @Volatile private var currentId = "" // the PC's name for the file being sent
     private var running = false
 
     /** The screen that is showing progress, if one is in front. */
@@ -100,7 +101,13 @@ object Transfers {
         if (!running) return
         cancelled = true
         queue.clear()
-        Thread { Net.abort() }.start() // closing a socket is network work: not on the main thread
+        val prefs = Prefs(ctx.applicationContext)
+        val id = currentId
+        // Network work, so not on the main thread: drop the connection, then tell the PC it was on purpose.
+        Thread {
+            Net.abort()
+            runCatching { Net.cancelOnPc(prefs, id) }
+        }.start()
     }
 
     private fun id(): String = ByteArray(6).also(random::nextBytes).joinToString("") { "%02x".format(it) }
@@ -150,6 +157,7 @@ object Transfers {
                     patienceMs = if (long) PATIENCE_MS else 0,
                 )
                 var shownAt = 0L
+                currentId = options.id
                 try {
                     withContext(Dispatchers.IO) {
                         Net.send(ctx, prefs, uri, job.x, job.search, options, { cancelled }) { fileSent, fileSize, waiting ->
