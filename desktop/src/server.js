@@ -8,7 +8,14 @@ const crypto = require('crypto');
 const HTTP_PORT = 47801;
 const DISCOVERY_PORT = 47800;
 const DISCOVERY_MAGIC = 'FLINGO_DISCOVER';
-const MAX_PAIR_FAILS = 5; // per IP per minute
+const PROTOCOL_VERSION = 2;
+const MAX_PAIR_FAILS = 5; // wrong codes per IP per minute
+const MAX_TOTAL_FAILS = 12; // wrong codes from anyone before the code is replaced
+const MAX_UPLOADS = 4; // transfers in flight at once
+const IDLE_TIMEOUT_MS = 30_000; // a stalled upload is dropped after this long without data
+const DEFAULT_MAX_BYTES = 32 * 1024 ** 3;
+const SPACE_MARGIN = 64 * 1024 ** 2;
+const PROGRESS_EVERY_MS = 80;
 
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 
