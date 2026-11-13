@@ -56,8 +56,12 @@ function loadSettings() {
     saveDir: path.join(app.getPath('pictures'), 'Flingo'),
     effect: 'comet',
     showOverlay: true,
+    sound: false,
+    stage: false,
+    pairingLocked: false,
+    overlayDisplay: 'auto', // or a display id
     launchAtLogin: false,
-    devices: [], // {id, name, hash, added}
+    devices: [], // {id, name, deviceId, hash, added}
   };
   try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; }
   catch { settings = defaults; }
