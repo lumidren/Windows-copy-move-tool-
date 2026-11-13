@@ -25,6 +25,8 @@ const isLinux = process.platform === 'linux';
 
 // Transparent windows need an ARGB visual on X11 and XWayland (GNOME, Xfce, KDE).
 if (isLinux) app.commandLine.appendSwitch('enable-transparent-visuals');
+// The arrival sound plays in a window nobody clicks, so it cannot wait for a user gesture.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let mainWin = null;
 let overlayWin = null;
