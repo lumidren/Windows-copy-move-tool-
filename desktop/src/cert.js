@@ -75,3 +75,18 @@ function securityCode(certPem) {
   const hex = fingerprint(certPem).toString('hex').toUpperCase();
   return `${hex.slice(0, 4)} ${hex.slice(4, 8)}`;
 }
+
+/** Loads the saved identity, or creates and saves one. */
+function loadOrCreateIdentity(file, commonName) {
+  try {
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const x509 = new crypto.X509Certificate(saved.cert);
+    const key = crypto.createPrivateKey(saved.key);
+    if (x509.checkPrivateKey(key) && new Date(x509.validTo) > new Date()) return { key: saved.key, cert: saved.cert };
+  } catch { /* missing or damaged: make a new one */ }
+  const identity = createIdentity(commonName);
+  fs.writeFileSync(file, JSON.stringify(identity), { mode: 0o600 });
+  return identity;
+}
+
+module.exports = { createIdentity, loadOrCreateIdentity, fingerprint, securityCode };
