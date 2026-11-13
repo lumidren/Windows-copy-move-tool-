@@ -204,6 +204,36 @@ object Net {
         PairLink(pc, code)
     }.getOrNull()
 
+    // ---------- pairing ----------
+    /**
+     * Pairs with [pc] at [Pc.host]. If [Pc.fp] is known (it came from a QR code) the PC must
+     * present exactly that certificate; otherwise the certificate it presents is remembered.
+     */
+    fun pair(pc: Pc, code: String, deviceName: String, deviceId: String): Paired {
+        val c = open(pc.host, pc.port, "/pair", pc.fp)
+        try {
+            c.http.requestMethod = "POST"
+            c.http.doOutput = true
+            c.http.setRequestProperty("Content-Type", "application/json")
+            val payload = JSONObject().put("code", code).put("deviceName", deviceName).put("deviceId", deviceId).toString().toByteArray()
+            c.http.outputStream.use { it.write(payload) }
+            when (val status = c.http.responseCode) {
+                200 -> {
+                    val json = JSONObject(c.http.body())
+                    val real = pc.copy(id = json.optString("id", pc.id), name = json.optString("name", pc.name), fp = c.fp)
+                    return Paired(json.getString("token"), real)
+                }
+                403 -> throw WrongCodeException()
+                423 -> throw PairingLockedException()
+                else -> throw PcRefusedException(status, c.http.error("The PC did not accept the pairing."))
+            }
+        } catch (e: IOException) {
+            throw if (isMismatch(e)) WrongPcException() else e
+        } finally {
+            c.http.disconnect()
+        }
+    }
+
     // ---------- sending ----------
     private fun describe(ctx: Context, uri: Uri): Pair<String, Long> {
         var name = uri.lastPathSegment ?: "file"
