@@ -69,3 +69,35 @@ function ago(ms) {
 function gb(bytes) { return `${(bytes / 1024 ** 3).toFixed(bytes < 10 * 1024 ** 3 ? 1 : 0)} GB`; }
 
 /**
+ * ctx: {
+ *   platform, exePath, port, addresses, secure, securityCode, saveDir, stage, pairingLocked, showOverlay,
+ *   server: { listening, httpError, udpBound, udpError },
+ *   devices: [{ name, lastSeen, ip }],
+ *   overlay(): Promise<{ screen, display: {width,height}, window: {width,height}, renderer: {w,h,dpr}, pixels, scale } | null>,
+ *   selfTest(): Promise<{ ok, ms, error, fps, worstMs }>,
+ *   firewall?: injected for tests
+ * }
+ */
+async function runPreflight(ctx) {
+  const items = [];
+  const add = (id, title, status, detail, action) => items.push({ id, title, status, detail, action: action || null });
+  const now = Date.now();
+  // Proof that the firewall is open: a paired phone was heard from another machine's address.
+  const own = new Set(['::1', '127.0.0.1', ...ctx.addresses]);
+  const remote = ctx.devices.filter((d) => d.lastSeen && now - d.lastSeen < ONLINE_MS && d.ip && !own.has(d.ip.replace(/^::ffff:/, '')));
+
+  // 1. receiver
+  if (ctx.server.listening) add('server', 'Receiver is running', 'ok', `Listening on port ${ctx.port}.`);
+  else add('server', 'Receiver is not running', 'fail', ctx.server.httpError === 'EADDRINUSE'
+    ? `Another program is using port ${ctx.port}. Close the other copy of Flingo, then restart this one.`
+    : `Flingo could not open port ${ctx.port} (${ctx.server.httpError || 'unknown reason'}). Restart Flingo.`);
+
+  // 2. network + 3. port answers on every address
+  if (!ctx.addresses.length) {
+    add('network', 'No network', 'fail', 'This PC is not connected to Wi-Fi or a cable. Connect it to the same network as the phone, or to the phone\'s hotspot.');
+  } else {
+    const results = await Promise.all(ctx.addresses.map((a) => tcpReachable(a, ctx.port)));
+    const dead = ctx.addresses.filter((_, i) => !results[i]);
+    if (dead.length) add('network', 'Port does not answer', 'fail', `Nothing answers on ${dead.join(', ')} port ${ctx.port}. Restart Flingo.`);
+    else add('network', 'Network address ready', 'ok', `The phone can use ${ctx.addresses.join(' or ')}, port ${ctx.port}.`);
+  }
