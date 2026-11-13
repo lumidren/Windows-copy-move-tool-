@@ -22,6 +22,8 @@ function el(tag, props = {}, children = []) {
   return node;
 }
 
+const isOnline = (d) => d.lastSeen && Date.now() - d.lastSeen < ONLINE_MS;
+
 function render(s) {
   state = s;
   devices = s.devices;
