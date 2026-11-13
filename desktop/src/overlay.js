@@ -276,6 +276,63 @@ function drawRings(now) {
   }
 }
 
+// ---------- progress pills (large files) ----------
+function fmtSize(n) {
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+  return `${(n / 1024 ** 3).toFixed(2)} GB`;
+}
+
+function drawPills(now) {
+  let row = 0;
+  for (const [id, p] of pills) {
+    const age = now - p.born;
+    const leaving = p.doneAt ? now - p.doneAt : 0;
+    const hold = p.ok === false ? 2200 : 260;
+    if (p.doneAt && leaving > hold + 260) { pills.delete(id); continue; }
+    const alpha = Math.min(1, age / 200) * (p.doneAt ? Math.max(0, 1 - Math.max(0, leaving - hold) / 260) : 1);
+    const target = p.ok === true ? 1 : p.total ? p.received / p.total : 0;
+    p.shown += (target - p.shown) * 0.18;
+
+    const w = 440 * S, h = 66 * S;
+    const x = W / 2 - w / 2, y = H - (44 + row * 78) * S - h + (1 - Math.min(1, age / 200)) * 18 * S;
+    const failed = p.ok === false;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 24 * S * dpr; ctx.shadowOffsetY = 8 * S * dpr;
+    ctx.fillStyle = 'rgba(14,16,22,.94)';
+    roundRect(x, y, w, h, h / 2); ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 1.5 * S; ctx.strokeStyle = failed ? '#ffb84d' : 'rgba(108,140,255,.7)';
+    roundRect(x, y, w, h, h / 2); ctx.stroke();
+
+    // ring
+    const cx = x + h / 2, cy = y + h / 2, r = 19 * S;
+    ctx.lineWidth = 5 * S; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,.14)';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = failed ? '#ffb84d' : '#6c8cff';
+    ctx.beginPath();
+    if (failed) ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    else if (p.total) ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, p.shown));
+    else { const a = now / 260; ctx.arc(cx, cy, r, a, a + Math.PI * 0.9); } // size unknown: spin
+    ctx.stroke();
+
+    // text
+    const name = p.name.length > 30 ? p.name.slice(0, 27) + '…' : p.name;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff'; ctx.font = `600 ${16 * S}px ${FONT}`;
+    ctx.fillText(failed ? 'Transfer interrupted' : `Receiving ${name}`, x + h + 2 * S, y + h / 2 - 11 * S, w - h - 24 * S);
+    ctx.fillStyle = '#b3bacb'; ctx.font = `${13 * S}px ${FONT}`;
+    const detail = failed ? `${name} from ${p.from} did not finish. Send it again.`
+      : p.total ? `from ${p.from} · ${Math.round(p.shown * 100)}% of ${fmtSize(p.total)}`
+      : `from ${p.from} · ${fmtSize(p.received)}`;
+    ctx.fillText(detail, x + h + 2 * S, y + h / 2 + 12 * S, w - h - 24 * S);
+    ctx.restore();
+    row++;
+  }
+}
+
 function frame(now) {
   const dt = lastFrame ? Math.min(50, now - lastFrame) : 16.667;
   if (lastFrame && ++stats.seen > 3) { stats.frames++; stats.total += now - lastFrame; stats.worst = Math.max(stats.worst, now - lastFrame); }
