@@ -186,7 +186,16 @@ function placeOverlay() {
   overlayWin.setBounds(bounds);
   // Moving between screens with different scaling can land one step off; the second call settles it.
   overlayWin.setBounds(bounds);
-  const send = () => {
+}
+
+function whenOverlayReady(fn) {
+  placeOverlay();
+  if (overlayWin.webContents.isLoading()) overlayWin.webContents.once('did-finish-load', fn);
+  else fn();
+}
+
+function playOverlay(item) {
+  whenOverlayReady(() => {
     overlayWin.showInactive();
     overlayWin.webContents.send('arrive', { ...item, sound: settings.sound });
     const cap = process.env.FLINGO_DEBUG_CAPTURE;
@@ -300,6 +309,13 @@ function isImage(mime, name) {
 }
 
 function handleFile(file) {
+  if (file.from === SELF_TEST) {
+    // A pre-flight transfer: check it, play it, and leave no trace.
+    if (selfResult) selfResult.path = file.path;
+    if (settings.showOverlay) playOverlay({ url: pathToFileURL(file.path).href, name: SELF_TEST, from: SELF_TEST, x: 0.5, effect: settings.effect });
+    setTimeout(() => fs.rm(file.path, { force: true }, () => {}), 8000);
+    return;
+  }
   const entry = {
     path: file.path, name: file.name, size: file.size, from: file.from,
     image: isImage(file.mime, file.name), at: Date.now(),
@@ -309,13 +325,6 @@ function handleFile(file) {
   saveHistory();
   pushState();
   if (settings.showOverlay) {
-  if (file.from === SELF_TEST) {
-    // A pre-flight transfer: check it, play it, and leave no trace.
-    if (selfResult) selfResult.path = file.path;
-    if (settings.showOverlay) playOverlay({ url: pathToFileURL(file.path).href, name: SELF_TEST, from: SELF_TEST, x: 0.5, effect: settings.effect });
-    setTimeout(() => fs.rm(file.path, { force: true }, () => {}), 8000);
-    return;
-  }
     playOverlay({
       url: entry.image ? pathToFileURL(entry.path).href : null,
       name: entry.name, from: entry.from, x: file.x, effect: settings.effect,
@@ -336,6 +345,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     loadSettings();
+    try { identity = loadOrCreateIdentity(identityFile(), 'Flingo'); } catch { identity = null; }
+    cleanStaleParts(settings.saveDir);
+    applyStage();
     createMainWindow();
     // On Linux the compositor needs a moment before it hands out a transparent visual.
     if (isLinux) setTimeout(createOverlay, 400);
@@ -364,7 +376,9 @@ if (!app.requestSingleInstanceLock()) {
         pushState();
         return { token };
       },
+      rotateCode: () => { pairCode = newCode(); pushState(); },
       checkToken: (token) => {
+        if (selfToken && token === selfToken) return { id: 'self', name: SELF_TEST };
         const h = sha(token);
         const d = settings.devices.find((x) => x.hash === h);
         return d ? { id: d.id, name: d.name } : null;
@@ -419,10 +433,12 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('new-code', () => { pairCode = newCode(); return publicState(); });
     ipcMain.handle('remove-device', (_e, id) => {
       settings.devices = settings.devices.filter((d) => d.id !== id);
+      lastSeen.delete(id);
       saveSettings();
       return publicState();
     });
     ipcMain.handle('clear-history', () => { history = []; saveHistory(); return publicState(); });
+    ipcMain.handle('preflight', () => preflight());
     ipcMain.on('open-folder', () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); });
     ipcMain.on('open-file', (_e, p) => {
       if (!history.some((h) => h.path === p)) return;
@@ -432,11 +448,17 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('preview-effect', (_e, effect) => {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
     });
+    ipcMain.on('identify-screens', identifyScreens);
+    ipcMain.on('open-settings', (_e, what) => {
+      if (what === 'folder') { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); }
+      if (process.platform !== 'win32') return;
+      if (what === 'firewall') execFile('control.exe', ['firewall.cpl'], () => {});
+      if (what === 'notifications') shell.openExternal('ms-settings:notifications');
+    });
     ipcMain.on('drag-file', (e, p) => {
       if (!history.some((h) => h.path === p) || !fs.existsSync(p)) return;
       let icon = nativeImage.createFromPath(p);
       icon = icon.isEmpty() ? nativeImage.createFromPath(ICON).resize({ width: 64 }) : icon.resize({ width: 96 });
-      lastSeen.delete(id);
       e.sender.startDrag({ file: p, icon });
     });
     ipcMain.on('overlay-idle', (_e, stats) => {
@@ -445,15 +467,7 @@ if (!app.requestSingleInstanceLock()) {
       if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide();
     });
   });
-    ipcMain.handle('preflight', () => preflight());
 
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('before-quit', () => { quitting = true; });
 }
-    ipcMain.on('identify-screens', identifyScreens);
-    ipcMain.on('open-settings', (_e, what) => {
-      if (what === 'folder') { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); }
-      if (process.platform !== 'win32') return;
-      if (what === 'firewall') execFile('control.exe', ['firewall.cpl'], () => {});
-      if (what === 'notifications') shell.openExternal('ms-settings:notifications');
-    });
