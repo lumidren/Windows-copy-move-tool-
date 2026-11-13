@@ -261,9 +261,21 @@ function playOverlay(item) {
     if (cap) {
       setTimeout(async () => {
         try { fs.writeFileSync(cap, (await overlayWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
+/** Sends something to draw to the arrival screen, showing its window first if it was hidden. */
+function toOverlay(channel, payload) {
+  const send = () => {
+    if (!overlayShown) { overlayWin.showInactive(); overlayShown = true; }
+    overlayWin.webContents.send(channel, payload);
+  };
+  // While it is already on screen there is no need to place it again for every progress tick.
+  if (overlayShown && overlayWin && !overlayWin.isDestroyed() && !overlayWin.webContents.isLoading()) send();
+  else whenOverlayReady(send);
+}
+
       }, 1500);
     }
     // Debug: dump the first arrival as numbered frames (used to make the README animation).
+    overlayShown = true;
     const framesDir = process.env.FLINGO_DEBUG_FRAMES;
     if (framesDir && !framesStarted) {
       framesStarted = true;
