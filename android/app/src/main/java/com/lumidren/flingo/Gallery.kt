@@ -61,6 +61,7 @@ class GalleryAdapter(
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 
+    private val selected = HashSet<Uri>()
     class Holder(view: View, val image: ImageView, val badge: TextView) : RecyclerView.ViewHolder(view) {
         var key: String? = null
     }
