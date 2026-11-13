@@ -439,7 +439,11 @@ if (!app.requestSingleInstanceLock()) {
       lastSeen.delete(id);
       e.sender.startDrag({ file: p, icon });
     });
-    ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
+    ipcMain.on('overlay-idle', (_e, stats) => {
+      if (selfResult && stats && stats.frames > 20) selfResult.stats = { fps: stats.fps, worstMs: stats.worstMs };
+      if (process.env.FLINGO_DEBUG_PERF && stats) console.log('[overlay]', JSON.stringify(stats));
+      if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide();
+    });
   });
     ipcMain.handle('preflight', () => preflight());
 
