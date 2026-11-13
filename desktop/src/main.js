@@ -619,6 +619,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     ipcMain.handle('choose-folder', async () => {
       const r = await dialog.showOpenDialog(mainWin, { properties: ['openDirectory', 'createDirectory'], defaultPath: settings.saveDir });
+      pushState(); // keep the window right even when the change did not come from a click in it
       if (!r.canceled && r.filePaths[0]) { settings.saveDir = r.filePaths[0]; saveSettings(); }
       return publicState();
     });
