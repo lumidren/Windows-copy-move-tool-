@@ -90,8 +90,20 @@ p { margin: 0 0 10px; }
 .row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .spread { justify-content: space-between; }
 
-.qr-row { display: flex; gap: 14px; align-items: stretch; margin: 4px 0 12px; }
-#qr { flex: none; width: 148px; height: 148px; border-radius: 10px; image-rendering: pixelated; cursor: zoom-in; }
+.pair-steps { margin: 2px 0 14px; padding-left: 20px; color: var(--muted); }
+.pair-steps li { padding: 2px 0; }
+.pair-steps b { color: var(--text); }
+#qr { display: block; margin: 0 auto; width: 190px; height: 190px; border-radius: 12px; image-rendering: pixelated; cursor: zoom-in; }
+.more { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.more summary { cursor: pointer; color: var(--muted); list-style-position: inside; }
+.more summary:hover { color: var(--text); }
+.more[open] summary { margin-bottom: 10px; }
+.more .row { margin-top: 12px; }
+/* The very first time: nothing but how to pair, in the middle of the window. */
+.page.first-run { justify-content: center; }
+.page.first-run .col { width: min(430px, 100%); }
+.page.first-run .col.wide { display: none; }
+.page.first-run #qr:not(.big) { width: 230px; height: 230px; }
 #qr.big {
   position: fixed; z-index: 10; inset: 0; margin: auto; width: min(86vw, 86vh); height: min(86vw, 86vh);
   border-radius: 18px; cursor: zoom-out; box-shadow: 0 0 0 100vmax rgba(8, 9, 13, .92);
