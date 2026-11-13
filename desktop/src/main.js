@@ -76,7 +76,7 @@ function saveSettings() {
   try { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); } catch { /* disk full or read-only: keep running */ }
 }
 function saveHistory() {
-  try { fs.writeFileSync(historyFile(), JSON.stringify(history.slice(0, 60))); } catch { /* keep running */ }
+  try { fs.writeFileSync(historyFile(), JSON.stringify(history.slice(0, HISTORY_MAX))); } catch { /* keep running */ }
 }
 
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
