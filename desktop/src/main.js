@@ -144,6 +144,9 @@ function createMainWindow() {
     if (!startHidden) mainWin.show();
     else if (isLinux) { mainWin.show(); mainWin.minimize(); } // no tray to reopen from
   });
+  // Links never navigate the app window.
+  mainWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWin.webContents.on('will-navigate', (e) => e.preventDefault());
   if (process.env.FLINGO_DEBUG_MAIN) {
     mainWin.webContents.on('console-message', (_e, _l, msg) => console.log('[renderer]', msg));
     setInterval(async () => {
