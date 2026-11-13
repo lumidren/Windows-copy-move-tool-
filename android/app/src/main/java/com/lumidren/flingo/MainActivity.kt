@@ -54,7 +54,9 @@ class MainActivity : Activity() {
     private lateinit var adapter: GalleryAdapter
     private lateinit var chip: TextView
     private lateinit var zone: TextView
-    private lateinit var status: TextView
+    private lateinit var status: LinearLayout
+    private lateinit var statusText: TextView
+    private lateinit var statusBar: ProgressBar
     private lateinit var empty: TextView
 
     // drag state
@@ -67,15 +69,12 @@ class MainActivity : Activity() {
     private var grabDy = 0f
     private var lastX = 0f
     private var lastY = 0f
+    private var wasInZone = false
     private var tracker: VelocityTracker? = null
     private var statusJob: Job? = null
-    private var wasInZone = false
     private var healthJob: Job? = null
     private var pendingShare: List<Uri> = emptyList()
 
-    private var healthJob: Job? = null
-    private val accent = Color.parseColor("#6C8CFF")
-    private fun dp(v: Float) = v * resources.displayMetrics.density
     /** Whether the paired PC answered the last time it was asked. Null until the first answer. */
     private var online: Boolean? = null
     private var sending = false
@@ -207,13 +206,27 @@ class MainActivity : Activity() {
         statusText = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+        }
+        statusBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(accent)
+            progressBackgroundTintList = ColorStateList.valueOf(Color.parseColor("#3A4053"))
+            visibility = View.GONE
+        }
+        status = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             background = pill(Color.parseColor("#F01F2330"), 22f)
             setPadding(dpi(18f), dpi(11f), dpi(18f), dpi(11f))
             elevation = dp(8f)
             visibility = View.GONE
+            addView(statusText, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
+            addView(statusBar, LinearLayout.LayoutParams(dpi(220f), dpi(4f)).apply { topMargin = dpi(8f); gravity = Gravity.CENTER_HORIZONTAL })
         }
         root.addView(status, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
             bottomMargin = dpi(40f)
+            leftMargin = dpi(20f)
+            rightMargin = dpi(20f)
         })
 
         root.setOnApplyWindowInsetsListener { _, insets ->
@@ -225,30 +238,16 @@ class MainActivity : Activity() {
         setContentView(root)
     }
 
-    private fun updateChip() {
-        if (prefs.paired) {
-            chip.text = "●  ${prefs.pcName}"
-            chip.background = pill(Color.parseColor("#1F2330"), 20f)
-        } else {
-            chip.text = "Pair with PC"
-            chip.background = pill(accent, 20f)
-        }
-    }
-
-    private fun setZoneActive(active: Boolean) {
-        val target = if (prefs.paired) prefs.pcName else "your PC"
-        zone.text = if (active) "Release to send to $target" else "↑  Flick up to send"
-        zone.background = GradientDrawable(
     private fun dot(color: Int) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
         setColor(color)
         setSize(dpi(9f), dpi(9f))
     }
 
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(if (active) Color.parseColor("#F06C8CFF") else Color.parseColor("#996C8CFF"), Color.TRANSPARENT),
-        )
-    }
+    private fun updateChip() {
+        if (!prefs.paired) {
+            chip.text = "Pair with PC"
+            chip.background = pill(accent, 20f)
             chip.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null)
             chip.contentDescription = "Pair with PC"
             return
@@ -261,17 +260,42 @@ class MainActivity : Activity() {
             true -> "${prefs.pcName}, connected"
             false -> "${prefs.pcName}, not reachable"
             null -> "${prefs.pcName}, checking"
+        }
+    }
 
-    private fun showStatus(text: String, sticky: Boolean = false) {
+    private fun setZoneActive(active: Boolean) {
+        val target = if (prefs.paired) prefs.pcName else "your PC"
+        zone.text = if (active) "Release to send to $target" else "↑  Flick up to send"
+        zone.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(if (active) Color.parseColor("#F06C8CFF") else Color.parseColor("#996C8CFF"), Color.TRANSPARENT),
+        )
+    }
+
+    /** [progress] is 0..1000, or null for no bar. */
+    private fun showStatus(text: String, sticky: Boolean = false, progress: Int? = null, holdMs: Long = 2600) {
         statusJob?.cancel()
-        status.text = text
+        if (statusText.text != text) {
+            statusText.text = text
+            if (progress == null) status.announceForAccessibility(text)
+        }
+        statusBar.visibility = if (progress == null) View.GONE else View.VISIBLE
+        if (progress != null) statusBar.progress = progress
         status.visibility = View.VISIBLE
-        status.announceForAccessibility(text)
         if (!sticky) statusJob = scope.launch {
-            delay(2600)
+            delay(holdMs)
             status.visibility = View.GONE
         }
     }
+
+    private fun hideStatus() {
+        statusJob?.cancel()
+        status.visibility = View.GONE
+    }
+
+    private fun buzz(kind: Int) { root.performHapticFeedback(kind) }
+    private val hapticYes get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
+    private val hapticNo get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
 
     // ---------- gallery + permission ----------
     private fun mediaPermissions(): Array<String> =
@@ -289,19 +313,11 @@ class MainActivity : Activity() {
         val perms = mediaPermissions().toMutableList()
         if (Build.VERSION.SDK_INT >= 34) perms.add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
         requestPermissions(perms.toTypedArray(), 1)
-    private fun hideStatus() {
-        statusJob?.cancel()
-        status.visibility = View.GONE
-    }
-
-    private fun buzz(kind: Int) { root.performHapticFeedback(kind) }
-    private val hapticYes get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
-    private val hapticNo get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
-
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != 1) return
         if (hasMediaPermission()) {
             loadGallery()
         } else {
@@ -318,7 +334,6 @@ class MainActivity : Activity() {
             empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
         }
     }
-        if (requestCode != 1) return
 
     // ---------- drag + flick ----------
     private fun rootOnScreen(): IntArray = IntArray(2).also { root.getLocationOnScreen(it) }
@@ -349,6 +364,7 @@ class MainActivity : Activity() {
         floating = view
         dragItem = item
         dragging = true
+        wasInZone = false
 
         zone.layoutParams = zone.layoutParams.apply { height = root.height * prefs.zonePercent / 100 }
         setZoneActive(false)
@@ -364,7 +380,6 @@ class MainActivity : Activity() {
 
     private fun fingerInZone(): Boolean = (lastY - rootOnScreen()[1]) < root.height * prefs.zonePercent / 100f
 
-        wasInZone = false
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         lastX = ev.rawX
         lastY = ev.rawY
@@ -422,39 +437,78 @@ class MainActivity : Activity() {
     }
 
     // ---------- sending ----------
-    private fun send(uris: List<Uri>, x: Float) {
-        scope.launch {
-            var sent = 0
-            try {
-                for (uri in uris) {
-                    showStatus(if (uris.size > 1) "Sending ${sent + 1} of ${uris.size}…" else "Sending…", sticky = true)
-                    withContext(Dispatchers.IO) { Net.send(this@MainActivity, prefs, uri, x) }
-                    sent++
-                }
-                showStatus(if (sent > 1) "Sent $sent files to ${prefs.pcName} ✓" else "Sent to ${prefs.pcName} ✓")
-            } catch (_: NotPairedException) {
-                prefs.clearPairing()
-                updateChip()
-                showStatus("That PC no longer knows this phone. Pair again.")
-            } catch (_: Exception) {
     private fun size(bytes: Long): String = when {
         bytes < 1024 * 1024 -> "${maxOf(1, bytes / 1024)} KB"
         bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / 1048576.0)
         else -> "%.2f GB".format(bytes / 1073741824.0)
     }
 
-                showStatus("Couldn't reach ${prefs.pcName}. Is Flingo open on the PC, on the same Wi-Fi?")
+    private fun send(uris: List<Uri>, x: Float) {
         if (sending) {
             showStatus("Still sending the last one. Try again in a moment.")
             return
         }
         sending = true
+        scope.launch {
+            var sent = 0
+            try {
+                for (uri in uris) {
+                    val prefix = if (uris.size > 1) "Sending ${sent + 1} of ${uris.size}" else "Sending"
+                    showStatus("$prefix…", sticky = true, progress = 0)
+                    var lastShown = 0L
+                    val search = online != false // already known to be out of reach: answer fast
+                    withContext(Dispatchers.IO) {
+                        Net.send(this@MainActivity, prefs, uri, x, search) progress@{ done, total ->
+                            val now = SystemClock.uptimeMillis()
+                            if (now - lastShown < 60 && done != total) return@progress
+                            lastShown = now
+                            runOnUiThread {
+                                if (total > 0) {
+                                    val pct = (done * 100 / total).toInt()
+                                    // Small files finish before a number is worth reading.
+                                    val label = if (total > 3 * 1024 * 1024) "$prefix · $pct% of ${size(total)}" else "$prefix…"
+                                    showStatus(label, sticky = true, progress = (done * 1000 / total).toInt())
+                                } else {
+                                    showStatus("$prefix · ${size(done)}", sticky = true)
+                                }
+                            }
+                        }
+                    }
+                    sent++
+                }
+                online = true
+                updateChip()
+                buzz(hapticYes)
+                showStatus(if (sent > 1) "Sent $sent files to ${prefs.pcName} ✓" else "Sent to ${prefs.pcName} ✓")
+            } catch (_: NotPairedException) {
+                buzz(hapticNo)
+                forgetPc("${prefs.pcName} no longer recognises this phone. Tap Pair with PC to pair again.")
+            } catch (e: PcRefusedException) {
+                buzz(hapticNo)
+                showStatus(e.message ?: "The PC could not take the file.", holdMs = 6000)
+            } catch (_: UnreadableFileException) {
+                buzz(hapticNo)
+                showStatus("That file can't be opened on this phone. Try another one.", holdMs = 5000)
+            } catch (_: Exception) {
+                buzz(hapticNo)
+                online = false
+                updateChip()
+                val already = if (sent > 0) "$sent sent, the rest did not go. " else ""
+                showStatus("${already}Can't reach ${prefs.pcName}. Tap its name at the top to reconnect.", holdMs = 7000)
+            } finally {
+                sending = false
             }
         }
     }
 
-    private fun handleShare(intent: Intent?) {
+    private fun handleIntent(intent: Intent?) {
         intent ?: return
+        if (intent.action == Intent.ACTION_VIEW) {
+            val data = intent.data
+            intent.action = Intent.ACTION_MAIN // don't act on it again after rotation
+            if (data != null) handleLink(data, scannedHere = false)
+            return
+        }
         val uris: List<Uri> = when (intent.action) {
             Intent.ACTION_SEND -> listOfNotNull(streamExtra(intent))
             Intent.ACTION_SEND_MULTIPLE -> streamListExtra(intent)
@@ -482,19 +536,35 @@ class MainActivity : Activity() {
 
     // ---------- pairing ----------
     private fun showPairDialog() {
+        val choices = arrayOf(
+            "Scan the QR code\nFastest. Works on any network.",
+            "Find my PC on this Wi-Fi",
+            "Type the PC's address and code",
+        )
+        AlertDialog.Builder(this)
+            .setTitle("Pair with your PC")
+            .setItems(choices) { _, i ->
+                when (i) {
+                    0 -> scanQr()
+                    1 -> searchForPc()
+                    else -> showManualDialog()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun searchForPc() {
         val searching = AlertDialog.Builder(this)
             .setTitle("Looking for your PC…")
             .setMessage("Open Flingo on your PC. Both devices need to be on the same Wi-Fi.")
             .setNegativeButton("Cancel", null)
-            .setNeutralButton("Enter address") { _, _ -> showManualDialog() }
             .show()
         scope.launch {
             val pcs = withContext(Dispatchers.IO) { runCatching { Net.discover() }.getOrDefault(emptyList()) }
             if (!searching.isShowing) return@launch
             searching.dismiss()
-            val builder = AlertDialog.Builder(this@MainActivity)
-                .setNegativeButton("Cancel", null)
-                .setNeutralButton("Enter address") { _, _ -> showManualDialog() }
+            val builder = AlertDialog.Builder(this@MainActivity).setNegativeButton("Cancel", null)
             if (pcs.isEmpty()) {
                 builder.setTitle("No PC found")
                     .setMessage("Some Wi-Fi networks stop devices from finding each other. Scanning the QR code shown in Flingo on the PC works on any network.")
@@ -504,12 +574,6 @@ class MainActivity : Activity() {
                 builder.setTitle("Choose your PC")
                     .setItems(pcs.map { it.name }.toTypedArray()) { _, i -> showCodeDialog(pcs[i]) }
             }
-        if (intent.action == Intent.ACTION_VIEW) {
-            val data = intent.data
-            intent.action = Intent.ACTION_MAIN // don't act on it again after rotation
-            if (data != null) handleLink(data, scannedHere = false)
-            return
-        }
             builder.show()
         }
     }
@@ -526,9 +590,6 @@ class MainActivity : Activity() {
         } else {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
         }
-        val box = FrameLayout(this).apply { setPadding(dpi(22f), dpi(8f), dpi(22f), 0) }
-        box.addView(field, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        return box to field
     }
 
     private fun box(vararg views: View) = LinearLayout(this).apply {
@@ -538,15 +599,15 @@ class MainActivity : Activity() {
     }
 
     private fun showCodeDialog(pc: Pc) {
-        val (box, field) = input("000000", numeric = true)
+        val code = field("000000", numeric = true)
         AlertDialog.Builder(this)
             .setTitle("Pair with ${pc.name}")
             .setMessage("Type the 6-digit code shown in Flingo on the PC.")
-            .setView(box)
+            .setView(box(code))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Pair") { _, _ -> pairWithCode(pc, code.text.toString().trim()) }
             .show()
-        field.requestFocus()
+        code.requestFocus()
     }
 
     // ---------- settings ----------
@@ -574,21 +635,6 @@ class MainActivity : Activity() {
             override fun onStopTrackingTouch(s: SeekBar) {}
         })
         refresh()
-        box.addView(label)
-        box.addView(bar)
-        box.addView(note)
-
-        val builder = AlertDialog.Builder(this).setTitle("Settings").setView(box).setPositiveButton("Done", null)
-        if (prefs.paired) {
-            builder.setNeutralButton("Unpair ${prefs.pcName}") { _, _ ->
-                prefs.clearPairing()
-                updateChip()
-                showStatus("Unpaired.")
-            }
-        }
-        builder.show()
-    }
-}
         val awake = CheckBox(this).apply {
             text = "Keep the screen on while Flingo is open"
             textSize = 15f
@@ -600,3 +646,11 @@ class MainActivity : Activity() {
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }
+        box.addView(label)
+        box.addView(bar)
+        box.addView(note)
+        box.addView(awake)
+
+        AlertDialog.Builder(this).setTitle("Settings").setView(box).setPositiveButton("Done", null).show()
+    }
+}
