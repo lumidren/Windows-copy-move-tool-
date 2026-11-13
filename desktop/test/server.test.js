@@ -97,3 +97,28 @@ test('unpaired phones cannot ping or send', async () => {
     assert.equal((await fetch(`${t.base}/ping`, { headers: { Authorization: `Bearer ${TOKEN}` } })).status, 200);
   } finally { t.close(); }
 });
+
+test('a file is saved byte for byte, with progress, and duplicates get a new name', async () => {
+  const t = await boot();
+  try {
+    const body = crypto.randomBytes(3 * 1024 * 1024);
+    const r = await t.send('IMG 1.jpg', body);
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { ok: true, name: 'IMG 1.jpg' });
+    assert.ok(fs.readFileSync(path.join(t.dir, 'IMG 1.jpg')).equals(body));
+    assert.equal(t.files[0].x, 0.25);
+    assert.equal(t.files[0].from, 'Test Phone');
+    assert.equal(t.files[0].size, body.length);
+
+    const kinds = t.events.map((e) => e[0]);
+    assert.equal(kinds[0], 'start');
+    assert.equal(kinds.at(-1), 'end');
+    assert.equal(t.events[0][1].total, body.length);
+    assert.equal(t.events.at(-1)[1].ok, true);
+    const seen = t.events.filter((e) => e[0] === 'progress').map((e) => e[1].received);
+    assert.deepEqual(seen, [...seen].sort((a, b) => a - b), 'progress only goes up');
+
+    assert.equal((await (await t.send('IMG 1.jpg', body)).json()).name, 'IMG 1 (1).jpg');
+    assert.deepEqual(parts(t.dir), []);
+  } finally { t.close(); }
+});
