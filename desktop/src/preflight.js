@@ -163,3 +163,16 @@ async function runPreflight(ctx) {
       else add('overlay', 'Arrival overlay does not fill the screen', 'fail', `${what}: the overlay is ${overlay.renderer.w}×${overlay.renderer.h} but the screen is ${overlay.display.width}×${overlay.display.height}. Pick the arrival screen again, or restart Flingo.`);
     }
   }
+
+  // 10. a real transfer through the real receiver, then the real animation
+  if (ctx.server.listening) {
+    const t = await ctx.selfTest();
+    if (!t.ok) add('transfer', 'Test transfer failed', 'fail', t.error || 'The test file did not arrive intact.');
+    else {
+      add('transfer', 'Test transfer arrived intact', 'ok', `A test image went through the receiver${ctx.secure ? ', encrypted,' : ''} and was saved byte for byte in ${t.ms} ms.`);
+      if (overlay && t.fps) {
+        if (t.fps >= 50) add('smooth', 'Arrival animation is smooth', 'ok', `${Math.round(t.fps)} frames per second, slowest frame ${Math.round(t.worstMs)} ms.`);
+        else add('smooth', 'Arrival animation is not smooth', 'warn', `${Math.round(t.fps)} frames per second on this screen. Close other apps, plug in the charger, or try another effect.`);
+      }
+    }
+  }
