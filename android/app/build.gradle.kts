@@ -3,6 +3,21 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Where the app looks for a newer release. The -P properties exist only to test the updater
+// against a stand-in server on the emulator, with a made-up version number if needed:
+//   ./gradlew assembleDebug -PflingoUpdateFeed=http://10.0.2.2:8129/latest -PflingoUpdateDownloads=http://10.0.2.2:8129/files/
+// A build made that way is also allowed plain HTTP to the emulator's host, and nothing else.
+val updateFeed = (findProperty("flingoUpdateFeed") as String?)
+    ?: "https://api.github.com/repos/lumidren/Windows-copy-move-tool-/releases/latest"
+val updateDownloads = (findProperty("flingoUpdateDownloads") as String?)
+    ?: "https://github.com/lumidren/Windows-copy-move-tool-/releases/download/"
+
+// Android only lets an app be replaced by one signed with the same key. The release build
+// (.github/workflows/release.yml) passes the project's own key here, so every release can
+// update the one before it. Without it the build is signed with Android's debug key, which
+// is different on every machine: fine for trying things out, useless for updating.
+val keystore: String? = System.getenv("FLINGO_KEYSTORE")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "com.lumidren.flingo"
     compileSdk = 35
@@ -33,6 +48,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (keystore != null) signingConfig = signingConfigs.getByName("stable")
+        }
         release {
             isMinifyEnabled = false
         }
