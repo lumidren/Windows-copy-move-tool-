@@ -166,7 +166,9 @@ test('stale partial files are cleaned up', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flingo-test-'));
   fs.writeFileSync(path.join(dir, '.flingo-0123456789ab.part'), 'x');
   fs.writeFileSync(path.join(dir, 'keep.jpg'), 'x');
-  assert.equal(cleanStaleParts(dir), 1);
+  fs.writeFileSync(path.join(dir, '.flingo-a1b2c3-0123abcd.part'), 'x');
+  assert.equal(cleanStaleParts(dir, 60_000), 0, 'recent parts are kept when asked');
+  assert.equal(cleanStaleParts(dir), 2);
   assert.deepEqual(fs.readdirSync(dir), ['keep.jpg']);
   fs.rmSync(dir, { recursive: true, force: true });
 });
