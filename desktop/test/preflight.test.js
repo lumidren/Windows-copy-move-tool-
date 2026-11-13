@@ -49,3 +49,40 @@ test('a ready stage machine passes with nothing to fix', async () => {
   assert.match(r.items.find((i) => i.id === 'firewall').detail, /Pixel 8 reached this PC/);
   assert.equal(status(r, 'quiet'), 'manual');
 });
+
+test('each problem is reported as its own item', async () => {
+  const none = await check({ devices: [] });
+  assert.equal(status(none, 'phone'), 'fail');
+
+  const silent = await check({ devices: [{ name: 'Pixel 8', lastSeen: 0, ip: '' }], firewall: { state: 'blocked', network: 'Public' } });
+  assert.equal(status(silent, 'phone'), 'warn');
+  assert.equal(status(silent, 'firewall'), 'fail');
+
+  // A ping from this PC's own address proves nothing about the firewall.
+  const self = await check({ devices: [{ name: 'Pixel 8', lastSeen: Date.now(), ip: '127.0.0.1' }], firewall: { state: 'none', network: 'Public' } });
+  assert.equal(status(self, 'firewall'), 'warn');
+
+  const open = await check({ pairingLocked: false, stage: false });
+  assert.equal(status(open, 'lock'), 'warn');
+  assert.equal(status(open, 'awake'), 'warn');
+
+  const wrongScreen = await check({ overlay: async () => ({ screen: 1, display: { width: 1920, height: 1080 }, window: { width: 1536, height: 864 }, renderer: { w: 1536, h: 864, dpr: 1.25 }, pixels: { width: 1920, height: 1080 }, scale: 100 }) });
+  assert.equal(status(wrongScreen, 'overlay'), 'fail');
+
+  const broken = await check({ selfTest: async () => ({ ok: false, error: 'The receiver did not answer within 6 seconds.' }) });
+  assert.equal(status(broken, 'transfer'), 'fail');
+
+  const slow = await check({ selfTest: async () => ({ ok: true, ms: 30, fps: 24, worstMs: 90 }) });
+  assert.equal(status(slow, 'smooth'), 'warn');
+
+  const down = await check({ server: { listening: false, httpError: 'EADDRINUSE', udpBound: false, udpError: null } });
+  assert.equal(status(down, 'server'), 'fail');
+  assert.equal(status(down, 'discovery'), 'warn');
+  assert.equal(status(down, 'transfer'), undefined, 'no transfer is attempted when the receiver is down');
+
+  const offline = await check({ addresses: [] });
+  assert.equal(status(offline, 'network'), 'fail');
+
+  const crowd = await check({ devices: [1, 2, 3].map((n) => ({ name: `Phone ${n}`, lastSeen: Date.now(), ip: '10.0.0.9' })) });
+  assert.equal(status(crowd, 'phones'), 'warn');
+});
