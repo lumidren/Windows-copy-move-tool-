@@ -446,3 +446,10 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('before-quit', () => { quitting = true; });
 }
+    ipcMain.on('identify-screens', identifyScreens);
+    ipcMain.on('open-settings', (_e, what) => {
+      if (what === 'folder') { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); }
+      if (process.platform !== 'win32') return;
+      if (what === 'firewall') execFile('control.exe', ['firewall.cpl'], () => {});
+      if (what === 'notifications') shell.openExternal('ms-settings:notifications');
+    });
