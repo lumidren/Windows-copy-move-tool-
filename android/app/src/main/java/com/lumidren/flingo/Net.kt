@@ -58,6 +58,26 @@ object Net {
     private const val MAGIC = "FLINGO_DISCOVER"
     private const val MISMATCH = "fingerprint mismatch"
 
+    // ---------- certificate pinning ----------
+    // The PC's certificate is self-signed, so there is no authority to ask. Instead the phone
+    // remembers the certificate's fingerprint when it pairs and accepts only that one afterwards.
+    @SuppressLint("CustomX509TrustManager")
+    private class Pinning(private val pin: ByteArray?) : X509TrustManager {
+        @Volatile var seen: ByteArray? = null
+
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) =
+            throw CertificateException("not a server")
+
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+            val leaf = chain.firstOrNull() ?: throw CertificateException("no certificate")
+            val fp = MessageDigest.getInstance("SHA-256").digest(leaf.encoded)
+            if (pin != null && !MessageDigest.isEqual(pin, fp)) throw CertificateException(MISMATCH)
+            seen = fp
+        }
+
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+    }
+
     private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000): Conn {
         val trust = Pinning(decodeFp(pin))
         val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
