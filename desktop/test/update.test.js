@@ -128,3 +128,58 @@ test('a release list that fails is an error, not "no update"', async (t) => {
   const hub = await fakeGitHub(t, 'v9.9.9', Buffer.from('x'), { feedStatus: 403 });
   await assert.rejects(checkLatest({ fetch, current: '0.3.0', platform: 'win32', ...hub }), /403/);
 });
+
+test('downloads the installer and checks it', async (t) => {
+  const body = crypto.randomBytes(300 * 1024);
+  const hub = await fakeGitHub(t, 'v9.9.9', body);
+  const dir = tmp(t);
+  fs.writeFileSync(path.join(dir, 'Flingo-Setup-0.0.1.exe'), 'an older download');
+  const u = await checkLatest({ fetch, current: '0.3.0', platform: 'win32', ...hub });
+  const seen = [];
+  const file = await download(u, dir, { fetch, onProgress: (got, of) => seen.push([got, of]) });
+  assert.equal(path.basename(file), 'Flingo-Setup-9.9.9.exe');
+  assert.deepEqual(fs.readFileSync(file), body);
+  assert.deepEqual(seen.at(-1), [body.length, body.length]);
+  assert.deepEqual(fs.readdirSync(dir), ['Flingo-Setup-9.9.9.exe'], 'the older download is cleared away');
+
+  // Asking again does not fetch it twice.
+  const again = await download(u, dir, { fetch: () => { throw new Error('should not fetch'); } });
+  assert.equal(again, file);
+});
+
+test('an installer that was tampered with is thrown away', async (t) => {
+  const body = crypto.randomBytes(4000);
+  const swapped = Buffer.from(body);
+  swapped[100] ^= 0xff;
+  const hub = await fakeGitHub(t, 'v9.9.9', body, { served: swapped });
+  const dir = tmp(t);
+  const u = await checkLatest({ fetch, current: '0.3.0', platform: 'win32', ...hub });
+  await assert.rejects(download(u, dir, { fetch }), /checksum/);
+  assert.deepEqual(fs.readdirSync(dir), []);
+});
+
+test('an installer of the wrong length is thrown away', async (t) => {
+  const body = crypto.randomBytes(4000);
+  const dir = tmp(t);
+  const longer = await fakeGitHub(t, 'v9.9.9', body, { served: Buffer.concat([body, Buffer.from('extra')]) });
+  await assert.rejects(download(await checkLatest({ fetch, current: '0.3.0', platform: 'win32', ...longer }), dir, { fetch }), /larger/);
+  const shorter = await fakeGitHub(t, 'v9.9.9', body, { served: body.subarray(0, 1000) });
+  await assert.rejects(download(await checkLatest({ fetch, current: '0.3.0', platform: 'win32', ...shorter }), dir, { fetch }), /early/);
+  assert.deepEqual(fs.readdirSync(dir), []);
+});
+
+test('a release without an installer for this PC cannot be downloaded', async (t) => {
+  const u = readRelease(release('v0.4.0'), { current: '0.3.0', platform: 'linux' });
+  await assert.rejects(download(u, tmp(t), { fetch }), /no installer/);
+});
+
+test('old downloads are cleared', (t) => {
+  const dir = tmp(t);
+  fs.writeFileSync(path.join(dir, 'a.exe'), '1');
+  fs.writeFileSync(path.join(dir, 'b.exe.part'), '2');
+  cleanDownloads(dir, 'a.exe');
+  assert.deepEqual(fs.readdirSync(dir), ['a.exe']);
+  cleanDownloads(dir);
+  assert.deepEqual(fs.readdirSync(dir), []);
+  cleanDownloads(path.join(dir, 'missing')); // no folder is fine
+});
