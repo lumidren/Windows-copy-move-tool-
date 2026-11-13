@@ -82,6 +82,7 @@ function render(s) {
   $('stage').checked = s.stage;
 
   // pairing
+  if (s.pairingLocked) $('qr').classList.remove('big');
   $('pair-open').hidden = s.pairingLocked;
   $('pair-locked').hidden = !s.pairingLocked;
   if (!s.pairingLocked) {
@@ -214,6 +215,9 @@ async function runPreflight() {
   }));
 }
 
+// Click the QR code to fill the window with it, for scanning from a few steps away.
+$('qr').onclick = () => $('qr').classList.toggle('big');
+$('qr').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') $('qr').classList.toggle('big', e.key !== 'Escape' && !$('qr').classList.contains('big')); };
 $('new-code').onclick = async () => render(await api.newCode());
 $('lock').onclick = async () => render(await api.set({ pairingLocked: true }));
 $('unlock').onclick = async () => render(await api.set({ pairingLocked: false }));
