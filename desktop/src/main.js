@@ -703,6 +703,36 @@ function setUpdate(patch) {
   sendMain('update', updateState());
 }
 
+/** [manual] is a click on "Check now": it runs even on stage, and it reports failure. */
+async function checkForUpdate(manual = false) {
+  if (['checking', 'downloading', 'ready'].includes(update.state)) return;
+  // On stage nothing may pop up, and nothing goes on the network that does not have to.
+  if (!manual && (settings.stage || !settings.autoUpdate)) return;
+  setUpdate({ state: 'checking', message: '' });
+  try {
+    const origin = updateDev.feed ? new URL('.', updateDev.feed).href : '';
+    found = await updates.checkLatest({
+      fetch: netFetch,
+      current: app.getVersion(),
+      platform: process.platform,
+      ...(origin ? { feed: updateDev.feed, downloads: origin, releases: origin } : {}),
+    });
+  } catch {
+    // Being offline is normal for Flingo, so only a check somebody asked for says it failed.
+    found = null;
+    setUpdate({ state: manual ? 'failed' : 'idle', version: '', message: manual ? 'Could not reach GitHub. Is this PC online?' : '' });
+    return;
+  }
+  if (!found) { setUpdate({ state: 'current', version: '' }); return; }
+  if (manual && settings.updateDismissed) { settings.updateDismissed = ''; saveSettings(); } // asking brings it back
+  setUpdate({ state: 'available', version: found.version });
+  const unseen = !mainWin || mainWin.isDestroyed() || !mainWin.isVisible();
+  if (unseen && announced !== found.version && settings.updateDismissed !== found.version) {
+    announced = found.version;
+    notify(`Flingo ${found.version} is available.`, showMain);
+  }
+}
+
 // ---------- pre-flight ----------
 /** Sends a real file through the real receiver from this PC, checks it byte for byte, and times the animation. */
 function selfTest() {
@@ -862,6 +892,7 @@ if (!app.requestSingleInstanceLock()) {
       if (typeof patch.showOverlay === 'boolean') settings.showOverlay = patch.showOverlay || settings.stage;
       if (typeof patch.sound === 'boolean') settings.sound = patch.sound;
       if (typeof patch.pairingLocked === 'boolean') settings.pairingLocked = patch.pairingLocked;
+      if (typeof patch.autoUpdate === 'boolean') settings.autoUpdate = patch.autoUpdate;
       if (typeof patch.stage === 'boolean') setStage(patch.stage);
       if (typeof patch.overlayDisplay === 'string') {
         settings.overlayDisplay = patch.overlayDisplay === 'auto' || screen.getAllDisplays().some((d) => String(d.id) === patch.overlayDisplay)
@@ -898,7 +929,6 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('reveal-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.showItemInFolder(p); });
     ipcMain.on('preview-effect', (_e, effect) => {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
-      if (typeof patch.autoUpdate === 'boolean') settings.autoUpdate = patch.autoUpdate;
     });
     ipcMain.on('identify-screens', identifyScreens);
     ipcMain.on('open-settings', (_e, what) => {
@@ -913,6 +943,16 @@ if (!app.requestSingleInstanceLock()) {
       icon = icon.isEmpty() ? nativeImage.createFromPath(ICON).resize({ width: 64 }) : icon.resize({ width: 96 });
       e.sender.startDrag({ file: p, icon });
     });
+    ipcMain.on('update', (_e, what) => {
+      if (what === 'check') checkForUpdate(true);
+      if (what === 'download') downloadUpdate();
+      if (what === 'install') installUpdate();
+      if (what === 'later') dismissUpdate();
+      if (what === 'notes' && found) shell.openExternal(found.page);
+    });
+    setTimeout(checkForUpdate, UPDATE_FIRST_CHECK_MS);
+    setInterval(checkForUpdate, UPDATE_EVERY_MS);
+
     ipcMain.on('overlay-idle', (_e, stats) => {
       if (selfResult && stats && stats.frames > 20) selfResult.stats = { fps: stats.fps, worstMs: stats.worstMs };
       if (process.env.FLINGO_DEBUG_PERF && stats) console.log('[overlay]', JSON.stringify(stats));
@@ -926,13 +966,3 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('before-quit', () => { quitting = true; });
 }
-    ipcMain.on('update', (_e, what) => {
-      if (what === 'check') checkForUpdate(true);
-      if (what === 'download') downloadUpdate();
-      if (what === 'install') installUpdate();
-      if (what === 'later') dismissUpdate();
-      if (what === 'notes' && found) shell.openExternal(found.page);
-    });
-    setTimeout(checkForUpdate, UPDATE_FIRST_CHECK_MS);
-    setInterval(checkForUpdate, UPDATE_EVERY_MS);
-
