@@ -315,9 +315,31 @@ object Net {
         return name to size
     }
 
-    private fun sendTo(ctx: Context, host: String, prefs: Prefs, uri: Uri, x: Float, onProgress: (Long, Long) -> Unit): String {
-        val (name, size) = describe(ctx, uri)
-        val c = open(host, prefs.port, "/send?x=$x", prefs.fp, connectMs = 1500)
+    @Volatile private var inFlight: HttpsURLConnection? = null
+
+    /** Drops the connection of the file being sent, so a write that is stuck returns at once. */
+    fun abort() { runCatching { inFlight?.disconnect() } }
+
+    private fun sendPath(x: Float, o: SendOptions, offset: Long): String {
+        val q = StringBuilder("/send?x=$x")
+        if (o.quiet) q.append("&quiet=1")
+        if (o.batch.isNotEmpty()) {
+            q.append("&batch=${o.batch}&i=${o.index}&n=${o.count}")
+            if (o.batchBytes >= 0) q.append("&bytes=${o.batchBytes}")
+        }
+        if (o.id.isNotEmpty()) {
+            q.append("&id=${o.id}")
+            if (offset > 0) q.append("&offset=$offset")
+        }
+        return q.toString()
+    }
+
+    /** One attempt at one address, starting [offset] bytes into the file. */
+    private fun sendTo(
+        ctx: Context, host: String, prefs: Prefs, uri: Uri, name: String, size: Long, x: Float,
+        o: SendOptions, offset: Long, cancelled: () -> Boolean, onProgress: (Long, Long) -> Unit,
+    ): String {
+        val c = open(host, prefs.port, sendPath(x, o, offset), prefs.fp, connectMs = 1500)
         val conn = c.http
         try {
             conn.requestMethod = "POST"
