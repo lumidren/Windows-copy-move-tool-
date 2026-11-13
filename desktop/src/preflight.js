@@ -101,3 +101,22 @@ async function runPreflight(ctx) {
     if (dead.length) add('network', 'Port does not answer', 'fail', `Nothing answers on ${dead.join(', ')} port ${ctx.port}. Restart Flingo.`);
     else add('network', 'Network address ready', 'ok', `The phone can use ${ctx.addresses.join(' or ')}, port ${ctx.port}.`);
   }
+
+  // 4. discovery
+  if (ctx.server.udpBound) add('discovery', 'Automatic discovery is on', 'ok', 'Phones on the same network can find this PC by name. If the venue network blocks that, the QR code still works.');
+  else add('discovery', 'Automatic discovery is off', 'warn', 'Port 47800 could not be opened, so phones cannot find this PC by name. Pair with the QR code instead.');
+
+  // 5. firewall
+  if (remote.length) {
+    add('firewall', 'Firewall lets Flingo through', 'ok', `${remote[0].name} reached this PC over the network ${ago(now - remote[0].lastSeen)}, so nothing is blocking it.`);
+  } else if (ctx.platform === 'win32') {
+    const fw = ctx.firewall || await windowsFirewall(ctx.exePath);
+    const where = fw.network ? ` (this is a ${fw.network} network)` : '';
+    if (fw.state === 'blocked') add('firewall', 'Windows Firewall is blocking Flingo', 'fail', `Open "Allow an app through Windows Firewall", find Flingo, and tick both Private and Public${where}.`, 'firewall');
+    else if (fw.state === 'none') add('firewall', 'Windows Firewall has no rule for Flingo', 'warn', `Windows may still be waiting for you to press "Allow". If no prompt is on screen, allow Flingo by hand for Private and Public networks${where}. This turns green once a phone gets through.`, 'firewall');
+    else if (fw.state === 'allowed') add('firewall', 'Windows Firewall allows Flingo', 'ok', `Allowed on this network${where}. Open Flingo on the phone to prove it end to end.`);
+    else if (fw.state === 'off') add('firewall', 'Windows Firewall is off here', 'ok', `Nothing from Windows is blocking Flingo${where}. If another security program runs on this PC, open Flingo on the phone to prove it gets through.`);
+    else add('firewall', 'Firewall could not be read', 'warn', 'Open Flingo on the phone. If it shows this PC as connected, the firewall is fine.');
+  } else {
+    add('firewall', 'Firewall not checked on this system', 'manual', `If a firewall is on, allow UDP 47800 and TCP ${ctx.port}. Open Flingo on the phone to prove it gets through.`);
+  }
