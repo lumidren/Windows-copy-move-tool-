@@ -64,3 +64,14 @@ function createIdentity(commonName = 'Flingo', now = new Date()) {
     cert: pem('CERTIFICATE', cert),
   };
 }
+
+/** SHA-256 of the certificate, the value a phone pins. */
+function fingerprint(certPem) {
+  return crypto.createHash('sha256').update(new crypto.X509Certificate(certPem).raw).digest();
+}
+
+/** A short form people can compare by eye, e.g. "4F2A 91C3". */
+function securityCode(certPem) {
+  const hex = fingerprint(certPem).toString('hex').toUpperCase();
+  return `${hex.slice(0, 4)} ${hex.slice(4, 8)}`;
+}
