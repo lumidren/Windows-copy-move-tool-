@@ -63,12 +63,16 @@ class MainActivity : Activity() {
     private lateinit var status: LinearLayout
     private lateinit var statusText: TextView
     private lateinit var statusBar: ProgressBar
+    private lateinit var statusCancel: TextView
     private lateinit var empty: TextView
+    private lateinit var selectBar: LinearLayout
+    private lateinit var selectCount: TextView
 
     // drag state
     private var dragging = false
     private var floating: ImageView? = null
     private var dragItem: MediaItem? = null
+    private var dragUris: List<Uri> = emptyList()
     private var originX = 0f
     private var originY = 0f
     private var grabDx = 0f
@@ -134,16 +138,23 @@ class MainActivity : Activity() {
         if (prefs.keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         startHealthChecks()
-    }
-
-    override fun onPause() {
-        healthJob?.cancel()
-        super.onPause()
-    }
         // Catch up with a transfer that kept going while this screen was away.
         Transfers.listener = sendWatcher
         Transfers.takeResult()?.let(::showResult)
         Transfers.state?.let(::showSend)
+    }
+
+    override fun onPause() {
+        healthJob?.cancel()
+        Transfers.listener = null
+        super.onPause()
+    }
+
+    @Deprecated("Still the simplest way to give Back a meaning inside one screen.")
+    override fun onBackPressed() {
+        if (adapter.selectedCount > 0) adapter.clearSelection()
+        else @Suppress("DEPRECATION") super.onBackPressed()
+    }
 
     override fun onDestroy() {
         scope.cancel()
@@ -190,8 +201,13 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
         column.addView(header)
 
-        column.addView(TextView(this).apply {
-            text = "Hold a photo, then flick it up toward your PC."
+        val hintRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpi(18f), 0, dpi(12f), dpi(10f))
+        }
+        hintRow.addView(TextView(this).apply {
+            text = "Hold a photo and flick it up. Tap to select several."
             textSize = 13f
             setTextColor(Color.parseColor("#9097AA"))
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -210,8 +226,8 @@ class MainActivity : Activity() {
 
         adapter = GalleryAdapter(
             this,
-            onTap = { showStatus("Hold a photo, then flick it up.") },
             onPickUp = ::startDrag,
+            onSelection = ::updateSelectBar,
         )
         grid = RecyclerView(this).apply {
             layoutManager = GridLayoutManager(this@MainActivity, 3)
@@ -219,24 +235,6 @@ class MainActivity : Activity() {
             setHasFixedSize(true)
         }
         column.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
-        root.addView(column, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-
-        empty = TextView(this).apply {
-            textSize = 15f
-            gravity = Gravity.CENTER
-            setTextColor(Color.parseColor("#C5CAD8"))
-            setPadding(dpi(32f), dpi(32f), dpi(32f), dpi(32f))
-            visibility = View.GONE
-            setOnClickListener { requestMediaPermission() }
-        }
-        root.addView(empty, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.CENTER))
-
-        zone = TextView(this).apply {
-            textSize = 16f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            // Keep the label at the top edge so the dragged photo and the finger don't cover it.
-            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
 
         // Shown while photos are selected: how many, a way to select more at once, and Send.
         selectCount = TextView(this).apply {
@@ -276,6 +274,24 @@ class MainActivity : Activity() {
             })
         }
         column.addView(selectBar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        root.addView(column, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+
+        empty = TextView(this).apply {
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#C5CAD8"))
+            setPadding(dpi(32f), dpi(32f), dpi(32f), dpi(32f))
+            visibility = View.GONE
+            setOnClickListener { requestMediaPermission() }
+        }
+        root.addView(empty, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.CENTER))
+
+        zone = TextView(this).apply {
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            // Keep the label at the top edge so the dragged photo and the finger don't cover it.
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
             alpha = 0f
             visibility = View.GONE
         }
@@ -293,24 +309,6 @@ class MainActivity : Activity() {
             progressBackgroundTintList = ColorStateList.valueOf(Color.parseColor("#3A4053"))
             visibility = View.GONE
         }
-        status = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = pill(Color.parseColor("#F01F2330"), 22f)
-            setPadding(dpi(18f), dpi(11f), dpi(18f), dpi(11f))
-            elevation = dp(8f)
-            visibility = View.GONE
-            addView(statusText, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
-            addView(statusBar, LinearLayout.LayoutParams(dpi(220f), dpi(4f)).apply { topMargin = dpi(8f); gravity = Gravity.CENTER_HORIZONTAL })
-        }
-        root.addView(status, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
-            bottomMargin = dpi(40f)
-            leftMargin = dpi(20f)
-            rightMargin = dpi(20f)
-        })
-
-        root.setOnApplyWindowInsetsListener { _, insets ->
-            @Suppress("DEPRECATION")
-            column.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom)
         statusCancel = TextView(this).apply {
             text = "Cancel"
             textSize = 14f
@@ -328,6 +326,24 @@ class MainActivity : Activity() {
             addView(statusText, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1f))
             addView(statusCancel)
         }
+        status = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = pill(Color.parseColor("#F01F2330"), 22f)
+            setPadding(dpi(18f), dpi(11f), dpi(18f), dpi(11f))
+            elevation = dp(8f)
+            visibility = View.GONE
+            addView(statusLine, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
+            addView(statusBar, LinearLayout.LayoutParams(dpi(220f), dpi(4f)).apply { topMargin = dpi(8f); gravity = Gravity.CENTER_HORIZONTAL })
+        }
+        root.addView(status, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dpi(40f)
+            leftMargin = dpi(20f)
+            rightMargin = dpi(20f)
+        })
+
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            @Suppress("DEPRECATION")
+            column.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom)
             zone.setPadding(0, insets.systemWindowInsetTop + dpi(10f), 0, 0)
             insets
         }
@@ -374,13 +390,14 @@ class MainActivity : Activity() {
         )
     }
 
-    /** [progress] is 0..1000, or null for no bar. */
-    private fun showStatus(text: String, sticky: Boolean = false, progress: Int? = null, holdMs: Long = 2600) {
+    /** [progress] is 0..1000, or null for no bar. [cancelable] adds a Cancel button for the transfer in progress. */
+    private fun showStatus(text: String, sticky: Boolean = false, progress: Int? = null, holdMs: Long = 2600, cancelable: Boolean = false) {
         statusJob?.cancel()
         if (statusText.text != text) {
             statusText.text = text
             if (progress == null) status.announceForAccessibility(text)
         }
+        statusCancel.visibility = if (cancelable) View.VISIBLE else View.GONE
         statusBar.visibility = if (progress == null) View.GONE else View.VISIBLE
         if (progress != null) statusBar.progress = progress
         status.visibility = View.VISIBLE
@@ -405,11 +422,10 @@ class MainActivity : Activity() {
     private fun startHealthChecks() {
         healthJob?.cancel()
         if (!prefs.paired) { online = null; updateChip(); return }
-        statusCancel.visibility = if (cancelable) View.VISIBLE else View.GONE
         healthJob = scope.launch {
             var misses = 0
             while (isActive) {
-                if (!sending) checkConnection(relocate = misses >= 2)
+                if (!Transfers.busy) checkConnection(relocate = misses >= 2)
                 misses = if (online == false) misses + 1 else 0
                 delay(if (online == true) 4000 else 2500)
             }
@@ -512,6 +528,8 @@ class MainActivity : Activity() {
 
         floating = view
         dragItem = item
+        // With photos selected, a flick takes them all: the one under the finger first, so it is the one that flies.
+        dragUris = listOf(item.uri) + adapter.selection().filter { it != item.uri }
         dragging = true
         wasInZone = false
 
@@ -530,8 +548,6 @@ class MainActivity : Activity() {
     private fun fingerInZone(): Boolean = (lastY - rootOnScreen()[1]) < root.height * prefs.zonePercent / 100f
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // With photos selected, a flick takes them all: the one under the finger first, so it is the one that flies.
-        dragUris = listOf(item.uri) + adapter.selection().filter { it != item.uri }
         lastX = ev.rawX
         lastY = ev.rawY
         if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
@@ -589,10 +605,17 @@ class MainActivity : Activity() {
     }
 
     // ---------- sending ----------
-    private fun size(bytes: Long): String = when {
-        bytes < 1024 * 1024 -> "${maxOf(1, bytes / 1024)} KB"
-        bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / 1048576.0)
-        else -> "%.2f GB".format(bytes / 1073741824.0)
+    /**
+     * Hands files to the queue, which sends them even if this screen goes away. A flick sets
+     * [animateFirst], so its photo flies in on the PC; everything else arrives quietly.
+     */
+    private fun send(uris: List<Uri>, x: Float, animateFirst: Boolean) {
+        if (uris.isEmpty()) return
+        if (uris.size > 3) askForNotifications()
+        if (Transfers.busy) showStatus("Added to the queue.", holdMs = 1500)
+        else showStatus(if (uris.size > 1) "Getting ${uris.size} files ready…" else "Sending…", sticky = true, progress = 0)
+        // A PC already known to be out of reach is not searched for, so the answer comes back fast.
+        Transfers.enqueue(this, SendJob(uris, x, animateFirst, search = online != false))
     }
 
     private fun showSend(s: SendState) {
@@ -606,26 +629,92 @@ class MainActivity : Activity() {
                 online = true
                 updateChip()
                 buzz(hapticYes)
-                showStatus(if (sent > 1) "Sent $sent files to ${prefs.pcName} ✓" else "Sent to ${prefs.pcName} ✓")
-            } catch (_: NotPairedException) {
+                when {
+                    r.skipped > 0 -> showStatus("Sent ${r.sent} to $pc. ${Words.files(r.skipped)} could not be opened on this phone.", holdMs = 6000)
+                    r.sent > 1 -> showStatus("Sent ${r.sent} files to $pc ✓")
+                    else -> showStatus("Sent to $pc ✓")
+                }
+            }
+            is SendResult.Cancelled ->
+                showStatus(if (r.sent > 0) "Stopped. ${r.sent} of ${r.of} were sent." else "Cancelled.", holdMs = 3500)
+            is SendResult.Failed -> {
                 buzz(hapticNo)
-                forgetPc("${prefs.pcName} no longer recognises this phone. Tap Pair with PC to pair again.")
-            } catch (e: PcRefusedException) {
-                buzz(hapticNo)
-                showStatus(e.message ?: "The PC could not take the file.", holdMs = 6000)
-            } catch (_: UnreadableFileException) {
-                buzz(hapticNo)
-                showStatus("That file can't be opened on this phone. Try another one.", holdMs = 5000)
-            } catch (_: Exception) {
-                buzz(hapticNo)
-                online = false
-                updateChip()
-                val already = if (sent > 0) "$sent sent, the rest did not go. " else ""
-                showStatus("${already}Can't reach ${prefs.pcName}. Tap its name at the top to reconnect.", holdMs = 7000)
-            } finally {
-                sending = false
+                val already = if (r.sent > 0) "${r.sent} of ${r.of} sent, the rest did not go. " else ""
+                when (r.why) {
+                    SendResult.Why.NOT_PAIRED ->
+                        forgetPc("$pc no longer recognises this phone. Tap Pair with PC to pair again.")
+                    SendResult.Why.REFUSED ->
+                        showStatus(already + r.message.ifEmpty { "The PC could not take the file." }, holdMs = 6000)
+                    SendResult.Why.UNREADABLE ->
+                        showStatus("That file can't be opened on this phone. Try another one.", holdMs = 5000)
+                    SendResult.Why.UNREACHABLE -> {
+                        online = false
+                        updateChip()
+                        showStatus("${already}Can't reach $pc. Tap its name at the top to reconnect.", holdMs = 7000)
+                    }
+                }
             }
         }
+    }
+
+    /** A long transfer shows its progress in a notification, which Android 13 and later only allow after asking. */
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT < 33 || prefs.askedNotifications) return
+        prefs.askedNotifications = true
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
+        }
+    }
+
+    // ---------- selecting several ----------
+    private fun updateSelectBar(count: Int) {
+        selectBar.visibility = if (count > 0) View.VISIBLE else View.GONE
+        selectCount.text = "$count selected  ▾"
+        selectCount.contentDescription = "$count selected. Tap to select more at once."
+        // Keep the status pill clear of the bar.
+        (status.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpi(if (count > 0) 104f else 40f)
+        status.requestLayout()
+    }
+
+    private fun sendSelection() {
+        val uris = adapter.selection()
+        if (uris.isEmpty()) return
+        if (!prefs.paired) { pendingShare = uris; showPairDialog(); return }
+        send(uris, 0.5f, animateFirst = false)
+        adapter.clearSelection()
+    }
+
+    /** Selecting two hundred photos one tap at a time is nobody's idea of smooth. */
+    private fun showSelectMenu() {
+        val day = 24 * 60 * 60L
+        val now = System.currentTimeMillis() / 1000
+        val spans = listOf("Today" to day, "The last 7 days" to 7 * day, "The last 30 days" to 30 * day, "Everything" to Long.MAX_VALUE)
+        val counts = spans.map { (_, span) -> adapter.count { span == Long.MAX_VALUE || now - it.date < span } }
+        AlertDialog.Builder(this)
+            .setTitle("Select")
+            .setItems(spans.mapIndexed { i, (label, _) -> "$label  (${counts[i]})" }.toTypedArray()) { _, i ->
+                val span = spans[i].second
+                adapter.select { span == Long.MAX_VALUE || now - it.date < span }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // ---------- any file ----------
+    private fun pickFiles() {
+        val pick = Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("*/*")
+            .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        @Suppress("DEPRECATION")
+        runCatching { startActivityForResult(pick, PICK_FILES) }
+            .onFailure { showStatus("This phone has no file picker. Share the file to Flingo from another app instead.", holdMs = 5000) }
+    }
+
+    private fun pickedFiles(data: Intent?): List<Uri> {
+        val clip = data?.clipData
+        if (clip != null) return (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+        return listOfNotNull(data?.data)
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -644,7 +733,7 @@ class MainActivity : Activity() {
         intent.action = Intent.ACTION_MAIN // don't resend on rotation
         if (uris.isEmpty()) return
         if (prefs.paired) {
-            send(uris, 0.5f)
+            send(uris, 0.5f, animateFirst = uris.size == 1)
         } else {
             pendingShare = uris
             showPairDialog()
@@ -693,6 +782,13 @@ class MainActivity : Activity() {
 
     @Deprecated("The scanner library still delivers its result this way.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == PICK_FILES) {
+            val uris = if (resultCode == RESULT_OK) pickedFiles(data) else emptyList()
+            if (uris.isEmpty()) return
+            if (prefs.paired) send(uris, 0.5f, animateFirst = false)
+            else { pendingShare = uris; showPairDialog() }
+            return
+        }
         val scan = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
         if (scan == null) {
             @Suppress("DEPRECATION")
@@ -735,7 +831,8 @@ class MainActivity : Activity() {
         if (pendingShare.isNotEmpty()) {
             val uris = pendingShare
             pendingShare = emptyList()
-            send(uris, 0.5f)
+            send(uris, 0.5f, animateFirst = uris.size == 1)
+            adapter.clearSelection()
         }
     }
 
@@ -782,13 +879,6 @@ class MainActivity : Activity() {
             searching.dismiss()
             val builder = AlertDialog.Builder(this@MainActivity).setNegativeButton("Cancel", null)
             if (pcs.isEmpty()) {
-        if (requestCode == PICK_FILES) {
-            val uris = if (resultCode == RESULT_OK) pickedFiles(data) else emptyList()
-            if (uris.isEmpty()) return
-            if (prefs.paired) send(uris, 0.5f, animateFirst = false)
-            else { pendingShare = uris; showPairDialog() }
-            return
-        }
                 builder.setTitle("No PC found")
                     .setMessage("Some Wi-Fi networks stop devices from finding each other. Scanning the QR code shown in Flingo on the PC works on any network.")
                     .setPositiveButton("Scan QR code") { _, _ -> scanQr() }
