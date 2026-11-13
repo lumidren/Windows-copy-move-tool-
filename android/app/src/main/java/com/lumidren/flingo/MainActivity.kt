@@ -309,6 +309,23 @@ class MainActivity : Activity() {
         root.setOnApplyWindowInsetsListener { _, insets ->
             @Suppress("DEPRECATION")
             column.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom)
+        statusCancel = TextView(this).apply {
+            text = "Cancel"
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(accent)
+            gravity = Gravity.CENTER
+            minHeight = dpi(32f)
+            setPadding(dpi(14f), 0, dpi(2f), 0)
+            visibility = View.GONE
+            setOnClickListener { Transfers.cancel() }
+        }
+        val statusLine = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(statusText, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1f))
+            addView(statusCancel)
+        }
             zone.setPadding(0, insets.systemWindowInsetTop + dpi(10f), 0, 0)
             insets
         }
@@ -380,6 +397,7 @@ class MainActivity : Activity() {
     private fun startHealthChecks() {
         healthJob?.cancel()
         if (!prefs.paired) { online = null; updateChip(); return }
+        statusCancel.visibility = if (cancelable) View.VISIBLE else View.GONE
         healthJob = scope.launch {
             var misses = 0
             while (isActive) {
