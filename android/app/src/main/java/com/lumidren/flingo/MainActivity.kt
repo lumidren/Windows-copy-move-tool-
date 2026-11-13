@@ -622,6 +622,26 @@ class MainActivity : Activity() {
         handleLink(Uri.parse(text), scannedHere = true)
     }
 
+    /** A pairing link, from the in-app scanner or from another app such as the phone's camera. */
+    private fun handleLink(uri: Uri, scannedHere: Boolean) {
+        val link = Net.parseLink(uri)
+        if (link == null) {
+            showStatus("That isn't a Flingo pairing code. Scan the QR code shown in Flingo on your PC.", holdMs = 5000)
+            return
+        }
+        if (scannedHere) {
+            pairWith(link)
+            return
+        }
+        // A link opened from outside the app could have been made by anyone, so ask first.
+        AlertDialog.Builder(this)
+            .setTitle("Pair with ${link.pc.name}?")
+            .setMessage("Photos you flick will go to the computer at ${link.pc.host}. Only continue if you just scanned the code on your own PC.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Pair") { _, _ -> pairWith(link) }
+            .show()
+    }
+
     private fun searchForPc() {
         val searching = AlertDialog.Builder(this)
             .setTitle("Looking for your PC…")
