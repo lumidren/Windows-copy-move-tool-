@@ -96,6 +96,35 @@ function lanAddresses() {
   return out;
 }
 
+// ---------- pairing link + QR ----------
+// Everything a phone needs to pair without discovery: where the PC is, the one-time
+// code, and the certificate fingerprint to pin.
+function pairUri() {
+  const q = new URLSearchParams({
+    h: lanAddresses().join(','),
+    p: String(receiver ? receiver.port : HTTP_PORT),
+    c: pairCode,
+    id: settings.deviceId,
+    n: settings.name,
+  });
+  if (identity) q.set('fp', fingerprint(identity.cert).toString('base64url'));
+  return `flingo://pair?${q}`;
+}
+
+function qrRows(text) {
+  const qr = qrcode(0, 'M');
+  qr.addData(text, 'Byte');
+  qr.make();
+  const n = qr.getModuleCount();
+  const rows = [];
+  for (let r = 0; r < n; r++) {
+    let row = '';
+    for (let c = 0; c < n; c++) row += qr.isDark(r, c) ? '1' : '0';
+    rows.push(row);
+  }
+  return rows;
+}
+
 function publicState() {
   const locked = settings.pairingLocked;
   return {
