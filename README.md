@@ -235,10 +235,10 @@ Presenting to a room? Turn on **Stage mode** and read the [live demo runbook](DE
 
 ```
 desktop/
-  src/server.js     UDP discovery + HTTPS API (pair, ping, send), limits, filename sanitising
+  src/server.js     UDP discovery + HTTPS API (pair, ping, send, resume), limits, filename sanitising
   src/cert.js       the PC's TLS identity: a self-signed X.509 certificate built by hand
   src/preflight.js  the pre-flight checklist, including the Windows Firewall reading
-  src/main.js       tray, windows, settings, pairing, stage mode, arrival screen
+  src/main.js       tray, windows, settings, pairing, stage mode, arrival screen, batches
   src/overlay.js    canvas arrival animation, the four effects, progress pills, sound
   src/index.*       main window: QR code, effects, phones, received list, checklist
   test/             receiver, certificate and pre-flight tests; overlay at ten screen sizes
