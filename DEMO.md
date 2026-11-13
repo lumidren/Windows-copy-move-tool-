@@ -18,3 +18,11 @@ Everything below assumes Flingo **0.2.0 or newer on both the PC and the phone**.
 | **C. Venue Wi-Fi** | Only if you tested it in the room, on the day. | If "Find my PC on this Wi-Fi" finds nothing, the QR code may still work. If the QR code also cannot connect, the network isolates devices: go to A or B. |
 
 Whichever you choose, **pair with the QR code**. It carries the PC's address and its encryption fingerprint, so it does not depend on the network letting devices discover each other.
+
+## What to carry
+
+- Stage laptop, charger, and the video adapter for the venue's projector
+- Demo phone, charged, with 6 to 10 good-looking photos at the top of its gallery
+- **A second phone, already paired**, in your pocket (Plan B for a dead or misbehaving phone)
+- Your hotspot device and its charger
+- The two demo videos saved locally on the laptop (`docs/video/what-is-flingo.mp4` and `how-it-works.mp4`), open in a player and paused (Plan C)
