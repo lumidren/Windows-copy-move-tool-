@@ -644,7 +644,7 @@ function closeBatch(b) {
   clearTimeout(b.timer);
   batches.delete(b.key);
   for (const [key, owner] of memberOf) if (owner === b) memberOf.delete(key);
-  const all = b.done >= b.count;
+  const all = b.done >= b.count || b.ended;
   post(all ? {
     id: b.id, state: 'done', title: `${files(b.done)} received`,
     detail: `from ${b.from} · ${fmtSize(b.doneBytes)}`, fraction: 1, hold: 1900,
