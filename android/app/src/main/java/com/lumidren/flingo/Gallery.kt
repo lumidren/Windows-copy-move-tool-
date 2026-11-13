@@ -80,6 +80,45 @@ class GalleryAdapter(
             setPadding((1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt())
         }
         val image = ImageView(ctx).apply {
+    // ---------- selection ----------
+    val selectedCount: Int get() = selected.size
+
+    /** The selected photos, newest first, as they appear in the grid. */
+    fun selection(): List<Uri> = items.filter { it.uri in selected }.map { it.uri }
+
+    fun count(which: (MediaItem) -> Boolean): Int = items.count(which)
+
+    /** Adds every photo that matches to the selection. */
+    fun select(which: (MediaItem) -> Boolean) {
+        var changed = false
+        for (item in items) if (which(item) && selected.add(item.uri)) changed = true
+        if (!changed) return
+        notifyItemRangeChanged(0, items.size, MARK)
+        onSelection(selected.size)
+    }
+
+    fun clearSelection() {
+        if (selected.isEmpty()) return
+        selected.clear()
+        notifyItemRangeChanged(0, items.size, MARK)
+        onSelection(0)
+    }
+
+    private fun toggle(item: MediaItem, position: Int) {
+        if (!selected.remove(item.uri)) selected.add(item.uri)
+        notifyItemChanged(position, MARK)
+        onSelection(selected.size)
+    }
+
+    private fun mark(holder: Holder, item: MediaItem) {
+        val on = item.uri in selected
+        holder.check.visibility = if (on) View.VISIBLE else View.GONE
+        holder.image.alpha = if (on) 0.55f else 1f
+        holder.itemView.isSelected = on
+        val what = if (item.isVideo) "Video" else "Photo"
+        holder.image.contentDescription = if (on) "$what, selected" else what
+    }
+
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(Color.parseColor("#171A23"))
         }
