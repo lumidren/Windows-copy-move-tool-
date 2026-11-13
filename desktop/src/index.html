@@ -104,6 +104,15 @@
         <span class="switch"></span>
         <span id="launch-label">Start with Windows</span>
       </label>
+      <label class="toggle">
+        <input type="checkbox" id="auto-update">
+        <span class="switch"></span>
+        <span>Check for updates<br><small class="muted">Asks GitHub which version is the newest. Nothing installs without a click.</small></span>
+      </label>
+      <div class="row spread version-row">
+        <span class="muted small" id="version" role="status"></span>
+        <button id="check-update" class="ghost">Check now</button>
+      </div>
     </div>
   </section>
 

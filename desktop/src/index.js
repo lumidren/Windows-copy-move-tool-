@@ -103,6 +103,8 @@ function render(s) {
   $('sound').checked = s.sound;
   $('launch').checked = s.launchAtLogin;
   $('launch-label').textContent = s.platform === 'win32' ? 'Start with Windows' : 'Start when I log in';
+  $('auto-update').checked = s.update.auto;
+  renderUpdate(s.update);
 
   $('effects').replaceChildren(...s.effects.map((name) => {
     const b = el('button', { className: `effect${name === s.effect ? ' active' : ''}`, textContent: LABELS[name] || name });
@@ -272,6 +274,11 @@ $('test-arrival').onclick = () => api.previewEffect(state ? state.effect : 'come
 $('preflight').onclick = runPreflight;
 $('preflight-again').onclick = runPreflight;
 $('preflight-close').onclick = () => { $('preflight-card').hidden = true; };
+$('auto-update').onchange = async (e) => render(await api.set({ autoUpdate: e.target.checked }));
+$('check-update').onclick = () => api.update('check');
+$('update-notes').onclick = () => api.update('notes');
+$('update-later').onclick = () => api.update('later');
+$('update-go').onclick = () => api.update(state.update.state === 'ready' ? 'install' : 'download');
 
 api.onState(render);
 api.onDevices((d) => { devices = d; renderDevices(); });
