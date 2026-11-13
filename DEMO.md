@@ -48,6 +48,7 @@ Do this on the real stage laptop, on the real hotspot.
    - Plug in the charger. Set the power mode to **Best performance**.
    - Pause Windows Update for a week. Close chat apps, mail and anything that pops up.
    - Turn off the screen saver and any "dim the display" setting. Stage mode holds the display awake, but not a lid close.
+   - Update offers (0.4.0 and newer): stage mode keeps the laptop silent about them. On the phone, open Settings (⚙) and untick **Check for updates**, so no offer appears in the middle of the demo. Do not update either device between the rehearsal and the stage.
 9. **Run the Pre-flight check** (top of the Flingo window) with the phone open on Flingo. Every line must be green except the one that reminds you about notifications. A test photo flies across the arrival screen as part of the check.
 10. **Rehearse the whole script three times**, including picking the phone up from the table and unlocking it.
 11. **Rehearse the failures once each:** switch the hotspot off and on again and watch the phone reconnect by itself; close and reopen Flingo on the laptop; flick from the second phone.
