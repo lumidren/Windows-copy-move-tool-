@@ -3,13 +3,16 @@ package com.lumidren.flingo
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -28,6 +31,7 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.ViewOutlineProvider
+import android.view.Window
 import android.view.WindowManager
 import android.widget.CheckBox
 import android.widget.EditText
@@ -35,6 +39,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
@@ -900,23 +905,133 @@ class MainActivity : Activity() {
         else intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)) ?: emptyList()
 
     // ---------- pairing ----------
-    private fun showPairDialog() {
-        val choices = arrayOf(
-            "Scan the QR code\nFastest. Works on any network.",
-            "Find my PC on this Wi-Fi",
-            "Type the PC's address and code",
-        )
-        AlertDialog.Builder(this)
-            .setTitle("Pair with your PC")
-            .setItems(choices) { _, i ->
-                when (i) {
-                    0 -> scanQr()
-                    1 -> searchForPc()
-                    else -> showManualDialog()
-                }
+    // ---------- sheets ----------
+    // The pairing choice and the About screen are drawn in Flingo's own look, not the system's.
+
+    /** A rounded dark panel in the middle of the screen. [fill] adds its contents. */
+    private fun sheet(fill: LinearLayout.(Dialog) -> Unit): Dialog {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = pill(Color.parseColor("#171A23"), 26f).apply { setStroke(dpi(1f), Color.parseColor("#2A2F3F")) }
+            setPadding(dpi(20f), dpi(22f), dpi(20f), dpi(10f))
+        }
+        panel.fill(dialog)
+        // Scrolls on a small screen or with large text, instead of cutting the last choice off.
+        dialog.setContentView(ScrollView(this).apply { addView(panel) })
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(minOf(resources.displayMetrics.widthPixels - dpi(32f), dpi(440f)), WRAP_CONTENT)
+        }
+        dialog.show()
+        return dialog
+    }
+
+    private fun sheetTitle(words: String) = TextView(this).apply {
+        text = words
+        textSize = 21f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(Color.WHITE)
+    }
+
+    private fun sheetNote(words: String) = TextView(this).apply {
+        text = words
+        textSize = 14f
+        setTextColor(Color.parseColor("#9097AA"))
+        setPadding(0, dpi(4f), 0, dpi(16f))
+    }
+
+    private fun sheetClose(dialog: Dialog, label: String) = TextView(this).apply {
+        text = label
+        textSize = 15f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(accent)
+        gravity = Gravity.CENTER
+        minHeight = dpi(48f)
+        setPadding(dpi(18f), 0, dpi(10f), 0)
+        setOnClickListener { dialog.dismiss() }
+    }
+
+    /** A rounded surface that shows a ripple when pressed. */
+    private fun pressable(color: Int, radius: Float, outline: Boolean) = RippleDrawable(
+        ColorStateList.valueOf(Color.parseColor("#33FFFFFF")),
+        pill(color, radius).apply { if (outline) setStroke(dpi(1.5f), accent) },
+        pill(Color.WHITE, radius),
+    )
+
+    /** One way to do something: a round badge, a title, and a line that says when to pick it. */
+    private fun choice(badge: String, title: String, detail: String, recommended: Boolean, onPick: () -> Unit): View {
+        val words = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val heading = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(this@MainActivity).apply {
+                    text = title
+                    textSize = 16f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(Color.WHITE)
+                })
+                if (recommended) addView(TextView(this@MainActivity).apply {
+                    text = "BEST"
+                    textSize = 10f
+                    letterSpacing = 0.08f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(Color.parseColor("#0E1016"))
+                    background = pill(good, 8f)
+                    setPadding(dpi(7f), dpi(2f), dpi(7f), dpi(2f))
+                }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { leftMargin = dpi(8f) })
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            addView(heading)
+            addView(TextView(this@MainActivity).apply {
+                text = detail
+                textSize = 13f
+                setTextColor(Color.parseColor("#A6ADC0"))
+                setPadding(0, dpi(3f), 0, 0)
+            })
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = pressable(Color.parseColor(if (recommended) "#222A48" else "#1F2330"), 18f, outline = recommended)
+            setPadding(dpi(14f), dpi(14f), dpi(12f), dpi(14f))
+            isClickable = true
+            isFocusable = true
+            contentDescription = "$title. $detail"
+            addView(TextView(this@MainActivity).apply {
+                text = badge
+                textSize = 12f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(if (recommended) Color.WHITE else Color.parseColor("#C5CAD8"))
+                gravity = Gravity.CENTER
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (recommended) accent else Color.parseColor("#2A2F3F"))
+                }
+            }, LinearLayout.LayoutParams(dpi(46f), dpi(46f)))
+            addView(words, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { leftMargin = dpi(14f) })
+            addView(TextView(this@MainActivity).apply {
+                text = "›"
+                textSize = 24f
+                setTextColor(Color.parseColor("#6B7285"))
+                setPadding(dpi(8f), 0, 0, dpi(4f))
+            })
+            setOnClickListener { onPick() }
+        }
+    }
+
+    private fun showPairDialog() {
+        sheet { dialog ->
+            fun then(action: () -> Unit): () -> Unit = { dialog.dismiss(); action() }
+            val gap = { LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dpi(10f) } }
+            addView(sheetTitle("Pair with your PC"))
+            addView(sheetNote("Open Flingo on the PC first. You only do this once."))
+            addView(choice("QR", "Scan the QR code", "Fastest. Works on any Wi-Fi, even one that hides devices from each other.", recommended = true, onPick = then(::scanQr)))
+            addView(choice("Wi-Fi", "Find my PC", "Looks for Flingo on the Wi-Fi this phone is on.", recommended = false, onPick = then(::searchForPc)), gap())
+            addView(choice("123", "Type it in", "Enter the PC's address and its 6-digit code by hand.", recommended = false, onPick = then { showManualDialog() }), gap())
+            addView(sheetClose(dialog, "Cancel"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.END; topMargin = dpi(6f) })
+        }
     }
 
     private fun scanQr() {
@@ -1224,9 +1339,23 @@ class MainActivity : Activity() {
         }
         box.addView(awake)
         box.addView(updates)
+        val about = TextView(this).apply {
+            text = "About Flingo  ›"
+            textSize = 15f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(accent)
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dpi(48f)
+            setPadding(dpi(6f), dpi(6f), 0, 0)
+        }
         box.addView(versionRow)
+        box.addView(about)
 
         val dialog = AlertDialog.Builder(this).setTitle("Settings").setView(box).setPositiveButton("Done", null).show()
+        about.setOnClickListener {
+            dialog.dismiss()
+            showAbout()
+        }
         checkNow.setOnClickListener {
             dialog.dismiss()
             showStatus("Checking for updates…")
