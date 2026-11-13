@@ -161,3 +161,12 @@ test('an upload that is cut off leaves no partial file', async () => {
     assert.equal(t.s.status().uploads, 0);
   } finally { t.close(); }
 });
+
+test('stale partial files are cleaned up', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flingo-test-'));
+  fs.writeFileSync(path.join(dir, '.flingo-0123456789ab.part'), 'x');
+  fs.writeFileSync(path.join(dir, 'keep.jpg'), 'x');
+  assert.equal(cleanStaleParts(dir), 1);
+  assert.deepEqual(fs.readdirSync(dir), ['keep.jpg']);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
