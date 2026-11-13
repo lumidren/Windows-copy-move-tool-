@@ -2,7 +2,10 @@
 
 Twenty features, grouped by what they improve. Size is a rough guess: **S** is a day or two, **M** about a week, **L** several weeks.
 
-**Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14). They stay in the tables below, marked ✅, so the numbering other documents refer to does not move.
+**Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14).
+**Done on `main` for 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
+
+Finished items stay in the tables below, marked ✅, so the numbering other documents refer to does not move.
 
 ## Security and trust
 
@@ -19,8 +22,8 @@ Twenty features, grouped by what they improve. Size is a rough guess: **S** is a
 | # | Feature | Why it matters | Size |
 |:-:|---|---|:-:|
 | 6 | **PC to phone** | Drag a file onto the Flingo window, or flick it off the bottom of the screen, and it lands on the phone. Makes the app two-way. | L |
-| 7 | **Multi-select flick** | Tap to select several photos, then flick the stack once. The PC shows them fanning out. | M |
-| 8 | **Resumable large transfers** | Chunked uploads with a checksum, so a 4 GB video survives a Wi-Fi drop and continues where it stopped. | M |
+| 7 | ✅ **Multi-select** | Tap to select several photos, or a whole day at once, then press Send or flick the stack. The PC counts them in on one card instead of playing a flight for each. Still open: showing a flicked stack fanning out. | M |
+| 8 | ✅ **Resumable large transfers** | A large file survives a Wi-Fi drop: the PC keeps what arrived and the phone sends only the rest. Still open: a checksum of the whole file. | M |
 | 9 | ✅ **Progress and speed** | A progress ring on the phone and on the arrival card for anything larger than a few megabytes. | S |
 | 10 | **Clipboard and links** | Share text or a URL to Flingo and it lands on the PC clipboard, or opens in the browser. | S |
 | 11 | **Wi-Fi Direct fallback** | When there is no shared network (a café, a hotspot), connect the two devices directly. | L |
@@ -48,5 +51,6 @@ Twenty features, grouped by what they improve. Size is a rough guess: **S** is a
 
 1. **Signed releases (4)**: the last trust gap. It needs a code-signing certificate and a stable Android key.
 2. **A picture for every arrival**: have the phone send a small preview with videos and HEIC photos, so they fly in as pictures instead of file cards.
-3. **Multi-select (7)** and **PC to phone (6)**: the features people ask for once the basics work.
-4. Everything else, in whatever order is most fun.
+3. **PC to phone (6)**: the feature people ask for once the basics work.
+4. **Faster batches**: send several small files over one connection, or a few at a time, instead of one after another.
+5. Everything else, in whatever order is most fun.
