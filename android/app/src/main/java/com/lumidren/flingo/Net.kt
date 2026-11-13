@@ -444,6 +444,28 @@ object Net {
         throw IOException("PC not reachable")
     }
 
+    /** Tells the PC that the transfer named [id] was stopped on purpose, so it stops waiting for the rest. */
+    fun cancelOnPc(prefs: Prefs, id: String) {
+        if (id.isEmpty()) return
+        for (host in candidates(prefs)) {
+            val c = open(host, prefs.port, "/cancel?id=$id", prefs.fp, connectMs = 1500)
+            try {
+                c.http.requestMethod = "POST"
+                c.http.readTimeout = 4000
+                c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+                c.http.setFixedLengthStreamingMode(0)
+                c.http.doOutput = true
+                c.http.outputStream.close()
+                c.http.responseCode // a PC running an older Flingo answers 404, which is fine
+                return
+            } catch (_: IOException) {
+                // not at this address; try the next
+            } finally {
+                c.http.disconnect()
+            }
+        }
+    }
+
     private fun pause(ms: Long, cancelled: () -> Boolean) {
         val end = SystemClock.elapsedRealtime() + ms
         while (SystemClock.elapsedRealtime() < end) {
