@@ -371,6 +371,24 @@ function setLaunchAtLogin(enabled) {
   } catch { /* non-fatal */ }
 }
 
+// ---------- stage mode ----------
+// For presenting: the display never sleeps, arrivals are always shown, and pairing
+// is locked so nobody in the room can add their own phone.
+function applyStage() {
+  if (settings.stage && sleepBlocker === null) sleepBlocker = powerSaveBlocker.start('prevent-display-sleep');
+  if (!settings.stage && sleepBlocker !== null) { powerSaveBlocker.stop(sleepBlocker); sleepBlocker = null; }
+}
+
+function setStage(on) {
+  settings.stage = on;
+  if (on) {
+    settings.showOverlay = true;
+    settings.effect = STAGE_EFFECT;
+    if (settings.devices.length) settings.pairingLocked = true;
+  }
+  applyStage();
+}
+
 // ---------- receiving ----------
 function isImage(mime, name) {
   return /^image\//.test(mime) || /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
