@@ -244,9 +244,11 @@ desktop/
   test/             receiver, certificate and pre-flight tests; overlay at ten screen sizes
 android/
   app/src/main/java/com/lumidren/flingo/
-    Net.kt          pinned TLS, pairing, streaming upload with progress, reconnection
-    Gallery.kt      MediaStore query, thumbnail cache, grid adapter
-    MainActivity.kt hold-and-flick gesture, pairing, connection status, share target
+    Net.kt          pinned TLS, pairing, streaming upload that resumes, reconnection
+    Transfers.kt    the send queue: batches, progress, speed, cancel
+    TransferService.kt  keeps a long transfer alive in the background, with a notification
+    Gallery.kt      MediaStore query, thumbnail cache, grid adapter with selection
+    MainActivity.kt hold-and-flick gesture, selection, pairing, connection status, share target
     ScanActivity.kt the QR scanner screen
     Prefs.kt        stored pairing and settings
 ```
