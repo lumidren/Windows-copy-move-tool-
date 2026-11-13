@@ -81,3 +81,19 @@ Remove any phone under "Paired phones" that you will not be using. Every paired 
 Keep to **photos in JPEG or PNG** for the first two flicks. They animate with the picture itself. Videos, HEIC photos and other files arrive correctly but show a file card instead of the picture, so if your phone's camera saves HEIC, choose JPEG pictures for the demo.
 
 **If asked "is it encrypted?"** Yes. Every connection is TLS. The PC makes its own certificate, and the phone remembers that certificate's fingerprint when it pairs by QR code, so it will not talk to anything else at that address. Nothing leaves the local network.
+
+## If something goes wrong
+
+Stay calm and keep talking. Each row is in the order to try it.
+
+| What you see | What to do | Time it costs |
+|---|---|---|
+| Phone chip shows an **amber dot** before you start | Tap the chip, then **Try again**. Check the hotspot is on and the laptop is still joined. | 5 seconds |
+| Flick does nothing; phone says **"Can't reach Home-PC"** | Tap the PC's name at the top, **Try again**. If still amber: on the laptop press **Pair a phone**, on the phone choose **Scan QR code**. Pairing locks itself again afterwards. | 15 seconds |
+| Phone is frozen, dead or will not unlock | Take out the **second phone**. It is already paired. | 5 seconds |
+| Photo lands on the **laptop screen, not the big screen** | Win+P, choose **Duplicate**. | 5 seconds |
+| A notification covers the arrival | Carry on. Flick the next photo. (Do not disturb was off: turn it on.) | 0 seconds |
+| Phone says **"Pairing is locked"** | On the laptop press **Pair a phone**, then scan again. | 10 seconds |
+| Phone says the QR code **"has already been used"** | The laptop is showing a fresh one. Scan it again. | 5 seconds |
+| Transfer shows **"interrupted"** on the big screen | The network dropped mid-file. Flick it again. | 5 seconds |
+| Nothing works and the room is waiting | Say "Let me show you what that looks like", and play **`what-is-flingo.mp4`** from the laptop. It is 37 seconds and shows exactly this demo. | 40 seconds |
