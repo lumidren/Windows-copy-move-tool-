@@ -151,6 +151,7 @@ function render(s) {
 }
 
 // ---------- transfers in progress ----------
+// One row per card from the app: a single large file, or a whole batch.
 const rows = new Map();
 function onTransfer(t) {
   let row = rows.get(t.id);
