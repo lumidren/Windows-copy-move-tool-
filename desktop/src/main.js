@@ -320,7 +320,7 @@ function handleFile(file) {
       url: entry.image ? pathToFileURL(entry.path).href : null,
       name: entry.name, from: entry.from, x: file.x, effect: settings.effect,
     });
-  } else if (Notification.isSupported()) {
+  } else if (!settings.stage && Notification.isSupported()) {
     const n = new Notification({ title: 'Flingo', body: `${entry.name} received from ${entry.from}`, icon: ICON });
     n.on('click', () => shell.showItemInFolder(entry.path));
     n.show();
