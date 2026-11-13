@@ -38,3 +38,27 @@ function isNewer(a, b) {
  * release; otherwise { version, page, asset }, where asset is null if this platform has
  * no installer or the release does not describe it well enough to trust.
  */
+function readRelease(release, { current, platform, downloads = DOWNLOADS, releases = RELEASES } = {}) {
+  if (!release || typeof release !== 'object' || release.draft || release.prerelease) return null;
+  const numbers = parseVersion(release.tag_name);
+  if (!numbers) return null;
+  const version = numbers.join('.');
+  if (!isNewer(version, current)) return null;
+
+  const page = typeof release.html_url === 'string' && release.html_url.startsWith(releases) ? release.html_url : LATEST_PAGE;
+  const wanted = ASSETS[platform];
+  const found = wanted && Array.isArray(release.assets) ? release.assets.find((a) => a && a.name === wanted) : null;
+  let asset = null;
+  if (found) {
+    const sha256 = /^sha256:([0-9a-f]{64})$/.exec(String(found.digest || ''));
+    const url = String(found.browser_download_url || '');
+    const size = Number(found.size);
+    // An installer is only used when it comes from this project's releases and its checksum is known.
+    if (sha256 && url.startsWith(downloads) && Number.isSafeInteger(size) && size > 0 && size <= MAX_BYTES) {
+      asset = { name: wanted, url, size, sha256: sha256[1] };
+    }
+  }
+  return { version, page, asset };
+}
+
+/** Asks for the newest release. Resolves to an update (see readRelease) or null; rejects when it cannot find out. */
