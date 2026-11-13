@@ -129,3 +129,43 @@ object Updater {
      * Downloads [update] into the app's cache and checks it against the size and checksum the
      * release declared. A file that does not match is deleted and [BadDownloadException] thrown.
      */
+    fun download(ctx: Context, update: Update, cancelled: () -> Boolean, onProgress: (Long, Long) -> Unit): File {
+        val name = "flingo-${update.version}.apk"
+        val file = File(dir(ctx).apply { mkdirs() }, name)
+        clean(ctx, keep = name)
+        // Already here from an earlier try: use it if it is intact.
+        if (file.length() == update.size && sha256(file) == update.sha256) return file
+        file.delete()
+
+        val part = File(file.path + ".part")
+        val conn = open(update.url)
+        try {
+            val status = conn.responseCode
+            if (status != 200) throw IOException("The download answered $status")
+            val md = MessageDigest.getInstance("SHA-256")
+            var received = 0L
+            conn.inputStream.use { input ->
+                part.outputStream().use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        if (cancelled()) throw SendCancelledException()
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        received += n
+                        if (received > update.size) throw BadDownloadException("The download is larger than the release says")
+                        md.update(buf, 0, n)
+                        out.write(buf, 0, n)
+                        onProgress(received, update.size)
+                    }
+                }
+            }
+            if (received != update.size) throw IOException("The download stopped early")
+            val sum = md.digest().joinToString("") { "%02x".format(it) }
+            if (sum != update.sha256) throw BadDownloadException("The download does not match the release checksum")
+            if (!part.renameTo(file)) throw IOException("Could not keep the download")
+            return file
+        } finally {
+            conn.disconnect()
+            part.delete()
+        }
+    }
