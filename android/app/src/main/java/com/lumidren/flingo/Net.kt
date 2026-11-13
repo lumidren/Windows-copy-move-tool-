@@ -239,6 +239,9 @@ object Net {
         return name
         val tried = mutableSetOf<String>()
         for (host in candidates(prefs)) {
+
+/** The file on this phone could not be opened or read. */
+class UnreadableFileException : IOException("Cannot read file")
             tried.add(host)
             try {
                 val name = sendTo(ctx, host, prefs, uri, x, onProgress)
