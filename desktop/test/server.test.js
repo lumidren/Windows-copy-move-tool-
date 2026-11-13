@@ -41,3 +41,17 @@ async function boot(extra = {}) {
 }
 
 const parts = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.part'));
+
+test('file names are made safe', () => {
+  assert.equal(sanitizeName('../../etc/passwd'), 'passwd');
+  assert.equal(sanitizeName('..\\..\\Windows\\System32\\evil.dll'), 'evil.dll');
+  assert.equal(sanitizeName('C:\\Users\\me\\a.jpg'), 'a.jpg');
+  assert.equal(sanitizeName('con.txt'), '_con.txt');
+  assert.equal(sanitizeName('a<b>:c?.jpg'), 'a_b__c_.jpg');
+  assert.equal(sanitizeName('.bashrc'), '_bashrc');
+  assert.equal(sanitizeName('photo\u202Egpj.exe'), 'photogpj.exe');
+  assert.equal(sanitizeName(''), 'file');
+  assert.equal(sanitizeName('trailing. . '), 'trailing');
+  assert.ok(sanitizeName('x'.repeat(400) + '.jpeg').length <= 180);
+  assert.ok(sanitizeName('x'.repeat(400) + '.jpeg').endsWith('.jpeg'));
+});
