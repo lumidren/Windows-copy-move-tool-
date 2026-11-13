@@ -297,6 +297,52 @@ class MainActivity : Activity() {
     private val hapticYes get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
     private val hapticNo get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
 
+    // ---------- staying connected ----------
+    // While the app is open it asks the PC "are you there?" every few seconds, so the chip in the
+    // corner is always true and a changed address is found before the next flick, not during it.
+    private fun startHealthChecks() {
+        healthJob?.cancel()
+        if (!prefs.paired) { online = null; updateChip(); return }
+        healthJob = scope.launch {
+            var misses = 0
+            while (isActive) {
+                if (!sending) checkConnection(relocate = misses >= 2)
+                misses = if (online == false) misses + 1 else 0
+                delay(if (online == true) 4000 else 2500)
+            }
+        }
+    }
+
+    private suspend fun checkConnection(relocate: Boolean = false): Boolean {
+        if (!prefs.paired) return false
+        val result = withContext(Dispatchers.IO) {
+            try {
+                Net.ping(prefs) || (relocate && Net.relocate(prefs) && Net.ping(prefs))
+            } catch (_: NotPairedException) {
+                null
+            } catch (_: Exception) {
+                false
+            }
+        }
+        if (result == null) {
+            forgetPc("${prefs.pcName} no longer recognises this phone. Tap Pair with PC to pair again.")
+            return false
+        }
+        if (online != result) {
+            online = result
+            updateChip()
+        }
+        return result
+    }
+
+    private fun forgetPc(message: String) {
+        prefs.clearPairing()
+        online = null
+        healthJob?.cancel()
+        updateChip()
+        showStatus(message, holdMs = 6000)
+    }
+
     // ---------- gallery + permission ----------
     private fun mediaPermissions(): Array<String> =
         if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
