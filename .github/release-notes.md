@@ -18,6 +18,10 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 - **The PC window stays responsive during a large batch.** A new arrival adds one tile instead of redrawing the whole list, and the list is written to disk once a second instead of once per file.
 - **The phone sets up its secure connection to the PC once** and reuses it for the next file and for its regular "is the PC there" check, instead of starting from nothing every time. It also looks each file up once instead of twice.
 
+### Changed
+
+- The **Files** button on the phone is now **Browse files**, and outlined so it is easier to find. It opens the phone's file browser, for a large video, a document or anything else that is not in the photo grid.
+
 ### Good to know
 
 - The update check is the only time Flingo uses the internet. It reads a public page and sends nothing about your devices or files. Everything else still works with no internet at all.
