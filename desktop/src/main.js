@@ -343,12 +343,14 @@ if (!app.requestSingleInstanceLock()) {
     createTray();
     installShortcuts();
 
-    startServer({
-      info: () => ({ id: settings.deviceId, name: settings.name }),
-    try { identity = loadOrCreateIdentity(identityFile(), 'Flingo'); } catch { identity = null; }
-    cleanStaleParts(settings.saveDir);
-    applyStage();
-      pair: (code, deviceName) => {
+    for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) {
+      screen.on(ev, () => { if (overlayWin && !overlayWin.isDestroyed()) placeOverlay(); pushState(); });
+    }
+
+    receiver = startServer({
+      info: () => ({ id: settings.deviceId, name: settings.name, ...(identity ? { fp: fingerprint(identity.cert).toString('base64url') } : {}) }),
+      pair: ({ code, deviceName, deviceId }) => {
+        if (settings.pairingLocked) return { error: 'locked' };
         const a = Buffer.from(sha(code)); const b = Buffer.from(sha(pairCode));
         if (!crypto.timingSafeEqual(a, b)) return null;
         const token = crypto.randomBytes(32).toString('hex');
