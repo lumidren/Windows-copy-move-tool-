@@ -37,7 +37,7 @@ main { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 16px 22px 22px
 .col { width: 330px; flex: none; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-right: 4px; }
 .col.wide { flex: 1; width: auto; min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
-.card.grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.card.grow { flex: 1 0 auto; min-height: 300px; display: flex; flex-direction: column; }
 h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
 p { margin: 0 0 10px; }
 .muted { color: var(--muted); }
@@ -170,7 +170,7 @@ code {
 .summary.ok { color: #0e1016; background: var(--ok); }
 .summary.warn { color: #0e1016; background: var(--warn); }
 .summary.fail { color: #0e1016; background: var(--bad); }
-.checks { list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow-y: auto; }
+.checks { list-style: none; margin: 0; padding: 0; }
 .check { display: flex; gap: 12px; padding: 9px 2px; }
 .check + .check { border-top: 1px solid var(--line); }
 .check .mark {
