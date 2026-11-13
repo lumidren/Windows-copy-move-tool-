@@ -110,12 +110,12 @@ function pose(f, now) {
   }
   if (e < FLY + REST) {
     const t = (e - FLY) / REST;
-    return { x: cx, y: cy + Math.sin(t * Math.PI * 2) * 4, scale: 1, rot: f.tilt, alpha: 1, phase: 'rest', t };
+    return { x: cx, y: cy + Math.sin(t * Math.PI * 2) * 4 * S, scale: 1, rot: f.tilt, alpha: 1, phase: 'rest', t };
   }
   const t = Math.min(1, (e - FLY - REST) / TUCK);
   const k = easeInCubic(t);
   return {
-    x: lerp(cx, W - 70, k), y: lerp(cy, 70, k),
+    x: lerp(cx, W - 70 * S, k), y: lerp(cy, 70 * S, k),
     scale: lerp(1, 0.08, k), rot: lerp(f.tilt, 0.5, k), alpha: 1 - k * k, phase: 'tuck', t,
   };
 }
@@ -131,8 +131,8 @@ function drawAurora(f, p) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 4; i++) {
-    const baseY = H - 40 - i * 60;
-    const grad = ctx.createLinearGradient(0, baseY - 260, 0, baseY + 60);
+    const baseY = H - (40 + i * 60) * S;
+    const grad = ctx.createLinearGradient(0, baseY - 260 * S, 0, baseY + 60 * S);
     const color = PALETTE[(i + f.hue) % PALETTE.length];
     grad.addColorStop(0, 'transparent');
     grad.addColorStop(0.6, color + '55');
@@ -141,8 +141,8 @@ function drawAurora(f, p) {
     ctx.globalAlpha = 0.55 * strength;
     ctx.beginPath();
     ctx.moveTo(0, H);
-    for (let x = 0; x <= W; x += 40) {
-      const y = baseY - 150 * strength + Math.sin(x / 260 + time * 1.4 + i * 1.7) * 60;
+    for (let x = 0; x <= W + 40 * S; x += 40 * S) {
+      const y = baseY - 150 * S * strength + Math.sin(x / (260 * S) + time * 1.4 + i * 1.7) * 60 * S;
       ctx.lineTo(x, y);
     }
     ctx.lineTo(W, H);
@@ -185,14 +185,14 @@ function drawFlight(f, now) {
   if (p.phase === 'rest') {
     const a = Math.min(1, p.t * 6) * Math.min(1, (1 - p.t) * 6);
     const text = `From ${f.from}`;
-    ctx.font = '600 15px "Segoe UI", sans-serif';
+    ctx.font = `600 ${15 * S}px ${FONT}`;
     const tw = ctx.measureText(text).width;
     ctx.globalAlpha = a * p.alpha;
     ctx.fillStyle = 'rgba(14,16,22,.82)';
-    roundRect(-tw / 2 - 14, f.h / 2 + 26, tw + 28, 32, 16);
+    roundRect(-tw / 2 - 14 * S, f.h / 2 + 26 * S, tw + 28 * S, 32 * S, 16 * S);
     ctx.fill();
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, 0, f.h / 2 + 42);
+    ctx.fillText(text, 0, f.h / 2 + 42 * S);
   }
   ctx.restore();
 }
@@ -210,11 +210,11 @@ function drawParticles(now, k) {
     if (q.kind === 'confetti') {
       q.vy += 0.32 * k; q.vx *= Math.pow(0.985, k); q.rot += q.vr * k;
       ctx.translate(q.x, q.y); ctx.rotate(q.rot);
-      ctx.fillRect(-q.size / 2, -q.size / 4, q.size, q.size / 2);
+      ctx.fillRect(-q.size * S / 2, -q.size * S / 4, q.size * S, q.size * S / 2);
     } else {
       ctx.globalCompositeOperation = 'lighter';
-      ctx.shadowColor = q.color; ctx.shadowBlur = 14;
-      ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1 - t * 0.7), 0, Math.PI * 2); ctx.fill();
+      ctx.shadowColor = q.color; ctx.shadowBlur = 14 * S * dpr;
+      ctx.beginPath(); ctx.arc(q.x, q.y, q.size * S * (1 - t * 0.7), 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
@@ -228,8 +228,8 @@ function drawRings(now) {
     ctx.save();
     ctx.globalAlpha = (1 - t) * 0.8;
     ctx.strokeStyle = '#8fb4ff';
-    ctx.lineWidth = 5 * (1 - t) + 1;
-    ctx.shadowColor = '#6c8cff'; ctx.shadowBlur = 18;
+    ctx.lineWidth = (5 * (1 - t) + 1) * S;
+    ctx.shadowColor = '#6c8cff'; ctx.shadowBlur = 18 * S * dpr;
     ctx.beginPath(); ctx.arc(r.x, r.y, easeOutCubic(t) * r.max, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
