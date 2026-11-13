@@ -184,6 +184,7 @@ function publicState() {
     history: history.filter((h) => fs.existsSync(h.path)).map((h) => ({ ...h, url: pathToFileURL(h.path).href })),
     platform: process.platform,
     version: app.getVersion(),
+    update: updateState(),
   };
 }
 function sendMain(channel, payload) {
@@ -666,6 +667,40 @@ function closeBatch(b) {
       if (b.done === 1 && b.lastPath) shell.showItemInFolder(b.lastPath); else shell.openPath(settings.saveDir);
     });
   }
+}
+
+// ---------- updates ----------
+// Flingo asks GitHub which release is the newest, and says so in the window when it is
+// not this one. A copy put in place by the Windows installer can fetch the new installer,
+// check it and hand over to it. Every other copy gets a link to the download page.
+let update = { state: 'idle', version: '', fraction: 0, message: '' }; // state: idle, checking, current, available, downloading, ready, failed
+let found = null; // the newer release, as update.js describes it
+let installer = ''; // the downloaded and checked installer
+let announced = ''; // the version a notification was already shown for
+
+// Only for working on Flingo itself, never in a packaged copy: a stand-in release list,
+// and a dry run that stops short of starting the installer.
+const updateDev = app.isPackaged ? {} : { feed: process.env.FLINGO_UPDATE_FEED, dryRun: process.env.FLINGO_UPDATE_DRY_RUN === '1' };
+const updatesDir = () => path.join(app.getPath('userData'), 'updates');
+const netFetch = (url, init) => net.fetch(url, init);
+
+function canSelfUpdate() {
+  if (updateDev.dryRun) return true;
+  return process.platform === 'win32' && app.isPackaged
+    && fs.existsSync(path.join(path.dirname(process.execPath), 'Uninstall Flingo.exe'));
+}
+
+function updateState() {
+  return {
+    ...update,
+    auto: settings.autoUpdate,
+    selfUpdate: !!(found && found.asset) && canSelfUpdate(),
+    dismissed: !!found && settings.updateDismissed === found.version,
+  };
+}
+function setUpdate(patch) {
+  update = { ...update, ...patch };
+  sendMain('update', updateState());
 }
 
 // ---------- pre-flight ----------

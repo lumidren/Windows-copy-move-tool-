@@ -152,6 +152,40 @@ function render(s) {
 
 // ---------- transfers in progress ----------
 // One row per card from the app: a single large file, or a whole batch.
+// ---------- updates ----------
+// A bar under the header when a newer Flingo exists, and one line in "This PC" that
+// always says where things stand. The bar stays away in stage mode.
+function renderUpdate(u) {
+  if (!state) return;
+  state.update = u;
+  const busy = u.state === 'downloading';
+  const pct = Math.round((u.fraction || 0) * 100);
+  const offered = u.state === 'available' && !u.dismissed;
+  $('update-bar').hidden = state.stage || !(offered || busy || u.state === 'ready');
+  $('update-title').textContent = busy ? `Downloading Flingo ${u.version}… ${pct}%`
+    : u.state === 'ready' ? `Flingo ${u.version} is ready to install.`
+      : `Flingo ${u.version} is available.`;
+  $('update-note').textContent = u.message
+    || (u.state === 'ready' ? 'Flingo closes, updates and opens again.'
+      : busy ? '' : u.selfUpdate ? `You have ${state.version}.` : `You have ${state.version}. The download page opens in your browser.`);
+  $('update-track').hidden = !busy;
+  $('update-fill').style.width = `${pct}%`;
+  $('update-later').hidden = u.state !== 'available';
+  $('update-go').hidden = busy;
+  $('update-go').textContent = u.state === 'ready' ? 'Restart and install' : u.selfUpdate ? 'Update now' : 'Get the update';
+
+  const line = {
+    checking: 'Checking for updates…',
+    current: 'You have the newest version.',
+    available: `Version ${u.version} is available.`,
+    downloading: `Downloading version ${u.version}…`,
+    ready: `Version ${u.version} is ready to install.`,
+    failed: u.message,
+  }[u.state];
+  $('version').textContent = `Version ${state.version}${line ? ` · ${line}` : ''}`;
+  $('check-update').disabled = u.state === 'checking' || busy || u.state === 'ready';
+}
+
 const rows = new Map();
 function onTransfer(card) {
   let row = rows.get(card.id);
