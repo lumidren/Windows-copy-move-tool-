@@ -94,6 +94,7 @@ Stay calm and keep talking. Each row is in the order to try it.
 | Photo lands on the **laptop screen, not the big screen** | Win+P, choose **Duplicate**. | 5 seconds |
 | A notification covers the arrival | Carry on. Flick the next photo. (Do not disturb was off: turn it on.) | 0 seconds |
 | Phone says **"Pairing is locked"** | On the laptop press **Pair a phone**, then scan again. | 10 seconds |
+| A **tick** appears on a photo and a bar says "1 selected" (0.3.0 and newer) | You tapped instead of holding. Tap **✕** on the bar, then hold and flick as planned. | 3 seconds |
 | Phone says the QR code **"has already been used"** | The laptop is showing a fresh one. Scan it again. | 5 seconds |
 | Transfer shows **"interrupted"** on the big screen | The network dropped mid-file. Flick it again. | 5 seconds |
 | Nothing works and the room is waiting | Say "Let me show you what that looks like", and play **`what-is-flingo.mp4`** from the laptop. It is 37 seconds and shows exactly this demo. | 40 seconds |
@@ -123,3 +124,7 @@ Not verified, so rehearse them:
 - **A second screen in Extend mode.** The overlay is placed by the same code that passed on one screen, and pre-flight measures it, but it has not been seen on a real projector. Fallback: Duplicate mode.
 - **The Windows installer and Linux packages on a clean machine.** They build; nobody has installed them yet.
 - **Real phone hardware in general.** All phone testing so far was on an emulator.
+
+### If you rehearse with 0.3.0
+
+0.3.0 adds sending many photos at once, a file picker and transfers that resume. It changes one thing on the demo path: a **tap** on a photo now selects it (before, it only showed a hint). Holding and flicking works exactly as before. 0.3.0 is not released; the public downloads are 0.2.0. Use the same version in rehearsal and on stage, whichever you pick.
