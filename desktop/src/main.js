@@ -163,7 +163,7 @@ function createMainWindow() {
 }
 
 function createOverlay() {
-  const { bounds } = screen.getPrimaryDisplay();
+  const { bounds } = targetDisplay();
   overlayWin = new BrowserWindow({
     x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
     show: false, frame: false, transparent: true, resizable: false, movable: false,
@@ -179,9 +179,12 @@ function createOverlay() {
   overlayWin.loadFile(path.join(__dirname, 'overlay.html'));
 }
 
-function playOverlay(item) {
+/** Moves the overlay onto the arrival screen. Called before every use and whenever screens change. */
+function placeOverlay() {
   if (!overlayWin || overlayWin.isDestroyed()) createOverlay();
-  const { bounds } = screen.getPrimaryDisplay();
+  const { bounds } = targetDisplay();
+  overlayWin.setBounds(bounds);
+  // Moving between screens with different scaling can land one step off; the second call settles it.
   overlayWin.setBounds(bounds);
   const send = () => {
     overlayWin.showInactive();
