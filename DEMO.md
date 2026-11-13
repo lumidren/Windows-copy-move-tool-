@@ -53,3 +53,14 @@ Do this on the real stage laptop, on the real hotspot.
 11. **Rehearse the failures once each:** switch the hotspot off and on again and watch the phone reconnect by itself; close and reopen Flingo on the laptop; flick from the second phone.
 
 Remove any phone under "Paired phones" that you will not be using. Every paired phone can send to the screen.
+
+## 30 minutes before
+
+1. Laptop on charger, lid open, **Do not disturb on**.
+2. Hotspot on. Laptop and both phones joined to it. If a phone says the network has no internet and asks whether to stay connected, choose **stay connected**. Flingo keeps its own traffic on Wi-Fi even when the phone prefers mobile data for everything else.
+3. Start Flingo. Confirm **Stage mode** is on and the top of the window shows **your phone's name, connected**, with a green dot.
+4. On the demo phone, open Flingo. The chip at the top shows the PC's name with a **green dot**.
+5. Press **Pre-flight check**. All green.
+6. Put the Flingo window where you want it. It can stay open or be minimised: arrivals are drawn above other windows. Check once, in rehearsal, that they also show above your slides in presentation view.
+7. Flick one photo for real, from where you will stand.
+8. Phone: brightness up, Do not disturb on, rotation locked to portrait. The Flingo setting "Keep the screen on while Flingo is open" is on by default, so the phone will not lock while you wait to go on. Leave Flingo in the foreground.
