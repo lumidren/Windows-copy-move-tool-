@@ -178,3 +178,24 @@ object Transfers {
             return if (cancelled) SendResult.Cancelled(sent, count) else SendResult.Failed(sent, count, SendResult.Why.UNREACHABLE)
         }
     }
+
+    /** Turns byte counts into a steady bytes-per-second figure. */
+    private class Meter {
+        private var markAt = SystemClock.elapsedRealtime()
+        private var markBytes = 0L
+        private var smooth = 0.0
+
+        fun speed(bytes: Long, waiting: Boolean): Long {
+            val now = SystemClock.elapsedRealtime()
+            if (waiting) { markAt = now; markBytes = bytes; smooth = 0.0; return 0 }
+            val dt = now - markAt
+            if (dt >= 700) {
+                val latest = (bytes - markBytes).coerceAtLeast(0) * 1000.0 / dt
+                smooth = if (smooth == 0.0) latest else smooth * 0.6 + latest * 0.4
+                markAt = now
+                markBytes = bytes
+            }
+            return smooth.toLong()
+        }
+    }
+}
