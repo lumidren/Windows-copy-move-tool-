@@ -13,7 +13,9 @@ contextBridge.exposeInMainWorld('flingo', {
   revealFile: (p) => ipcRenderer.send('reveal-file', p),
   dragFile: (p) => ipcRenderer.send('drag-file', p),
   previewEffect: (effect) => ipcRenderer.send('preview-effect', effect),
-  overlayIdle: () => ipcRenderer.send('overlay-idle'),
+  identifyScreens: () => ipcRenderer.send('identify-screens'),
+  openSettings: (what) => ipcRenderer.send('open-settings', what),
+  overlayIdle: (stats) => ipcRenderer.send('overlay-idle', stats),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onArrive: (fn) => ipcRenderer.on('arrive', (_e, item) => fn(item)),
 });
