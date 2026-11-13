@@ -81,7 +81,16 @@
 |---|---|---|
 | **Built with** | Electron, plain HTML/CSS/canvas | Native Kotlin, Android Views |
 | **Runs as** | A real window with a launcher entry; tray icon where the desktop has one | Regular app + system share target |
-| **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~5 MB APK |
+| **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~6 MB APK |
+
+**New in 0.2.0**
+
+- **Encrypted.** Every connection is TLS, and the phone pins the PC's certificate when it pairs.
+- **QR pairing.** Scan the code on the PC. It works on networks that stop devices from finding each other.
+- **Progress.** Large files show how far they have got, on the phone and on the PC screen.
+- **Stays connected.** The phone checks the PC every few seconds, follows it to a new address, and says plainly when it cannot reach it.
+- **Stage mode and pre-flight.** A presenting mode and a one-button check, described in the [live demo runbook](DEMO.md).
+- **Any screen.** The arrival is sized as a share of the screen and tested from 720p to 4K at several scalings.
 
 ## Arrival effects
 
