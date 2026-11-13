@@ -318,7 +318,7 @@ class MainActivity : Activity() {
             minHeight = dpi(32f)
             setPadding(dpi(14f), 0, dpi(2f), 0)
             visibility = View.GONE
-            setOnClickListener { Transfers.cancel() }
+            setOnClickListener { Transfers.cancel(this@MainActivity) }
         }
         val statusLine = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
