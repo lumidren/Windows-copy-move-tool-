@@ -433,6 +433,7 @@ if (!app.requestSingleInstanceLock()) {
       if (!history.some((h) => h.path === p) || !fs.existsSync(p)) return;
       let icon = nativeImage.createFromPath(p);
       icon = icon.isEmpty() ? nativeImage.createFromPath(ICON).resize({ width: 64 }) : icon.resize({ width: 96 });
+      lastSeen.delete(id);
       e.sender.startDrag({ file: p, icon });
     });
     ipcMain.on('overlay-idle', () => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide(); });
