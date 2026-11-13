@@ -40,11 +40,11 @@ function placeholderImage() {
   const c = document.createElement('canvas');
   c.width = 960; c.height = 720;
   const g = c.getContext('2d');
+  g.scale(2, 2);
   const grad = g.createLinearGradient(0, 0, 480, 360);
   grad.addColorStop(0, '#6c8cff'); grad.addColorStop(1, '#ff6bb5');
   g.fillStyle = grad; g.fillRect(0, 0, 480, 360);
   g.fillStyle = 'rgba(255,255,255,.9)';
-  g.scale(2, 2);
   g.beginPath(); g.arc(360, 110, 38, 0, Math.PI * 2); g.fill();
   g.beginPath(); g.moveTo(0, 360); g.lineTo(150, 170); g.lineTo(250, 290); g.lineTo(320, 220); g.lineTo(480, 360); g.fill();
   return c;
@@ -54,13 +54,13 @@ function fileCard(name) {
   const c = document.createElement('canvas');
   c.width = 840; c.height = 840;
   const g = c.getContext('2d');
+  g.scale(2, 2);
   g.fillStyle = '#1b1f2b'; g.fillRect(0, 0, 420, 420);
   g.fillStyle = '#6c8cff';
   g.beginPath(); g.moveTo(140, 80); g.lineTo(240, 80); g.lineTo(290, 130); g.lineTo(290, 280); g.lineTo(140, 280); g.closePath(); g.fill();
   g.fillStyle = '#a9b9ff';
-  g.scale(2, 2);
   g.beginPath(); g.moveTo(240, 80); g.lineTo(240, 130); g.lineTo(290, 130); g.closePath(); g.fill();
-  g.fillStyle = '#fff'; g.font = '600 24px "Segoe UI", sans-serif'; g.textAlign = 'center';
+  g.fillStyle = '#fff'; g.font = `600 24px ${FONT}`; g.textAlign = 'center';
   const label = name.length > 26 ? name.slice(0, 23) + '…' : name;
   g.fillText(label, 210, 345);
   return c;
@@ -237,10 +237,10 @@ function drawRings(now) {
 }
 
 function frame(now) {
-  ctx.clearRect(0, 0, W, H);
   const dt = lastFrame ? Math.min(50, now - lastFrame) : 16.667;
   if (lastFrame && ++stats.seen > 3) { stats.frames++; stats.total += now - lastFrame; stats.worst = Math.max(stats.worst, now - lastFrame); }
   lastFrame = now;
+  ctx.clearRect(0, 0, W, H);
   flights = flights.filter((f) => !f.t0 || now - f.t0 < TOTAL);
   drawRings(now);
   for (const f of flights) {
@@ -270,15 +270,4 @@ window.flingo.onArrive((item) => {
   img.onload = () => addFlight(item, img);
   img.onerror = () => addFlight(item, fileCard(item.name));
   img.src = item.url;
-});
-
-window.flingo.onProgress((p) => {
-  const pill = pills.get(p.id);
-  if (p.done) {
-    if (pill) { pill.doneAt = performance.now(); pill.ok = p.ok; }
-    return;
-  }
-  if (pill) { pill.received = p.received; pill.total = p.total; }
-  else pills.set(p.id, { name: p.name, from: p.from, received: p.received, total: p.total, shown: 0, born: performance.now(), doneAt: 0, ok: null });
-  kick();
 });
