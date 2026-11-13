@@ -1,6 +1,13 @@
 const $ = (id) => document.getElementById(id);
 const api = window.flingo;
 const LABELS = { comet: 'Comet', ripple: 'Ripple', confetti: 'Confetti', aurora: 'Aurora' };
+const ONLINE_MS = 15000;
+
+let state = null;
+let devices = [];
+let historyKey = '';
+let qrKey = '';
+let devicesKey = null;
 
 function fmtSize(n) {
   if (n < 1024) return `${n} B`;
