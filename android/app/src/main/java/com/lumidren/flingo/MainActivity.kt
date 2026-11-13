@@ -87,6 +87,7 @@ class MainActivity : Activity() {
     private var tracker: VelocityTracker? = null
     private var statusJob: Job? = null
     private var healthJob: Job? = null
+    private var updateJob: Job? = null
     private var pendingShare: List<Uri> = emptyList()
 
     // Keeps Net.wifi pointing at the current Wi-Fi network, including one with no internet.
@@ -146,11 +147,15 @@ class MainActivity : Activity() {
         Transfers.listener = sendWatcher
         Transfers.takeResult()?.let(::showResult)
         Transfers.state?.let(::showSend)
+        Updater.onFailure = ::updateFailed
+        Updater.takeFailure()?.let(::updateFailed)
+        checkForUpdate()
     }
 
     override fun onPause() {
         healthJob?.cancel()
         Transfers.listener = null
+        Updater.onFailure = null
         super.onPause()
     }
 
@@ -452,6 +457,34 @@ class MainActivity : Activity() {
     private fun hideStatus() {
         statusJob?.cancel()
         status.visibility = View.GONE
+    }
+
+    // ---------- updates ----------
+    /**
+     * Shows what is already known, and asks GitHub again if the last answer is old.
+     * [manual] is "Check now" in Settings: it always asks, and it says what it found.
+     */
+    private fun checkForUpdate(manual: Boolean = false) {
+        if (updateJob?.isActive == true) return
+        showUpdate(prefs.update)
+        val now = System.currentTimeMillis()
+        val fresh = now >= prefs.updateCheckedAt && now - prefs.updateCheckedAt < Updater.CHECK_EVERY_MS
+        if (!manual && (!prefs.checkUpdates || fresh)) return
+        updateJob = scope.launch {
+            val found = withContext(Dispatchers.IO) { runCatching { Updater.check() } }
+            if (found.isFailure) {
+                // Being offline is normal for Flingo, so only a check somebody asked for says it failed.
+                if (manual) showStatus("Could not check for updates. Is the phone online?")
+                return@launch
+            }
+            val update = found.getOrNull()
+            prefs.updateCheckedAt = System.currentTimeMillis()
+            prefs.update = update
+            if (manual) prefs.updateDismissed = ""
+            if (update == null) Updater.clean(this@MainActivity)
+            showUpdate(update)
+            if (manual && update == null) showStatus("You have the newest version.")
+        }
     }
 
     private fun buzz(kind: Int) { root.performHapticFeedback(kind) }
