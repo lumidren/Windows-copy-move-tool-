@@ -170,3 +170,28 @@ test('stale partial files are cleaned up', () => {
   assert.deepEqual(fs.readdirSync(dir), ['keep.jpg']);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('soak: 100 transfers in a row, then 40 overlapping, all intact', async () => {
+  const t = await boot();
+  try {
+    const want = new Map();
+    for (let i = 0; i < 100; i++) {
+      const body = crypto.randomBytes(1 + ((i * 7919) % 300_000));
+      const r = await t.send(`row-${i}.jpg`, body);
+      assert.equal(r.status, 200, `transfer ${i}`);
+      want.set(`row-${i}.jpg`, body);
+    }
+    for (let batch = 0; batch < 10; batch++) {
+      await Promise.all([0, 1, 2, 3].map(async (k) => {
+        const name = `burst-${batch}-${k}.jpg`;
+        const body = crypto.randomBytes(50_000 + k);
+        want.set(name, body);
+        assert.equal((await t.send(name, body)).status, 200);
+      }));
+    }
+    assert.equal(t.files.length, 140);
+    for (const [name, body] of want) assert.ok(fs.readFileSync(path.join(t.dir, name)).equals(body), name);
+    assert.deepEqual(parts(t.dir), []);
+    assert.equal(t.s.status().uploads, 0);
+  } finally { t.close(); }
+});
