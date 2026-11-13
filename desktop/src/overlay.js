@@ -171,6 +171,7 @@ function drawFlight(f, now) {
     f.landed = true;
     if (f.effect === 'confetti') spawnConfetti(p.x, p.y);
     if (f.effect === 'ripple') spawnRings(p.x, p.y, 3);
+    if (f.sound) sfx('land');
   }
 
   ctx.save();
