@@ -56,6 +56,37 @@ class WrongPcException : IOException("A different computer answered")
 object Net {
     const val HTTP_PORT = 47801
     private const val DISCOVERY_PORT = 47800
+    private const val MISMATCH = "fingerprint mismatch"
+
+    private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000): Conn {
+        val trust = Pinning(decodeFp(pin))
+        val tls = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
+        val conn = URL("https", host, port, path).openConnection() as HttpsURLConnection
+        conn.sslSocketFactory = tls.socketFactory
+        // The address is an IP on the local network, so there is no name to check. The pin is the check.
+        conn.hostnameVerifier = HostnameVerifier { _, _ -> true }
+        conn.connectTimeout = connectMs
+        conn.readTimeout = 20000
+        conn.useCaches = false
+        // One connection per request: a kept-alive socket goes stale when the PC sleeps or restarts.
+        conn.setRequestProperty("Connection", "close")
+        return Conn(conn, trust)
+    }
+
+    private fun HttpsURLConnection.body(): String =
+        (if (responseCode in 200..299) inputStream else errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
+
+    private fun HttpsURLConnection.error(fallback: String): String =
+        runCatching { JSONObject(body()).optString("error", fallback) }.getOrDefault(fallback).ifEmpty { fallback }
+
+    private fun isMismatch(e: Throwable): Boolean {
+        var c: Throwable? = e
+        while (c != null) {
+            if (c is CertificateException && c.message == MISMATCH) return true
+            c = c.cause
+        }
+        return false
+    }
     private const val MAGIC = "FLINGO_DISCOVER"
 
     private fun broadcastAddresses(): List<InetAddress> {
