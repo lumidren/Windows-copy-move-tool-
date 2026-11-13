@@ -600,6 +600,28 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun scanQr() {
+        IntentIntegrator(this)
+            .setCaptureActivity(ScanActivity::class.java)
+            .setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
+            .setPrompt("Point at the QR code in Flingo on your PC")
+            .setBeepEnabled(false)
+            .setOrientationLocked(true)
+            .initiateScan()
+    }
+
+    @Deprecated("The scanner library still delivers its result this way.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        val scan = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+        if (scan == null) {
+            @Suppress("DEPRECATION")
+            super.onActivityResult(requestCode, resultCode, data)
+            return
+        }
+        val text = scan.contents ?: return // closed without scanning
+        handleLink(Uri.parse(text), scannedHere = true)
+    }
+
     private fun searchForPc() {
         val searching = AlertDialog.Builder(this)
             .setTitle("Looking for your PC…")
