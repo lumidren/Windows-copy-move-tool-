@@ -42,7 +42,7 @@ Do this on the real stage laptop, on the real hotspot.
 6. **Turn on Stage mode** (top right of the Flingo window). It keeps the laptop's display awake, makes the window readable from a distance, selects the Comet effect, and **locks pairing** so nobody in the audience can pair their own phone.
 7. **Set the arrival screen.** Connect the projector or a second monitor.
    - Simplest and recommended: set Windows to **Duplicate** (Win+P). The audience sees what you see and there is nothing to choose.
-   - If you must use **Extend**: under "Arrival effect" pick the audience's screen in **Show arrivals on**. Press **Identify** to see which number is which. Then press **Play a test arrival** and confirm the audience screen shows it.
+   - If you must use **Extend**: on the **Arrivals** tab (turn Stage mode off for a moment to reach the tabs) pick the audience's screen in **Show arrivals on**. Press **Identify** to see which number is which. Then press **Play a test arrival** and confirm the audience screen shows it.
 8. **Windows settings that can ruin a demo:**
    - Turn on **Do not disturb** (notification centre, or Settings → System → Notifications).
    - Plug in the charger. Set the power mode to **Best performance**.
@@ -53,7 +53,7 @@ Do this on the real stage laptop, on the real hotspot.
 10. **Rehearse the whole script three times**, including picking the phone up from the table and unlocking it.
 11. **Rehearse the failures once each:** switch the hotspot off and on again and watch the phone reconnect by itself; close and reopen Flingo on the laptop; flick from the second phone.
 
-Remove any phone under "Paired phones" that you will not be using. Every paired phone can send to the screen.
+Remove any phone on the **Phones** tab that you will not be using. Every paired phone can send to the screen.
 
 ## 30 minutes before
 
@@ -103,8 +103,8 @@ Stay calm and keep talking. Each row is in the order to try it.
 ## After the demo
 
 - Turn Stage mode off. This does not unlock pairing: press **Pair a phone** when you next need to.
-- Received photos are in the folder shown under "This PC" (by default `Pictures\Flingo`).
-- If the laptop was on a network other people use, remove phones you do not recognise under "Paired phones".
+- Received photos are in the folder shown on the **Settings** tab (by default `Pictures\Flingo`).
+- If the laptop was on a network other people use, remove phones you do not recognise on the **Phones** tab.
 
 ## What has been verified, and what has not
 
