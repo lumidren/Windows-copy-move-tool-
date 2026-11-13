@@ -34,3 +34,33 @@ function derTime(date) {
     ? der(0x17, Buffer.from(p(year % 100) + tail, 'ascii'))
     : der(0x18, Buffer.from(p(year, 4) + tail, 'ascii'));
 }
+
+function pem(label, buf) {
+  const b64 = buf.toString('base64').match(/.{1,64}/g).join('\n');
+  return `-----BEGIN ${label}-----\n${b64}\n-----END ${label}-----\n`;
+}
+
+/** Returns { key, cert } as PEM strings. */
+function createIdentity(commonName = 'Flingo', now = new Date()) {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const serial = crypto.randomBytes(16);
+  serial[0] = (serial[0] & 0x7f) | 0x01; // positive and non-zero
+  const notBefore = new Date(now.getTime() - 24 * 3600 * 1000); // tolerate a phone clock that runs behind
+  const notAfter = new Date(now.getTime() + 20 * 365 * 24 * 3600 * 1000);
+  const name = derName(commonName);
+  const tbs = der(SEQUENCE,
+    der(0xa0, der(INTEGER, Buffer.from([2]))), // version 3
+    der(INTEGER, serial),
+    der(SEQUENCE, OID_ECDSA_WITH_SHA256),
+    name, // issuer
+    der(SEQUENCE, derTime(notBefore), derTime(notAfter)),
+    name, // subject: self-signed
+    publicKey.export({ type: 'spki', format: 'der' }),
+  );
+  const signature = crypto.sign('sha256', tbs, privateKey);
+  const cert = der(SEQUENCE, tbs, der(SEQUENCE, OID_ECDSA_WITH_SHA256), der(BIT_STRING, Buffer.from([0]), signature));
+  return {
+    key: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+    cert: pem('CERTIFICATE', cert),
+  };
+}
