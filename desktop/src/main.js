@@ -43,6 +43,7 @@ let quitting = false;
 let framesStarted = false;
 let overlayShown = false;
 let stateTimer = null;
+let historyTimer = null;
 let pairCode = newCode();
 let settings = null;
 let history = [];
@@ -89,7 +90,13 @@ function saveSettings() {
   try { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); } catch { /* disk full or read-only: keep running */ }
 }
 function saveHistory() {
+  clearTimeout(historyTimer);
+  historyTimer = null;
   try { fs.writeFileSync(historyFile(), JSON.stringify(history.slice(0, HISTORY_MAX))); } catch { /* keep running */ }
+}
+/** For arrivals: a batch of 200 photos writes the list to disk once a second, not 200 times. */
+function saveHistorySoon() {
+  if (!historyTimer) historyTimer = setTimeout(saveHistory, 1000);
 }
 
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
@@ -452,7 +459,7 @@ function remember(file) {
   };
   history.unshift(entry);
   history = history.slice(0, HISTORY_MAX);
-  saveHistory();
+  saveHistorySoon();
   return entry;
 }
 
@@ -1009,5 +1016,8 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
-  app.on('before-quit', () => { quitting = true; });
+  app.on('before-quit', () => {
+    quitting = true;
+    if (historyTimer) saveHistory(); // the last arrivals have not been written yet
+  });
 }
