@@ -733,6 +733,31 @@ async function checkForUpdate(manual = false) {
   }
 }
 
+async function downloadUpdate() {
+  if (update.state !== 'available' || !found) return;
+  if (!(found.asset && canSelfUpdate())) { shell.openExternal(found.page); return; }
+  setUpdate({ state: 'downloading', fraction: 0, message: '' });
+  let shown = 0;
+  try {
+    installer = await updates.download(found, updatesDir(), {
+      fetch: netFetch,
+      onProgress: (got, of) => {
+        const now = Date.now();
+        if (now - shown < 200 && got !== of) return;
+        shown = now;
+        setUpdate({ fraction: got / of });
+      },
+    });
+    setUpdate({ state: 'ready', fraction: 1 });
+  } catch (err) {
+    const tampered = /checksum|larger/.test(String(err && err.message));
+    setUpdate({
+      state: 'available',
+      message: tampered ? 'The download did not match the release, so it was thrown away. Try again.' : 'The download did not finish. Try again.',
+    });
+  }
+}
+
 // ---------- pre-flight ----------
 /** Sends a real file through the real receiver from this PC, checks it byte for byte, and times the animation. */
 function selfTest() {
