@@ -802,6 +802,34 @@ class MainActivity : Activity() {
         }
     }
 
+    /** What the chip opens once paired: the connection's state, and the way back when it is lost. */
+    private fun showPcDialog() {
+        val name = prefs.pcName
+        val builder = AlertDialog.Builder(this).setTitle(name)
+        if (online == true) {
+            builder.setMessage("Connected and encrypted.\n\nSecurity code ${Net.securityCode(prefs.fp)}\nAddress ${prefs.host}")
+                .setPositiveButton("OK", null)
+        } else {
+            builder.setMessage("Can't reach $name right now.\n\n• Is Flingo open on the PC?\n• Are the phone and the PC on the same Wi-Fi or hotspot?\n\nIf the PC moved to another network, scan its QR code again.")
+                .setPositiveButton("Try again") { _, _ ->
+                    showStatus("Looking for $name…", sticky = true)
+                    scope.launch {
+                        if (checkConnection(relocate = true)) { buzz(hapticYes); showStatus("Connected to $name ✓") }
+                        else { buzz(hapticNo); showStatus("Still can't reach $name.", holdMs = 4000) }
+                    }
+                }
+        }
+        builder.setNeutralButton("Scan QR code") { _, _ -> scanQr() }
+            .setNegativeButton("Unpair") { _, _ ->
+                prefs.clearPairing()
+                online = null
+                healthJob?.cancel()
+                updateChip()
+                showStatus("Unpaired.")
+            }
+            .show()
+    }
+
     // ---------- settings ----------
     private fun showSettings() {
         val box = LinearLayout(this).apply {
