@@ -102,7 +102,19 @@ class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleShare(intent)
+        handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (prefs.keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        startHealthChecks()
+    }
+
+    override fun onPause() {
+        healthJob?.cancel()
+        super.onPause()
     }
 
     override fun onDestroy() {
