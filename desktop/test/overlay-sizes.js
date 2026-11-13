@@ -34,3 +34,16 @@ if (!CASE) {
 }
 
 const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
+
+// Runs inside the page: where are the fully opaque pixels (the framed photo)?
+const MEASURE = `(() => {
+  const c = document.getElementById('c');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1, any = 0;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const a = d[(y * c.width + x) * 4 + 3];
+    if (a > 0) any++;
+    if (a >= 250) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  return { cw: c.width, ch: c.height, iw: innerWidth, ih: innerHeight, dpr: devicePixelRatio, any, x0, y0, x1, y1 };
+})()`;
