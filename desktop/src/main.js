@@ -769,18 +769,9 @@ if (!app.requestSingleInstanceLock()) {
         sendMain('devices', devicesState());
       },
       saveDir: () => settings.saveDir,
-      onStart: (t) => {
-        if (t.from === SELF_TEST) return;
-        transfers.set(t.id, { ...t, received: 0, shown: false });
-        showProgress(transfers.get(t.id));
-      },
-      onProgress: (p) => {
-        const t = transfers.get(p.id);
-        if (!t) return;
-        t.received = p.received;
-        showProgress(t);
-      },
-      onEnd: ({ id, ok }) => endProgress(id, ok),
+      onStart: transferStarted,
+      onProgress: transferProgress,
+      onEnd: transferEnded,
       onFile: handleFile,
     }, { tls: identity });
     receiver.ready.then(pushState);
