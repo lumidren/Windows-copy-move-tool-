@@ -69,3 +69,32 @@ app.whenReady().then(async () => {
   await new Promise((r) => setTimeout(r, 400));
   let idle = false;
   ipcMain.on('overlay-idle', () => { idle = true; });
+
+  const errors = [];
+  const check = (ok, text) => { if (!ok) errors.push(text); };
+  const started = Date.now();
+  const at = (ms) => new Promise((r) => setTimeout(r, Math.max(0, started + ms - Date.now())));
+  win.webContents.send('arrive', { url: null, name: 'Preview', from: 'Pixel 8', x: 0.8, effect: 'ripple', sound: false });
+
+  await at(1800); // resting in the middle
+  const b = await win.webContents.executeJavaScript(MEASURE);
+  const k = b.cw / W; // canvas pixels per logical pixel
+  check(b.iw === W && b.ih === H, `page is ${b.iw}x${b.ih}, expected ${W}x${H}`);
+  check(Math.abs(b.dpr - scale) < 0.01, `device pixel ratio is ${b.dpr}, expected ${scale}`);
+  check(Math.abs(b.cw - pw) <= 2 && Math.abs(b.ch - ph) <= 2, `canvas is ${b.cw}x${b.ch}, expected ${pw}x${ph}`);
+  check(b.x1 >= 0, 'no photo on screen while resting');
+  if (b.x1 >= 0) {
+    const cx = (b.x0 + b.x1) / 2 / k, cy = (b.y0 + b.y1) / 2 / k;
+    const bw = (b.x1 - b.x0) / k, bh = (b.y1 - b.y0) / k;
+    const side = Math.min(W, H) * 0.42; // the preview picture is 4:3, so its width is the long side
+    check(Math.abs(cx - W / 2) < W * 0.015, `photo centre x ${cx.toFixed(0)} is not the middle (${W / 2})`);
+    check(Math.abs(cy - H * 0.44) < H * 0.03, `photo centre y ${cy.toFixed(0)} is not at 44% (${(H * 0.44).toFixed(0)})`);
+    check(bw > side && bw < side * 1.3, `photo width ${bw.toFixed(0)} is not about ${side.toFixed(0)}`);
+    check(bh > side * 0.75 && bh < side * 0.75 * 1.4, `photo height ${bh.toFixed(0)} is not about ${(side * 0.75).toFixed(0)}`);
+    check(b.x0 > 0 && b.y0 > 0 && b.x1 < b.cw - 1 && b.y1 < b.ch - 1, 'photo touches the screen edge');
+  }
+  if (OUT) {
+    fs.mkdirSync(OUT, { recursive: true });
+    const png = await win.webContents.executeJavaScript("document.getElementById('c').toDataURL('image/png')");
+    fs.writeFileSync(path.join(OUT, `rest-${size}@${scaleText}.png`), nativeImage.createFromDataURL(png).resize({ width: Math.min(960, pw) }).toPNG());
+  }
