@@ -64,3 +64,20 @@ Remove any phone under "Paired phones" that you will not be using. Every paired 
 6. Put the Flingo window where you want it. It can stay open or be minimised: arrivals are drawn above other windows. Check once, in rehearsal, that they also show above your slides in presentation view.
 7. Flick one photo for real, from where you will stand.
 8. Phone: brightness up, Do not disturb on, rotation locked to portrait. The Flingo setting "Keep the screen on while Flingo is open" is on by default, so the phone will not lock while you wait to go on. Leave Flingo in the foreground.
+
+## On stage (about 90 seconds)
+
+| Time | Do | Say |
+|---|---|---|
+| 0:00 | Hold the phone up so the audience sees the gallery. | "Here is a photo on my phone. I want it on that screen." |
+| 0:08 | **Hold** a photo for half a second until it lifts, then **flick it up**. | "So I pick it up, and I throw it." |
+| 0:10 | The photo flies in from the bottom of the big screen, glows, and settles. Pause and let it land. | (say nothing for two seconds) |
+| 0:16 | Hold and flick a second photo, releasing toward the **left** side of the phone. It enters on the left of the screen. | "It lands where I aim it." |
+| 0:28 | Point at the laptop. | "No cable. No cloud. No account. It went straight from the phone to the laptop over the local network, encrypted." |
+| 0:40 | Optional, only if rehearsed: flick a short video. A progress ring shows on the big screen while it arrives. | "Bigger things take a moment, and it tells you." |
+| 0:55 | Open the Flingo window. Drag a received photo into a slide or an email. | "And it is already a file. I can drop it anywhere." |
+| 1:15 | Phone down. | "That is Flingo. It runs on Windows, Linux and Android, and it is open source." |
+
+Keep to **photos in JPEG or PNG** for the first two flicks. They animate with the picture itself. Videos, HEIC photos and other files arrive correctly but show a file card instead of the picture, so if your phone's camera saves HEIC, choose JPEG pictures for the demo.
+
+**If asked "is it encrypted?"** Yes. Every connection is TLS. The PC makes its own certificate, and the phone remembers that certificate's fingerprint when it pairs by QR code, so it will not talk to anything else at that address. Nothing leaves the local network.
