@@ -114,3 +114,51 @@ class TransferService : Service() {
             if (s != null && !s.waiting) b.setProgress(1000, fraction ?: 0, fraction == null)
             return b.build()
         }
+
+        /** Called when a long transfer begins, while the app is on screen. */
+        fun start(ctx: Context) {
+            live = true
+            runCatching { ctx.startForegroundService(Intent(ctx, TransferService::class.java)) }
+                .onFailure { live = false } // not allowed right now: the transfer still runs while the app is open
+        }
+
+        /** Refreshes the notification, at most once a second. */
+        fun update(ctx: Context, s: SendState) {
+            if (!live) return
+            val now = SystemClock.elapsedRealtime()
+            if (now - updatedAt < 1000) return
+            updatedAt = now
+            runCatching { manager(ctx).notify(ONGOING, sending(ctx, s)) }
+        }
+
+        /** Ends the service. If no screen is showing the outcome, leaves a notification that says it. */
+        fun finish(ctx: Context, result: SendResult, visible: Boolean) {
+            val wasLive = live
+            live = false
+            runCatching { ctx.stopService(Intent(ctx, TransferService::class.java)) }
+            if (visible || !wasLive || result is SendResult.Cancelled) return
+            val pc = Prefs(ctx).pcName.ifEmpty { "your PC" }
+            val (title, text) = when (result) {
+                is SendResult.Done ->
+                    "Sent ${Words.files(result.sent)} to $pc" to
+                        (if (result.skipped > 0) "${Words.files(result.skipped)} could not be opened and were left out." else "All done.")
+                is SendResult.Failed ->
+                    "Sending to $pc stopped" to "${result.sent} of ${result.of} sent. Open Flingo to send the rest."
+                is SendResult.Cancelled -> return
+            }
+            channels(ctx)
+            runCatching {
+                manager(ctx).notify(
+                    RESULT,
+                    Notification.Builder(ctx, CHANNEL_RESULT)
+                        .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+                        .setContentTitle(title)
+                        .setContentText(text)
+                        .setContentIntent(openApp(ctx))
+                        .setAutoCancel(true)
+                        .build(),
+                )
+            }
+        }
+    }
+}
