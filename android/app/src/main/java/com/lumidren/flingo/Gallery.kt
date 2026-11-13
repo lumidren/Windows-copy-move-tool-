@@ -4,6 +4,8 @@ import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -48,38 +50,36 @@ private class SquareFrame(ctx: Context) : FrameLayout(ctx) {
     override fun onMeasure(widthSpec: Int, heightSpec: Int) = super.onMeasure(widthSpec, widthSpec)
 }
 
+/**
+ * The photo grid. A tap selects or deselects a photo; holding one picks it up to flick.
+ * [onSelection] is told how many are selected whenever that changes.
+ */
 class GalleryAdapter(
     private val ctx: Context,
-    private val onTap: () -> Unit,
     private val onPickUp: (MediaItem, ImageView) -> Unit,
+    private val onSelection: (Int) -> Unit,
 ) : RecyclerView.Adapter<GalleryAdapter.Holder>() {
 
     private var items: List<MediaItem> = emptyList()
+    private val selected = HashSet<Uri>()
     private val pool = Executors.newFixedThreadPool(4)
     private val main = Handler(Looper.getMainLooper())
     private val cache = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 
-    private val selected = HashSet<Uri>()
-    class Holder(view: View, val image: ImageView, val badge: TextView) : RecyclerView.ViewHolder(view) {
+    class Holder(view: View, val image: ImageView, val badge: TextView, val check: TextView) : RecyclerView.ViewHolder(view) {
         var key: String? = null
     }
 
     fun submit(list: List<MediaItem>) {
         items = list
+        // A photo deleted since it was selected must not be sent.
+        val present = list.mapTo(HashSet()) { it.uri }
+        if (selected.retainAll(present)) onSelection(selected.size)
         notifyDataSetChanged()
     }
 
-    override fun getItemCount() = items.size
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
-        val d = ctx.resources.displayMetrics.density
-        val frame = SquareFrame(ctx).apply {
-            layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            setPadding((1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt())
-        }
-        val image = ImageView(ctx).apply {
     // ---------- selection ----------
     val selectedCount: Int get() = selected.size
 
@@ -119,6 +119,15 @@ class GalleryAdapter(
         holder.image.contentDescription = if (on) "$what, selected" else what
     }
 
+    override fun getItemCount() = items.size
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+        val d = ctx.resources.displayMetrics.density
+        val frame = SquareFrame(ctx).apply {
+            layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setPadding((1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt())
+        }
+        val image = ImageView(ctx).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(Color.parseColor("#171A23"))
         }
@@ -185,4 +194,6 @@ class GalleryAdapter(
     }
 
     fun shutdown() = pool.shutdownNow()
+
+    private companion object { val MARK = Any() }
 }
