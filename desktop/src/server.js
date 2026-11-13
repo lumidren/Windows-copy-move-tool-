@@ -19,9 +19,12 @@ const PROGRESS_EVERY_MS = 80;
 
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 
+// Zero-width and direction-override characters can disguise a file's real extension.
+const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/g;
 function sanitizeName(raw) {
   let name = path.basename(String(raw || '').replace(/\\/g, '/'));
-  name = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '').trim();
+  name = name.replace(INVISIBLE, '').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '_').replace(/[. ]+$/, '').trim();
+  name = name.replace(/^\.+/, '_'); // no hidden files
   if (!name) name = 'file';
   if (RESERVED.test(name)) name = '_' + name;
   if (name.length > 180) {
