@@ -127,29 +127,51 @@ function render(s) {
 
   renderDevices();
 
-  // received: rebuilt only when it changed, so thumbnails do not flicker
-  const key = s.history.map((h) => h.path + h.at).join('|');
-  $('empty').classList.toggle('show', s.history.length === 0);
-  $('history').style.display = s.history.length ? '' : 'none';
-  $('history-hint').hidden = s.history.length === 0;
+  renderHistory(s.history);
+}
+
+// ---------- received ----------
+// Each file keeps its tile for as long as it is in the list. A new arrival adds one tile and
+// leaves the others alone, so a batch of 200 photos does not load and draw the whole list
+// 200 times over.
+const tiles = new Map(); // path + arrival time -> tile
+
+function makeTile(h) {
+  const thumb = h.image
+    ? el('img', { src: h.url, alt: '', loading: 'lazy', decoding: 'async' })
+    : el('div', { className: 'thumb', textContent: (h.name.split('.').pop() || 'file').slice(0, 5).toUpperCase() });
+  const tile = el('button', { className: 'tile', draggable: true, title: `${h.name}\nRight-click to show in folder` }, [
+    thumb,
+    el('div', { className: 'meta' }, [
+      el('div', { className: 'name', textContent: h.name }),
+      el('div', { className: 'sub', textContent: `${fmtSize(h.size)} · ${h.from}` }),
+    ]),
+  ]);
+  tile.onclick = () => api.openFile(h.path);
+  tile.oncontextmenu = (e) => { e.preventDefault(); api.revealFile(h.path); };
+  tile.ondragstart = (e) => { e.preventDefault(); api.dragFile(h.path); };
+  return tile;
+}
+
+function renderHistory(history) {
+  const keys = history.map((h) => h.path + h.at);
+  const key = keys.join('|');
+  $('empty').classList.toggle('show', history.length === 0);
+  $('history').style.display = history.length ? '' : 'none';
+  $('history-hint').hidden = history.length === 0;
   if (key === historyKey) return;
   historyKey = key;
-  $('history').replaceChildren(...s.history.map((h) => {
-    const thumb = h.image
-      ? el('img', { src: h.url, alt: '', loading: 'lazy' })
-      : el('div', { className: 'thumb', textContent: (h.name.split('.').pop() || 'file').slice(0, 5).toUpperCase() });
-    const tile = el('button', { className: 'tile', draggable: true, title: `${h.name}\nRight-click to show in folder` }, [
-      thumb,
-      el('div', { className: 'meta' }, [
-        el('div', { className: 'name', textContent: h.name }),
-        el('div', { className: 'sub', textContent: `${fmtSize(h.size)} · ${h.from}` }),
-      ]),
-    ]);
-    tile.onclick = () => api.openFile(h.path);
-    tile.oncontextmenu = (e) => { e.preventDefault(); api.revealFile(h.path); };
-    tile.ondragstart = (e) => { e.preventDefault(); api.dragFile(h.path); };
-    return tile;
-  }));
+
+  const list = $('history');
+  const wanted = new Set(keys);
+  for (const [k, tile] of tiles) if (!wanted.has(k)) { tile.remove(); tiles.delete(k); }
+  let before = list.firstChild;
+  history.forEach((h, i) => {
+    let tile = tiles.get(keys[i]);
+    if (!tile) { tile = makeTile(h); tiles.set(keys[i], tile); }
+    if (tile === before) before = before.nextSibling; // already in place
+    else list.insertBefore(tile, before);
+  });
 }
 
 // ---------- updates ----------
