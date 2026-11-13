@@ -22,8 +22,16 @@ header {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   box-shadow: 0 0 18px rgba(108, 140, 255, .5);
 }
-.status { display: flex; align-items: center; gap: 8px; color: var(--muted); }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+.badge {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px;
+  padding: 3px 9px; border-radius: 10px; color: #0e1016; background: var(--warn);
+}
+.status { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+.status span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+.dot.wait { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+.dot.bad { background: var(--bad); box-shadow: 0 0 10px var(--bad); }
+.dot.off { background: var(--line); box-shadow: none; }
 
 main { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 16px 22px 22px; }
 .col { width: 330px; flex: none; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-right: 4px; }
