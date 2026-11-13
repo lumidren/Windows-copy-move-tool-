@@ -333,6 +333,36 @@ function drawPills(now) {
   }
 }
 
+// ---------- optional sound, synthesised so there are no audio files to ship ----------
+let audio = null;
+function sfx(kind) {
+  try {
+    audio = audio || new AudioContext();
+    const t = audio.currentTime;
+    const out = audio.createGain();
+    out.connect(audio.destination);
+    if (kind === 'whoosh') {
+      const len = Math.floor(audio.sampleRate * 0.7);
+      const buf = audio.createBuffer(1, len, audio.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const src = audio.createBufferSource(); src.buffer = buf;
+      const band = audio.createBiquadFilter(); band.type = 'bandpass'; band.Q.value = 1.2;
+      band.frequency.setValueAtTime(260, t); band.frequency.exponentialRampToValueAtTime(2600, t + 0.55);
+      out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.22, t + 0.35); out.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      src.connect(band); band.connect(out); src.start(t);
+    } else {
+      [[880, 0], [1318.5, 0.09]].forEach(([freq, delay]) => {
+        const osc = audio.createOscillator(); const g = audio.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t + delay); g.gain.exponentialRampToValueAtTime(0.16, t + delay + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.7);
+        osc.connect(g); g.connect(out); osc.start(t + delay); osc.stop(t + delay + 0.75);
+      });
+    }
+  } catch { /* no audio device: stay silent */ }
+}
+
 function frame(now) {
   const dt = lastFrame ? Math.min(50, now - lastFrame) : 16.667;
   if (lastFrame && ++stats.seen > 3) { stats.frames++; stats.total += now - lastFrame; stats.worst = Math.max(stats.worst, now - lastFrame); }
