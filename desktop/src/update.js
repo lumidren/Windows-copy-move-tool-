@@ -62,3 +62,11 @@ function readRelease(release, { current, platform, downloads = DOWNLOADS, releas
 }
 
 /** Asks for the newest release. Resolves to an update (see readRelease) or null; rejects when it cannot find out. */
+async function checkLatest({ fetch, current, platform, feed = FEED, downloads, releases, timeoutMs = 15000 }) {
+  const res = await fetch(feed, {
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Flingo' },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) throw new Error(`The release list answered ${res.status}`);
+  return readRelease(await res.json(), { current, platform, downloads, releases });
+}
