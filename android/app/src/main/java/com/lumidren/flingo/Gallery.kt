@@ -162,8 +162,11 @@ class GalleryAdapter(
         val key = item.uri.toString()
         holder.key = key
         holder.badge.visibility = if (item.isVideo) View.VISIBLE else View.GONE
-        holder.image.contentDescription = if (item.isVideo) "Video" else "Photo"
-        holder.itemView.setOnClickListener { onTap() }
+        mark(holder, item)
+        holder.itemView.setOnClickListener {
+            val at = holder.bindingAdapterPosition
+            if (at != RecyclerView.NO_POSITION) toggle(items[at], at)
+        }
         holder.itemView.setOnLongClickListener {
             if (holder.image.drawable != null) onPickUp(item, holder.image)
             true
