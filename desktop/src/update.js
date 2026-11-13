@@ -70,3 +70,25 @@ async function checkLatest({ fetch, current, platform, feed = FEED, downloads, r
   if (!res.ok) throw new Error(`The release list answered ${res.status}`);
   return readRelease(await res.json(), { current, platform, downloads, releases });
 }
+
+function remove(file) {
+  try { fs.unlinkSync(file); } catch { /* already gone */ }
+}
+
+/** Deletes installers left in `dir` by earlier updates, except `keep`. */
+function cleanDownloads(dir, keep = '') {
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return; }
+  for (const name of names) if (name !== keep) remove(path.join(dir, name));
+}
+
+async function sha256Of(file) {
+  const hash = crypto.createHash('sha256');
+  for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
+  return hash.digest('hex');
+}
+
+/**
+ * Downloads an update's installer into `dir` and checks it against the size and checksum
+ * the release declared. Resolves to the file's path. A file that does not match is deleted.
+ */
