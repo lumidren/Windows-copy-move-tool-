@@ -100,10 +100,14 @@ function render(s) {
 }
 
 $('new-code').onclick = async () => render(await api.newCode());
+$('lock').onclick = async () => render(await api.set({ pairingLocked: true }));
+$('unlock').onclick = async () => render(await api.set({ pairingLocked: false }));
+$('stage').onchange = async (e) => render(await api.set({ stage: e.target.checked }));
 $('choose-folder').onclick = async () => render(await api.chooseFolder());
 $('open-folder').onclick = () => api.openFolder();
 $('clear').onclick = async () => render(await api.clearHistory());
 $('show-overlay').onchange = async (e) => render(await api.set({ showOverlay: e.target.checked }));
+$('sound').onchange = async (e) => render(await api.set({ sound: e.target.checked }));
 $('launch').onchange = async (e) => render(await api.set({ launchAtLogin: e.target.checked }));
 $('name').onchange = async (e) => render(await api.set({ name: e.target.value }));
 
