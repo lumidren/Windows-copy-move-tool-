@@ -1,10 +1,16 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
+const { execFile } = require('child_process');
 const { pathToFileURL } = require('url');
-const { startServer, HTTP_PORT } = require('./server');
+const qrcode = require('qrcode-generator');
+const { startServer, cleanStaleParts, HTTP_PORT } = require('./server');
+const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
+const { runPreflight } = require('./preflight');
 
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
