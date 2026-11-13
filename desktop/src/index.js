@@ -283,6 +283,7 @@ $('update-later').onclick = () => api.update('later');
 $('update-go').onclick = () => api.update(state.update.state === 'ready' ? 'install' : 'download');
 
 api.onState(render);
+api.onUpdate(renderUpdate);
 api.onDevices((d) => { devices = d; renderDevices(); });
 api.onTransfer(onTransfer);
 api.getState().then(render);
