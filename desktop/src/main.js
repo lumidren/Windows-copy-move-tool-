@@ -261,14 +261,6 @@ function whenOverlayReady(fn) {
   else fn();
 }
 
-function playOverlay(item) {
-  whenOverlayReady(() => {
-    overlayWin.showInactive();
-    overlayWin.webContents.send('arrive', { ...item, sound: settings.sound });
-    const cap = process.env.FLINGO_DEBUG_CAPTURE;
-    if (cap) {
-      setTimeout(async () => {
-        try { fs.writeFileSync(cap, (await overlayWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
 /** Sends something to draw to the arrival screen, showing its window first if it was hidden. */
 function toOverlay(channel, payload) {
   const send = () => {
@@ -280,10 +272,18 @@ function toOverlay(channel, payload) {
   else whenOverlayReady(send);
 }
 
+function playOverlay(item) {
+  whenOverlayReady(() => {
+    overlayWin.showInactive();
+    overlayShown = true;
+    overlayWin.webContents.send('arrive', { ...item, sound: settings.sound });
+    const cap = process.env.FLINGO_DEBUG_CAPTURE;
+    if (cap) {
+      setTimeout(async () => {
+        try { fs.writeFileSync(cap, (await overlayWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
       }, 1500);
     }
     // Debug: dump the first arrival as numbered frames (used to make the README animation).
-    overlayShown = true;
     const framesDir = process.env.FLINGO_DEBUG_FRAMES;
     if (framesDir && !framesStarted) {
       framesStarted = true;
@@ -507,17 +507,34 @@ function showTransfer(tr) {
     }, tr.onScreen);
     return;
   }
+  post({
+    id: tr.key, state: 'active', title: `Receiving ${short(tr.name)}`,
+    detail: tr.total ? `from ${tr.from} · {pct}% of ${fmtSize(tr.total)}` : `from ${tr.from} · ${fmtSize(tr.received)}`,
+    fraction: tr.total ? tr.received / tr.total : null,
+  }, tr.onScreen);
 }
 
-// Progress for transfers that take long enough to look frozen otherwise.
-function showProgress(t) {
-  sendMain('transfer', { id: t.id, name: t.name, from: t.from, received: t.received, total: t.total });
-  const slow = t.total === null || t.total > SLOW_TRANSFER_BYTES;
-  if (!slow || !settings.showOverlay) return;
-  whenOverlayReady(() => {
-    if (!t.shown) { t.shown = true; overlayWin.showInactive(); }
-    overlayWin.webContents.send('progress', { id: t.id, name: t.name, from: t.from, received: t.received, total: t.total });
-  });
+function failTransfer(tr) {
+  clearTimeout(tr.timer);
+  transfers.delete(tr.key);
+  post({
+    id: tr.key, state: 'failed', title: 'Transfer interrupted',
+    detail: `${short(tr.name, 24)} from ${tr.from} did not finish. Send it again.`, hold: 2400,
+  }, tr.onScreen);
+}
+
+function transferStarted(t) {
+  if (t.from === SELF_TEST) return;
+  if (t.batch) { batchFileStarted(t); return; }
+  // The same key again means the phone is carrying on with a transfer that was cut off.
+  const old = transfers.get(t.key);
+  if (old) clearTimeout(old.timer);
+  const tr = {
+    key: t.key, name: t.name, from: t.from, total: t.total, received: t.received,
+    waiting: false, timer: null, onScreen: !!old && old.onScreen,
+  };
+  transfers.set(t.key, tr);
+  showTransfer(tr);
 }
 
 function transferProgress(p) {
@@ -836,6 +853,9 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('overlay-idle', (_e, stats) => {
       if (selfResult && stats && stats.frames > 20) selfResult.stats = { fps: stats.fps, worstMs: stats.worstMs };
       if (process.env.FLINGO_DEBUG_PERF && stats) console.log('[overlay]', JSON.stringify(stats));
+      // Stay up while something is still on its way: its next progress tick is already coming.
+      if (batches.size || [...transfers.values()].some((t) => t.onScreen)) return;
+      overlayShown = false;
       if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide();
     });
   });
@@ -843,6 +863,3 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('before-quit', () => { quitting = true; });
 }
-      // Stay up while something is still on its way: its next progress tick is already coming.
-      if (batches.size || [...transfers.values()].some((t) => t.onScreen)) return;
-      overlayShown = false;
