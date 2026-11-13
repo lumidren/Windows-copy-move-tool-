@@ -15,7 +15,8 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 
 ### A tidier look
 
-- **The PC window has a bar of tabs down the left:** Home (pairing and what has arrived), Arrivals (the effects), Settings and About. Stage mode hides the bar and shows Home.
+- **The PC window has a bar of tabs down the left:** Home, Phones, Arrivals (the effects), Settings and About.
+- **Home is one thing at a time.** Before a phone is paired it shows only how to pair one, with the typed code and other details folded away under "Other ways to pair". After that it shows only what has arrived, and pairing moves to the Phones tab. Stage mode hides the tabs and shows pairing and arrivals side by side.
 - **Pairing on the phone starts from a clearer choice:** scan the QR code, find the PC on the Wi-Fi, or type it in, each with a line saying when to pick it.
 - **About** in both apps: the version, who made Flingo, and links to the website, GitHub, LinkedIn and the source code.
 
