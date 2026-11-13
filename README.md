@@ -83,6 +83,14 @@
 | **Runs as** | A real window with a launcher entry; tray icon where the desktop has one | Regular app + system share target |
 | **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~6 MB APK |
 
+**Coming in 0.4.0** (on `main` now; the downloads below are still 0.3.0)
+
+- **Updates itself.** Both apps ask GitHub which release is the newest, and offer it when it is not the one you have.
+  - **Windows:** *Update now* downloads the installer, checks it against the release's checksum, and restarts into the new version.
+  - **Android:** *Update* downloads the APK, checks it the same way, and hands it to Android, which asks before it installs.
+  - **Linux:** the offer opens the download page, because installing a package needs your password.
+- **Nothing installs without a click.** The check can be switched off in both apps, and the PC stays silent about updates in stage mode.
+
 **New in 0.3.0**
 
 - **Send many at once.** Tap photos to select them, or pick "Today", "The last 7 days" or "Everything", then press **Send**. They arrive quietly: one progress card on the PC counts them in, with no flight per photo.
