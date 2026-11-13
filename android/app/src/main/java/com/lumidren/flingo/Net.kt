@@ -43,7 +43,14 @@ data class PairLink(val pc: Pc, val code: String)
 data class Paired(val token: String, val pc: Pc)
 
 class NotPairedException : Exception("Not paired")
-class WrongCodeException(message: String) : Exception(message)
+class WrongCodeException : Exception("Wrong code")
+class PairingLockedException : Exception("Pairing is locked")
+
+/** The PC answered, but said no. [message] is its own explanation, already written for people. */
+class PcRefusedException(val status: Int, message: String) : Exception(message)
+
+/** Something answered at the PC's address with a different certificate than the one pinned. */
+class WrongPcException : IOException("A different computer answered")
 
 /** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
 object Net {
