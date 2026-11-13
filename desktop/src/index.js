@@ -153,32 +153,34 @@ function render(s) {
 // ---------- transfers in progress ----------
 // One row per card from the app: a single large file, or a whole batch.
 const rows = new Map();
-function onTransfer(t) {
-  let row = rows.get(t.id);
-  if (t.done) {
-    if (!row) return;
-    rows.delete(t.id);
-    if (t.ok) { row.node.remove(); return; }
-    row.node.classList.add('failed');
-    row.label.textContent = `${t.name} from ${t.from} did not finish. Send it again from the phone.`;
-    row.bar.style.width = '100%';
-    setTimeout(() => row.node.remove(), 6000);
+function onTransfer(card) {
+  let row = rows.get(card.id);
+  if (card.state === 'done') {
+    // The files themselves appear in the list below, so the row has nothing left to say.
+    if (row) { rows.delete(card.id); row.node.remove(); }
     return;
   }
   if (!row) {
-    const label = el('div', { className: 'label' });
+    const title = el('b');
+    const detail = el('span');
     const bar = el('div', { className: 'bar' });
-    const node = el('div', { className: 'transfer' }, [label, el('div', { className: 'track' }, [bar])]);
-    row = { node, label, bar };
-    rows.set(t.id, row);
+    const node = el('div', { className: 'transfer' }, [el('div', { className: 'label' }, [title, ' ', detail]), el('div', { className: 'track' }, [bar])]);
+    row = { node, title, detail, bar };
+    rows.set(card.id, row);
     $('transfers').append(node);
   }
-  const pct = t.total ? Math.round((t.received / t.total) * 100) : null;
-  row.label.textContent = pct === null
-    ? `Receiving ${t.name} from ${t.from} · ${fmtSize(t.received)}`
-    : `Receiving ${t.name} from ${t.from} · ${pct}% of ${fmtSize(t.total)}`;
-  row.bar.style.width = `${pct === null ? 100 : pct}%`;
-  row.node.classList.toggle('unknown', pct === null);
+  const known = card.fraction !== null && card.fraction !== undefined;
+  const pct = known ? Math.round(card.fraction * 100) : 0;
+  row.title.textContent = card.title;
+  row.detail.textContent = card.detail.replace('{pct}', pct);
+  row.node.classList.toggle('failed', card.state === 'failed');
+  row.node.classList.toggle('waiting', card.state === 'waiting');
+  row.node.classList.toggle('unknown', !known && card.state === 'active');
+  row.bar.style.width = `${card.state === 'failed' || !known ? 100 : pct}%`;
+  if (card.state === 'failed') {
+    rows.delete(card.id);
+    setTimeout(() => row.node.remove(), 6000);
+  }
 }
 
 // ---------- pre-flight ----------
