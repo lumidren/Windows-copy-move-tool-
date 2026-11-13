@@ -1,6 +1,7 @@
 package com.lumidren.flingo
 
 import android.content.Context
+import java.util.UUID
 
 /** Pairing details and user settings. */
 class Prefs(ctx: Context) {
@@ -22,7 +23,6 @@ class Prefs(ctx: Context) {
         get() = sp.getString("pcId", "") ?: ""
         set(v) = sp.edit().putString("pcId", v).apply()
 
-    /** Height of the send zone as a percentage of the screen (10–50). */
     /** Fingerprint of the paired PC's certificate. Every later connection must present this one. */
     val fp: String get() = sp.getString("fp", "") ?: ""
 
@@ -33,6 +33,7 @@ class Prefs(ctx: Context) {
     val deviceId: String
         get() = sp.getString("deviceId", null) ?: UUID.randomUUID().toString().also { sp.edit().putString("deviceId", it).apply() }
 
+    /** Height of the send zone as a percentage of the screen (10–50). */
     var zonePercent: Int
         get() = sp.getInt("zone", 25).coerceIn(10, 50)
         set(v) = sp.edit().putInt("zone", v.coerceIn(10, 50)).apply()
@@ -45,7 +46,7 @@ class Prefs(ctx: Context) {
     // A pairing made before transfers were encrypted has no fingerprint, so it has to be made again.
     val paired: Boolean get() = token.isNotEmpty() && host.isNotEmpty() && fp.isNotEmpty()
 
-    fun savePairing(pc: Pc, newToken: String) {
+    fun savePairing(p: Paired) {
         sp.edit()
             .putString("host", p.pc.host).putInt("port", p.pc.port)
             .putString("hosts", p.pc.hosts.joinToString(","))
