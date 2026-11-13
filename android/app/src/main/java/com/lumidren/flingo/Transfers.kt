@@ -97,7 +97,7 @@ object Transfers {
     }
 
     /** Stops the job being sent and forgets the ones waiting behind it. */
-    fun cancel() {
+    fun cancel(ctx: Context) {
         if (!running) return
         cancelled = true
         queue.clear()
