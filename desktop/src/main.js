@@ -511,6 +511,25 @@ async function overlayProbe() {
   };
 }
 
+function preflight() {
+  return runPreflight({
+    platform: process.platform,
+    exePath: process.execPath,
+    port: receiver.port,
+    addresses: lanAddresses(),
+    secure: !!identity,
+    securityCode: identity ? securityCode(identity.cert) : '',
+    saveDir: settings.saveDir,
+    stage: settings.stage,
+    pairingLocked: settings.pairingLocked,
+    showOverlay: settings.showOverlay,
+    server: receiver.status(),
+    devices: settings.devices.map((d) => ({ name: d.name, lastSeen: lastSeen.get(d.id)?.at || 0, ip: lastSeen.get(d.id)?.ip || '' })),
+    overlay: overlayProbe,
+    selfTest,
+  });
+}
+
 // ---------- app ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
