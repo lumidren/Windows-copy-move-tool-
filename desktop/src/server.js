@@ -64,7 +64,22 @@ function freeBytes(dir) {
 }
 
   const data = JSON.stringify(body);
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(data),
+    'Cache-Control': 'no-store',
+  });
+  res.end(data);
+}
+
+/** Answers and hangs up: used when a request is refused before its body has been read. */
+function refuse(req, res, status, error) {
+  const data = JSON.stringify({ error });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(data),
+    Connection: 'close',
+  });
   res.end(data);
 }
 
