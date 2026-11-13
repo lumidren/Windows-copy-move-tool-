@@ -1,37 +1,36 @@
-## Flingo 0.2.0
+## Flingo 0.3.0
 
-Flick a photo off your phone and watch it land on your PC. This release makes that reliable enough to show on a stage, and it encrypts every transfer.
+Flick a photo off your phone and watch it land on your PC. This release is about moving a lot at once: many photos, any kind of file, and large files that do not start again when the Wi-Fi blips.
 
-> [!IMPORTANT]
-> **Update both sides.** Flingo 0.2.0 encrypts every connection, so a 0.2.0 phone cannot talk to a 0.1.0 PC, or the other way round. Install the new version on the PC and on the phone, uninstall the old phone app first, then pair again.
+> [!NOTE]
+> 0.3.0 works with 0.2.0 on the other side, but the new features need 0.3.0 on both the phone and the PC. Neither works with 0.1.0.
 
 ### New
 
-- **Pair by QR code.** The PC shows a code, the phone scans it, done. It works on Wi-Fi networks that stop devices from finding each other, because the code carries the PC's address.
-- **Encrypted transfers.** Every connection is TLS. The PC makes its own certificate and the phone pins it when it pairs, so it will not send to anything else at that address. A short security code on both sides lets you compare them by eye.
-- **Stage mode.** One switch keeps the display awake, enlarges the window, picks the Comet effect and locks pairing so nobody else can pair a phone.
-- **Pre-flight check.** One button checks the receiver, the network, Windows Firewall, the paired phone, the save folder and the overlay, and runs a real test transfer.
-- **Progress for big files** on the phone, in the window and on the big screen.
-- **Automatic reconnection.** The phone notices when the PC goes away and finds it again by itself.
-- **Choose the arrival screen** when more than one display is connected.
-- **Optional landing sound** on the PC and haptic feedback on the phone.
+- **Send many at once.** Tap photos to select them, or pick "Today", "The last 7 days", "The last 30 days" or "Everything", then press **Send**. They arrive quietly: the PC shows one card that counts them in, with no flight per photo.
+- **Flick a stack.** With photos selected, hold and flick one of them. That one flies in; the rest follow quietly.
+- **Any file.** The **Files** button opens the phone's file picker, for documents, archives and anything else that is not in the gallery.
+- **Large files survive a dropped connection.** The PC keeps what arrived, the phone asks how much that was, and sends only the rest. It keeps trying for 45 seconds after the last byte got through.
+- **Keeps going in the background.** A long transfer continues when you switch apps or the screen turns off. A notification shows progress, speed and time left, with a Cancel button.
+- **Cancel** a long transfer from the phone at any time.
+- **A queue.** Flick or send again while something is on its way and it is added behind it.
 
 ### Better
 
-- The arrival animation scales with the screen, from 720p to 4K at 200% scaling, and its timing no longer depends on the frame rate.
-- Error messages on the phone say what happened and what to do next.
-- The receiver is stricter: pairing attempts are limited, uploads are capped in size and number, free disk space is checked first, and files that could run are shown in their folder instead of being opened.
-- The phone keeps Flingo's traffic on Wi-Fi even when that Wi-Fi has no internet.
+- The PC keeps the last 200 received files in its list, up from 60, and stays responsive while a large batch arrives.
+- A file that is sent quietly is confirmed on the PC with a short "Received" card.
+- When a large transfer is cut off, the PC says it is waiting for the phone to carry on, instead of calling it failed at once.
+
+### Changed
+
+- A **tap** on a photo now selects it. Holding and flicking works as before.
 
 ### Good to know
 
-- The Windows installer is not code-signed, so Windows shows a "Windows protected your PC" box. Choose **More info**, then **Run anyway**.
-- The first time Flingo starts, allow it through Windows Firewall on **Private and Public** networks. The pre-flight check tells you if it is blocked.
 - A transfer that is carried on after a drop is not checksummed end to end. TLS protects each part in flight and the PC checks the final size.
 - Files in a batch are sent one after another over separate connections, so thousands of very small files are slower than they could be.
-- Pairing by typing the address and code trusts the certificate it sees the first time. Pairing by QR code is the fully pinned path.
-- Photos in JPEG or PNG animate as the picture itself. Videos, HEIC photos and other files arrive intact but show a file card.
-- Planning to show Flingo live? Read the [demo runbook](https://github.com/lumidren/Windows-copy-move-tool-/blob/main/DEMO.md), which also lists what has and has not been tested on real hardware.
+- The Windows installer is not code-signed, so Windows shows a "Windows protected your PC" box. Choose **More info**, then **Run anyway**.
+- The APK is signed with a debug key, so uninstall the old app before installing this one.
 
 ### Downloads
 
