@@ -125,6 +125,8 @@ Not verified, so rehearse them:
 - **The Windows installer and Linux packages on a clean machine.** They build; nobody has installed them yet.
 - **Real phone hardware in general.** All phone testing so far was on an emulator.
 
-### If you rehearse with 0.3.0
+### Which version to demo with
 
-0.3.0 adds sending many photos at once, a file picker and transfers that resume. It changes one thing on the demo path: a **tap** on a photo now selects it (before, it only showed a hint). Holding and flicking works exactly as before. 0.3.0 is not released; the public downloads are 0.2.0. Use the same version in rehearsal and on stage, whichever you pick.
+0.3.0 is the latest release, so the download links on the website and in the README now give 0.3.0. It adds sending many photos at once, a file picker and transfers that resume. It changes one thing on the demo path: a **tap** on a photo now selects it (before, it only showed a hint). Holding and flicking works exactly as before.
+
+0.2.0 is still available on its [release page](https://github.com/lumidren/Windows-copy-move-tool-/releases/tag/v0.2.0). Both versions were tested the same way: on an Android emulator against the real desktop app, never on a real phone. Use the same version in rehearsal and on stage, whichever you pick, and do not update either device in between.
