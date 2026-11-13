@@ -5,6 +5,8 @@ Twenty features, grouped by what they improve. Size is a rough guess: **S** is a
 **Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14).
 **Shipped in 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
 
+**Done on `main` for 0.4.0:** both apps find and install their own updates (the second half of 20), and the build signs the APK with a stable key once that key is added (the Android half of 4; see [RELEASING.md](RELEASING.md)).
+
 Finished items stay in the tables below, marked ✅, so the numbering other documents refer to does not move.
 
 ## Security and trust
@@ -49,7 +51,7 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 
 ## Suggested order
 
-1. **Signed releases (4)**: the last trust gap. It needs a code-signing certificate and a stable Android key.
+1. **Signed releases (4)**: the last trust gap. The Android half is built and waits for the key to be added to the repository's secrets. The Windows half needs a code-signing certificate.
 2. **A picture for every arrival**: have the phone send a small preview with videos and HEIC photos, so they fly in as pictures instead of file cards.
 3. **PC to phone (6)**: the feature people ask for once the basics work.
 4. **Faster batches**: send several small files over one connection, or a few at a time, instead of one after another.
