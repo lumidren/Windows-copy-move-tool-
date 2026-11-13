@@ -15,6 +15,11 @@ const { runPreflight } = require('./preflight');
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
 const EFFECTS = ['comet', 'ripple', 'confetti', 'aurora'];
+const STAGE_EFFECT = 'comet'; // reads best from the back of a room
+const SELF_TEST = 'Pre-flight test';
+const SLOW_TRANSFER_BYTES = 3 * 1024 * 1024; // show progress on screen for anything larger
+// Opening one of these by double-click would run it, so the app shows it in its folder instead.
+const RUNNABLE = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|ps1|vbs|vbe|js|jse|wsf|wsh|hta|jar|reg|cpl|msc|dll|sh|desktop|appimage|run|apk)$/i;
 const startHidden = process.argv.includes('--hidden');
 const isLinux = process.platform === 'linux';
 
