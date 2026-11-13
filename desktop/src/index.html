@@ -95,6 +95,18 @@
 
     <div class="card">
       <h2>Paired phones</h2>
+    <div class="card" id="preflight-card" hidden>
+      <div class="row spread">
+        <h2>Pre-flight check</h2>
+        <div class="row">
+          <button id="preflight-again" class="ghost">Run again</button>
+          <button id="preflight-close" class="ghost">Close</button>
+        </div>
+      </div>
+      <div id="preflight-summary" class="summary" role="status"></div>
+      <ul id="preflight-list" class="checks"></ul>
+    </div>
+
       <ul id="devices" class="devices"></ul>
     </div>
   </section>
