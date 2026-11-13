@@ -45,7 +45,40 @@ header {
 .update-bar .bar { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .15s linear; }
 .version-row { margin-top: 12px; }
 
-main { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 16px 22px 22px; }
+.about-head { display: flex; align-items: center; gap: 12px; }
+.logo.big { flex: none; width: 40px; height: 40px; border-radius: 12px; }
+.about-name { font-size: 17px; }
+.maker {
+  margin-top: 14px; padding: 14px 16px; border-radius: 12px;
+  background: linear-gradient(135deg, rgba(108, 140, 255, .16), rgba(155, 107, 255, .12));
+  border: 1px solid var(--accent);
+}
+.maker-label { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.maker-name { font-size: 22px; font-weight: 700; margin: 2px 0 6px; }
+.maker-line { color: #c5cad8; }
+.links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.about-promise { margin: 12px 0 0; }
+/* On stage there is one view: the pairing code and what has arrived. */
+body.stage .side { display: none; }
+
+/* A bar of tabs down the left, and one page at a time beside it. */
+.shell { flex: 1; min-height: 0; display: flex; }
+.side {
+  flex: none; width: 158px; display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 10px 14px; border-right: 1px solid var(--line);
+}
+.tab {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 10px 12px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--muted); font-weight: 500;
+}
+.tab:hover { background: var(--panel); color: var(--text); }
+.tab.active { background: var(--panel-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+.tab-icon { width: 18px; text-align: center; font-size: 15px; }
+.side-foot { margin-top: auto; padding: 0 12px; }
+main { flex: 1; min-width: 0; min-height: 0; display: flex; padding: 16px 22px 22px; }
+.page { flex: 1; min-width: 0; min-height: 0; display: flex; gap: 16px; }
+.col.solo { width: min(520px, 100%); }
 .col { width: 330px; flex: none; display: flex; flex-direction: column; gap: 16px; overflow: hidden auto; padding-right: 4px; }
 .col.wide { flex: 1; width: auto; min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
