@@ -80,6 +80,8 @@ function render(s) {
   document.body.classList.toggle('stage', s.stage);
   $('stage-badge').hidden = !s.stage;
   $('stage').checked = s.stage;
+  if (s.stage) showTab('home'); // the bar of tabs is hidden on stage, so make sure Home is what shows
+  $('side-version').textContent = `Flingo ${s.version}`;
 
   // pairing
   if (s.pairingLocked) $('qr').classList.remove('big');
@@ -104,6 +106,7 @@ function render(s) {
   $('launch').checked = s.launchAtLogin;
   $('launch-label').textContent = s.platform === 'win32' ? 'Start with Windows' : 'Start when I log in';
   $('auto-update').checked = s.update.auto;
+  $('about-version').textContent = `version ${s.version}`;
   renderUpdate(s.update);
 
   $('effects').replaceChildren(...s.effects.map((name) => {
@@ -172,6 +175,16 @@ function renderHistory(history) {
     if (tile === before) before = before.nextSibling; // already in place
     else list.insertBefore(tile, before);
   });
+}
+
+// ---------- tabs ----------
+function showTab(name) {
+  for (const tab of document.querySelectorAll('.tab')) {
+    const on = tab.dataset.tab === name;
+    tab.classList.toggle('active', on);
+    if (on) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
+  }
+  for (const page of document.querySelectorAll('.page')) page.hidden = page.dataset.page !== name;
 }
 
 // ---------- updates ----------
@@ -246,6 +259,7 @@ const MARK = { ok: '✓', warn: '!', fail: '✕', manual: '☐' };
 const ACTIONS = { firewall: 'Open firewall settings', notifications: 'Open notification settings', folder: 'Open folder' };
 
 async function runPreflight() {
+  showTab('home'); // the checklist appears there
   $('preflight-card').hidden = false;
   $('preflight').disabled = $('preflight-again').disabled = true;
   $('preflight-summary').className = 'summary running';
@@ -296,6 +310,8 @@ $('test-arrival').onclick = () => api.previewEffect(state ? state.effect : 'come
 $('preflight').onclick = runPreflight;
 $('preflight-again').onclick = runPreflight;
 $('preflight-close').onclick = () => { $('preflight-card').hidden = true; };
+for (const tab of document.querySelectorAll('.tab')) tab.onclick = () => showTab(tab.dataset.tab);
+for (const b of document.querySelectorAll('[data-link]')) b.onclick = () => api.openLink(b.dataset.link);
 $('auto-update').onchange = async (e) => render(await api.set({ autoUpdate: e.target.checked }));
 $('check-update').onclick = () => api.update('check');
 $('update-notes').onclick = () => api.update('notes');
