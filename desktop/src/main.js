@@ -36,6 +36,13 @@ let framesStarted = false;
 let pairCode = newCode();
 let settings = null;
 let history = [];
+let identity = null; // { key, cert } PEM, or null if it could not be created
+let receiver = null;
+let sleepBlocker = null;
+let selfToken = null;
+let selfResult = null; // filled in while a pre-flight transfer is running
+const lastSeen = new Map(); // device id -> { at, ip }
+const transfers = new Map(); // transfer id -> { id, name, from, total, received, shown }
 
 // ---------- settings ----------
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
