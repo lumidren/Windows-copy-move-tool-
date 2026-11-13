@@ -496,6 +496,21 @@ function selfTest() {
   });
 }
 
+async function overlayProbe() {
+  await new Promise((resolve) => whenOverlayReady(resolve));
+  const d = targetDisplay();
+  const renderer = await overlayWin.webContents.executeJavaScript('({ w: innerWidth, h: innerHeight, dpr: devicePixelRatio })');
+  const b = overlayWin.getBounds();
+  return {
+    screen: screen.getAllDisplays().findIndex((x) => x.id === d.id) + 1,
+    display: { width: d.bounds.width, height: d.bounds.height },
+    window: { width: b.width, height: b.height },
+    renderer,
+    pixels: { width: Math.round(d.size.width * d.scaleFactor), height: Math.round(d.size.height * d.scaleFactor) },
+    scale: Math.round(d.scaleFactor * 100),
+  };
+}
+
 // ---------- app ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
