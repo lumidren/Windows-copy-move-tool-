@@ -238,10 +238,28 @@ class MainActivity : Activity() {
         val target = if (prefs.paired) prefs.pcName else "your PC"
         zone.text = if (active) "Release to send to $target" else "↑  Flick up to send"
         zone.background = GradientDrawable(
+    private fun dot(color: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(color)
+        setSize(dpi(9f), dpi(9f))
+    }
+
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(if (active) Color.parseColor("#F06C8CFF") else Color.parseColor("#996C8CFF"), Color.TRANSPARENT),
         )
     }
+            chip.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null)
+            chip.contentDescription = "Pair with PC"
+            return
+        }
+        chip.text = prefs.pcName
+        chip.background = pill(Color.parseColor("#1F2330"), 20f)
+        val color = when (online) { true -> good; false -> warn; null -> Color.parseColor("#6B7285") }
+        chip.setCompoundDrawablesRelativeWithIntrinsicBounds(dot(color), null, null, null)
+        chip.contentDescription = when (online) {
+            true -> "${prefs.pcName}, connected"
+            false -> "${prefs.pcName}, not reachable"
+            null -> "${prefs.pcName}, checking"
 
     private fun showStatus(text: String, sticky: Boolean = false) {
         statusJob?.cancel()
