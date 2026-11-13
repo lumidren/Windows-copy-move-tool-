@@ -147,7 +147,8 @@ class MainActivity : Activity() {
             setPadding(dpi(14f), dpi(8f), dpi(14f), dpi(8f))
             minHeight = dpi(40f)
             gravity = Gravity.CENTER
-            setOnClickListener { showPairDialog() }
+            compoundDrawablePadding = dpi(8f)
+            setOnClickListener { if (prefs.paired) showPcDialog() else showPairDialog() }
         }
         header.addView(chip)
         header.addView(TextView(this).apply {
