@@ -66,6 +66,15 @@ function cleanStaleParts(dir, olderThanMs = 0) {
   return removed;
 }
 
+function fileSize(file) {
+  try { return fs.statSync(file).size; } catch { return 0; }
+}
+
+function wholeNumber(raw, min, max) {
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= min && n <= max ? n : null;
+}
+
 function freeBytes(dir) {
   return new Promise((resolve) => {
     if (!fs.statfs) return resolve(null);
