@@ -501,6 +501,41 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Downloads the update, checks it, and hands it to Android, which asks before it installs. */
+    private fun startUpdate(update: Update) {
+        if (updateJob?.isActive == true) return
+        if (Transfers.busy) { showStatus("Wait for the transfer to finish, then update."); return }
+        updateGo.visibility = View.GONE
+        updateClose.visibility = View.GONE
+        updateText.text = "Downloading Flingo ${update.version}…"
+        updateJob = scope.launch {
+            var shown = 0L
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val file = Updater.download(this@MainActivity, update, { !isActive }) { got, of ->
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - shown > 250 || got == of) {
+                            shown = now
+                            root.post { if (isActive) updateText.text = "Downloading Flingo ${update.version}… ${got * 100 / of}%" }
+                        }
+                    }
+                    val verdict = Updater.inspect(this@MainActivity, file)
+                    if (verdict == Verdict.OK) Updater.install(this@MainActivity, file)
+                    verdict
+                }
+            }
+            showUpdate(update)
+            val failure = result.exceptionOrNull()
+            when {
+                failure is BadDownloadException -> showStatus("The download did not match the release, so it was thrown away. Try again.", holdMs = 5000)
+                failure != null -> showStatus("The update could not be downloaded. Try again.", holdMs = 4000)
+                result.getOrNull() == Verdict.OK -> updateText.text = "Confirm the update on the next screen"
+                result.getOrNull() == Verdict.OTHER_KEY -> explainOtherKey(update)
+                else -> showStatus("That download is not a newer Flingo, so it was not installed.", holdMs = 5000)
+            }
+        }
+    }
+
     private fun buzz(kind: Int) { root.performHapticFeedback(kind) }
     private val hapticYes get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
     private val hapticNo get() = if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
