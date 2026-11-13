@@ -544,27 +544,7 @@ class MainActivity : Activity() {
             .setMessage("Type the 6-digit code shown in Flingo on the PC.")
             .setView(box)
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Pair") { _, _ ->
-                val code = field.text.toString().trim()
-                scope.launch {
-                    try {
-                        val token = withContext(Dispatchers.IO) { Net.pair(pc, code, Build.MODEL ?: "Android phone") }
-                        prefs.savePairing(pc, token)
-                        updateChip()
-                        showStatus("Paired with ${pc.name} ✓")
-                        if (pendingShare.isNotEmpty()) {
-                            val uris = pendingShare
-                            pendingShare = emptyList()
-                            send(uris, 0.5f)
-                        }
-                    } catch (e: WrongCodeException) {
-                        Toast.makeText(this@MainActivity, e.message, Toast.LENGTH_SHORT).show()
-                        showCodeDialog(pc)
-                    } catch (_: Exception) {
-                        showStatus("Couldn't reach ${pc.name}.")
-                    }
-                }
-            }
+            .setPositiveButton("Pair") { _, _ -> pairWithCode(pc, code.text.toString().trim()) }
             .show()
         field.requestFocus()
     }
