@@ -25,6 +25,7 @@ async function boot(extra = {}) {
     onProgress: (e) => events.push(['progress', e]),
     onEnd: (e) => events.push(['end', e]),
     onFile: (f) => files.push(f),
+    onCancel: extra.onCancel,
   };
   const s = startServer(hooks, { port: 0, discoveryPort: null, host: '127.0.0.1' });
   assert.equal(await s.ready, true);
@@ -277,6 +278,39 @@ test('asking to carry on ends the old connection, even if it still looks alive',
     assert.ok(fs.readFileSync(path.join(t.dir, 'stuck.bin')).equals(body));
     assert.equal(t.files.length, 1);
     req.destroy();
+  } finally { t.close(); }
+});
+
+test('cancelling from the phone stops the transfer and keeps nothing', async () => {
+  const cancelled = [];
+  const t = await boot({ onCancel: (e) => cancelled.push(e) });
+  try {
+    const cancel = (id, token = TOKEN) => fetch(`${t.base}/cancel?id=${id}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    assert.equal((await cancel('abc', 'nope')).status, 401);
+
+    // While it is still arriving.
+    const body = crypto.randomBytes(1_200_000);
+    const req = http.request(`${t.base}/send?id=stopme1`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'stop.bin', 'Content-Length': body.length },
+    });
+    req.on('error', () => {});
+    await new Promise((resolve) => req.write(body.subarray(0, 300_000), () => setTimeout(resolve, 200)));
+    assert.equal((await cancel('stopme1')).status, 200);
+    await new Promise((res) => setTimeout(res, 250));
+    assert.deepEqual(fs.readdirSync(t.dir), []);
+    assert.equal(t.events.at(-1)[1].waiting, false);
+    assert.equal(t.s.status().uploads, 0);
+    assert.deepEqual(cancelled, [{ key: 'stopme1', from: 'Test Phone' }]);
+    req.destroy();
+
+    // After the connection had already dropped and its first part was being kept.
+    await cutOff(t, 'id=stopme2', 'later.bin', body, 300_000);
+    assert.deepEqual(parts(t.dir), ['.flingo-d1-stopme2.part']);
+    assert.equal((await cancel('stopme2')).status, 200);
+    await new Promise((res) => setTimeout(res, 150));
+    assert.deepEqual(fs.readdirSync(t.dir), []);
+    assert.equal((await resumeAt(t, 'stopme2')).received, 0);
   } finally { t.close(); }
 });
 
