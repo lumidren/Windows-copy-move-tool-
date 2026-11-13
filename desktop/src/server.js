@@ -82,6 +82,8 @@ function refuse(req, res, status, error) {
   });
   res.end(data);
 }
+  req.resume();
+  setTimeout(() => req.destroy(), 1500).unref();
 
 function readSmallBody(req, limit = 4096) {
   return new Promise((resolve, reject) => {
