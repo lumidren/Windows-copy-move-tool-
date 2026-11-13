@@ -19,3 +19,23 @@ function tcpReachable(host, port, timeoutMs = 1500) {
 }
 
 /**
+ * Reads Windows Firewall without changing it: the rules for this program, the kind
+ * of network the PC is on, and whether the firewall is on for that kind.
+ * Returns { state: 'allowed' | 'blocked' | 'none' | 'off' | 'unknown', network }.
+ */
+function windowsFirewall(exePath) {
+  const script = [
+    "$ErrorActionPreference='SilentlyContinue'",
+    `$p='${exePath.replace(/'/g, "''")}'`,
+    "$rules=@(Get-NetFirewallApplicationFilter -Program $p | Get-NetFirewallRule | Where-Object { $_.Direction -eq 'Inbound' -and $_.Enabled -eq 'True' } | ForEach-Object { @{ action=\"$($_.Action)\"; profile=\"$($_.Profile)\" } })",
+    "$cats=@(Get-NetConnectionProfile | ForEach-Object { \"$($_.NetworkCategory)\" })",
+    "$on=@(Get-NetFirewallProfile | ForEach-Object { @{ name=\"$($_.Name)\"; enabled=\"$($_.Enabled)\" } })",
+    '@{ rules=$rules; categories=$cats; profiles=$on } | ConvertTo-Json -Compress -Depth 4',
+  ].join('; ');
+  return new Promise((resolve) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 15_000, windowsHide: true }, (err, stdout) => {
+      if (err) return resolve({ state: 'unknown', network: '' });
+      try { resolve(judgeFirewall(JSON.parse(stdout))); } catch { resolve({ state: 'unknown', network: '' }); }
+    });
+  });
+}
