@@ -36,6 +36,7 @@
 <div class="shell">
 <nav class="side" id="nav" aria-label="Sections">
   <button class="tab active" data-tab="home" aria-current="page"><span class="tab-icon" aria-hidden="true">&#8962;</span>Home</button>
+  <button class="tab" data-tab="phones" hidden><span class="tab-icon" aria-hidden="true">&#9743;</span>Phones</button>
   <button class="tab" data-tab="arrivals"><span class="tab-icon" aria-hidden="true">&#10022;</span>Arrivals</button>
   <button class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">&#9881;</span>Settings</button>
   <button class="tab" data-tab="about"><span class="tab-icon" aria-hidden="true">&#9432;</span>About</button>
@@ -44,24 +45,29 @@
 
 <main>
   <div class="page" data-page="home">
-  <section class="col">
-    <div class="card pair">
+  <section class="col" id="home-side">
+    <div class="card pair" id="pair-card">
       <h2>Pair a phone</h2>
       <div id="pair-open">
-        <p class="muted">On the phone, tap <b>Pair with PC</b>, then <b>Scan QR code</b>.</p>
-        <div class="qr-row">
-          <canvas id="qr" width="10" height="10" role="img" aria-label="Pairing QR code" title="Click to enlarge" tabindex="0"></canvas>
+        <ol class="pair-steps">
+          <li>Open <b>Flingo</b> on your phone.</li>
+          <li>Tap <b>Pair with PC</b>, then <b>Scan QR code</b>.</li>
+          <li>Point the phone at this code.</li>
+        </ol>
+        <canvas id="qr" width="10" height="10" role="img" aria-label="Pairing QR code" title="Click to enlarge" tabindex="0"></canvas>
+        <details class="more" id="pair-more">
+          <summary>Other ways to pair</summary>
           <div class="qr-side">
-            <div class="muted small">No camera? Type this code</div>
+            <div class="muted small">No camera? On the phone choose <b>Type it in</b> and enter this code</div>
             <div class="code" id="code" aria-label="Pairing code"></div>
             <div class="muted small">This PC's address</div>
             <div class="addr" id="addr"></div>
           </div>
-        </div>
-        <div class="row spread">
-          <button id="new-code" class="ghost">New code</button>
-          <button id="lock" class="ghost">Lock pairing</button>
-        </div>
+          <div class="row spread">
+            <button id="new-code" class="ghost">New code</button>
+            <button id="lock" class="ghost">Lock pairing</button>
+          </div>
+        </details>
       </div>
       <div id="pair-locked" hidden>
         <p class="lock-line"><span class="lock-icon" aria-hidden="true"></span><b>Pairing is locked</b></p>
@@ -71,7 +77,7 @@
       <p class="muted small secure" id="secure"></p>
     </div>
 
-    <div class="card">
+    <div class="card" id="phones-card">
       <h2>Paired phones</h2>
       <ul id="devices" class="devices"></ul>
     </div>
@@ -108,6 +114,10 @@
       </div>
     </div>
   </section>
+  </div>
+
+  <div class="page" data-page="phones" hidden>
+  <section class="col solo" id="phones-side"></section>
   </div>
 
   <div class="page" data-page="arrivals" hidden>
