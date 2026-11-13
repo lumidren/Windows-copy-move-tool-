@@ -223,7 +223,7 @@ function startServer(hooks, options = {}) {
     let lastTick = 0;
     let dropped = false; // stopped on purpose: nothing is kept for later
     uploads++;
-    active.set(tmp, () => { fail(); req.destroy(); });
+    active.set(tmp, (drop = false) => { dropped = drop; fail(); req.destroy(); });
 
     const finish = (ok, waiting = false) => {
       if (done) return false;
