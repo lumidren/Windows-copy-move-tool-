@@ -125,6 +125,24 @@ function qrRows(text) {
   return rows;
 }
 
+// ---------- displays ----------
+function displayList() {
+  const primary = screen.getPrimaryDisplay().id;
+  return screen.getAllDisplays().map((d, i) => ({
+    id: String(d.id),
+    index: i + 1,
+    primary: d.id === primary,
+    width: Math.round(d.size.width * d.scaleFactor),
+    height: Math.round(d.size.height * d.scaleFactor),
+    scale: Math.round(d.scaleFactor * 100),
+  }));
+}
+
+/** The screen arrivals are drawn on: the one chosen, or the main one if it is gone. */
+function targetDisplay() {
+  return screen.getAllDisplays().find((d) => String(d.id) === settings.overlayDisplay) || screen.getPrimaryDisplay();
+}
+
 function publicState() {
   const locked = settings.pairingLocked;
   return {
