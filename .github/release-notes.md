@@ -27,6 +27,7 @@ Flick a photo off your phone and watch it land on your PC. This release is about
 
 ### Good to know
 
+- This release was tested on an Android emulator and a Windows PC. Background sending with the screen off depends on the phone maker's battery settings; if a long transfer stops on your phone, please open an issue.
 - A transfer that is carried on after a drop is not checksummed end to end. TLS protects each part in flight and the PC checks the final size.
 - Files in a batch are sent one after another over separate connections, so thousands of very small files are slower than they could be.
 - The Windows installer is not code-signed, so Windows shows a "Windows protected your PC" box. Choose **More info**, then **Run anyway**.
