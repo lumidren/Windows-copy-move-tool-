@@ -1,7 +1,7 @@
 {
   "name": "flingo",
   "productName": "Flingo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Flick photos and files from your Android phone onto your PC.",
   "main": "src/main.js",
   "author": {
