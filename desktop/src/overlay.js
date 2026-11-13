@@ -197,16 +197,18 @@ function drawFlight(f, now) {
   ctx.restore();
 }
 
-function drawParticles(now) {
+// k is the frame length relative to a 60 Hz frame, so particles move at the same
+// speed on a 60 Hz projector and a 144 Hz laptop panel.
+function drawParticles(now, k) {
   particles = particles.filter((q) => now - q.born < q.life);
   for (const q of particles) {
     const t = (now - q.born) / q.life;
-    q.x += q.vx; q.y += q.vy;
+    q.x += q.vx * k * S; q.y += q.vy * k * S;
     ctx.save();
     ctx.globalAlpha = 1 - t;
     ctx.fillStyle = q.color;
     if (q.kind === 'confetti') {
-      q.vy += 0.32; q.vx *= 0.985; q.rot += q.vr;
+      q.vy += 0.32 * k; q.vx *= Math.pow(0.985, k); q.rot += q.vr * k;
       ctx.translate(q.x, q.y); ctx.rotate(q.rot);
       ctx.fillRect(-q.size / 2, -q.size / 4, q.size, q.size / 2);
     } else {
@@ -235,6 +237,9 @@ function drawRings(now) {
 
 function frame(now) {
   ctx.clearRect(0, 0, W, H);
+  const dt = lastFrame ? Math.min(50, now - lastFrame) : 16.667;
+  if (lastFrame && ++stats.seen > 3) { stats.frames++; stats.total += now - lastFrame; stats.worst = Math.max(stats.worst, now - lastFrame); }
+  lastFrame = now;
   flights = flights.filter((f) => !f.t0 || now - f.t0 < TOTAL);
   drawRings(now);
   for (const f of flights) {
