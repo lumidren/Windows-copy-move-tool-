@@ -26,6 +26,8 @@
   &nbsp;·&nbsp;
   <a href="https://lumidren.github.io/Windows-copy-move-tool-/#videos"><b>Watch the videos</b></a>
   &nbsp;·&nbsp;
+  <a href="DEMO.md"><b>Live demo runbook</b></a>
+  &nbsp;·&nbsp;
   <a href="ROADMAP.md"><b>Roadmap</b></a>
 </p>
 
