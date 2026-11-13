@@ -35,6 +35,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
+            <!-- A pairing QR code scanned with the phone's own camera opens here. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="flingo" android:host="pair" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>
