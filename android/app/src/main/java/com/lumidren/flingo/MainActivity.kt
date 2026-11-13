@@ -79,6 +79,12 @@ class MainActivity : Activity() {
     private var healthJob: Job? = null
     private var pendingShare: List<Uri> = emptyList()
 
+    // Keeps Net.wifi pointing at the current Wi-Fi network, including one with no internet.
+    private val wifiWatcher = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) { Net.wifi = network }
+        override fun onLost(network: Network) { if (Net.wifi == network) Net.wifi = null }
+    }
+
     /** Whether the paired PC answered the last time it was asked. Null until the first answer. */
     private var online: Boolean? = null
     private var sending = false
@@ -98,6 +104,13 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
+        runCatching {
+            val wifiOnly = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            getSystemService(ConnectivityManager::class.java).registerNetworkCallback(wifiOnly, wifiWatcher)
+        }
         buildUi()
         updateChip()
         if (hasMediaPermission()) loadGallery() else requestMediaPermission()
@@ -123,6 +136,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         scope.cancel()
+        runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(wifiWatcher) }
         adapter.shutdown()
         tracker?.recycle()
         super.onDestroy()
