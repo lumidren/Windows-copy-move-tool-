@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -20,6 +21,12 @@ import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicIntegerArray
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicLongArray
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
 
 /** A file the PC has put aside for this phone. */
@@ -71,6 +78,7 @@ object Inbox {
     private var loop: Job? = null
     private var leaveWhenIdle = false
     @Volatile private var cancelled = false
+    @Volatile private var full = false // the phone ran out of room, so the files beside that one stop too
     @Volatile private var receiving = false
     private var pendingResult: ReceiveResult? = null
 
@@ -111,84 +119,161 @@ object Inbox {
 
     private suspend fun ask(ctx: Context) {
         val prefs = Prefs(ctx)
-        var first = true
+        var everything = true
         while (coroutineContext.isActive && prefs.paired) {
             val offered = try {
                 // The first question asks for everything, including what an earlier run of the app had begun.
-                withContext(Dispatchers.IO) { Net.outbox(prefs, if (first) 0 else 25, all = first) }
+                withContext(Dispatchers.IO) { Net.outbox(prefs, if (everything) 0 else 25, all = everything) }
             } catch (_: NotPairedException) {
                 return
             } catch (_: IOException) {
                 delay(4000) // the PC is not there right now; the health check says so on screen
                 continue
             } ?: return // an older Flingo on the PC, which cannot send to phones
-            first = false
-            if (offered.isNotEmpty()) receive(ctx, prefs, offered)
+            everything = false
+            if (offered.isNotEmpty()) {
+                // After a round that lost the connection, files are left half-fetched. The PC
+                // only lists those when asked for everything, so ask that way next time.
+                if (receive(ctx, prefs, offered) is ReceiveResult.Lost) {
+                    everything = true
+                    delay(2000)
+                }
+            }
             if (leaveWhenIdle) return
         }
     }
 
-    private suspend fun receive(ctx: Context, prefs: Prefs, offered: List<Incoming>) {
+    // What one file of a round is doing, for the line of progress the screen shows.
+    private const val FETCHING = 1
+    private const val WAITING = 2
+    private const val CHECKING = 3
+
+    private suspend fun receive(ctx: Context, prefs: Prefs, offered: List<Incoming>): ReceiveResult {
         receiving = true
         cancelled = false
+        full = false
         val count = offered.size
         val total = offered.sumOf { it.size }
         val long = count > LONG_COUNT || total > LONG_BYTES
         val meter = Transfers.Meter()
-        var before = 0L // bytes of the files already dealt with
-        var arrived = 0
-        var failed = 0
-        var last: Arrived? = null
 
-        fun report(index: Int, got: Long, waiting: Boolean, checking: Boolean = false) {
-            val bytes = before + got
-            val s = SendState(index, count, bytes, total, meter.speed(bytes, waiting), waiting, long, 0, incoming = true, checking = checking)
+        // Several files are fetched at once, each on its own thread, so what they have done is
+        // kept in counters any thread may touch. The screen is only told from the main thread.
+        val got = AtomicLongArray(count) // bytes of each file that have arrived
+        val doing = AtomicIntegerArray(count)
+        val dealt = AtomicInteger(0) // files finished with, whether they arrived or not
+        val arrived = AtomicInteger(0)
+        val failed = AtomicInteger(0)
+        val last = AtomicReference<Arrived?>(null)
+        val lost = AtomicBoolean(false) // the connection went for too long: take no more files this round
+        val shownAt = AtomicLong(0)
+
+        fun report() {
+            var bytes = 0L
+            var waiting = false
+            var fetching = false
+            var checking = false
+            for (i in 0 until count) {
+                bytes += got.get(i)
+                when (doing.get(i)) {
+                    WAITING -> waiting = true
+                    FETCHING -> fetching = true
+                    CHECKING -> checking = true
+                }
+            }
+            val s = SendState(
+                minOf(count, dealt.get() + 1), count, bytes, total, meter.speed(bytes, waiting), waiting, long, 0,
+                incoming = true, checking = checking && !fetching && !waiting,
+            )
             state = s
             listener?.onProgress(s)
             TransferService.update(ctx, s)
         }
 
+        /** From any thread. Without [now], at most one report every [Transfers.PROGRESS_MS]. */
+        fun show(now: Boolean) {
+            val at = SystemClock.elapsedRealtime()
+            if (!now && at - shownAt.get() < Transfers.PROGRESS_MS) return
+            shownAt.set(at)
+            main.post { if (receiving && !cancelled) report() }
+        }
+
+        /** Fetches file [i] on the calling thread. Throws when the round has to stop. */
+        fun fetchOne(i: Int) {
+            val item = offered[i]
+            doing.set(i, FETCHING)
+            show(now = true)
+            val saved = try {
+                receiveOne(ctx, prefs, item, onCheck = {
+                    // Reading a large file back takes a moment; say so instead of sitting at 100%.
+                    if (item.size > LONG_BYTES) { doing.set(i, CHECKING); show(now = true) }
+                }) { bytes, waiting ->
+                    got.set(i, bytes)
+                    val was = doing.getAndSet(i, if (waiting) WAITING else FETCHING)
+                    show(now = bytes == item.size || (was == WAITING) != waiting)
+                }
+            } finally {
+                doing.set(i, 0)
+            }
+            got.set(i, item.size)
+            dealt.incrementAndGet()
+            if (saved == null) {
+                failed.incrementAndGet()
+            } else {
+                arrived.incrementAndGet()
+                last.set(saved)
+                main.post { listener?.onArrived(saved) }
+            }
+            show(now = true)
+        }
+
         if (long) TransferService.start(ctx)
-        var result: ReceiveResult
-        try {
-            for ((i, item) in offered.withIndex()) {
-                if (cancelled) throw SendCancelledException()
-                report(i + 1, 0, false)
-                var shownAt = 0L
-                val saved = withContext(Dispatchers.IO) {
-                    receiveOne(ctx, prefs, item, onCheck = {
-                        // Reading a large file back takes a moment; say so instead of sitting at 100%.
-                        if (item.size > LONG_BYTES) main.post { if (receiving && !cancelled) report(i + 1, item.size, false, checking = true) }
-                    }) { got, waiting ->
-                        val now = SystemClock.elapsedRealtime()
-                        if (now - shownAt < 100 && got != item.size && !waiting) return@receiveOne
-                        shownAt = now
-                        main.post { if (receiving && !cancelled) report(i + 1, got, waiting) }
+        report()
+        // Each of the files going at once ends in its own way; the round ends in the worst of them.
+        val stopped = AtomicBoolean(false)
+        val noSpace = AtomicBoolean(false)
+        withContext(Dispatchers.IO) {
+            val next = AtomicInteger(0)
+            coroutineScope {
+                repeat(minOf(Transfers.STREAMS, count)) {
+                    launch {
+                        while (!cancelled && !full && !lost.get()) {
+                            val i = next.getAndIncrement()
+                            if (i >= count) break
+                            try {
+                                fetchOne(i)
+                            } catch (_: SendCancelledException) {
+                                stopped.set(true)
+                            } catch (_: StorageException) {
+                                noSpace.set(true)
+                                full = true
+                                Net.abortFetch() // the files beside it have nowhere to go either
+                            } catch (_: Exception) {
+                                // Not paired any more, or the connection stayed away too long. The
+                                // other files finish or give up by themselves.
+                                lost.set(true)
+                            }
+                        }
                     }
                 }
-                before += item.size
-                if (saved == null) { failed++; continue }
-                arrived++
-                last = saved
-                listener?.onArrived(saved)
             }
-            result = ReceiveResult.Done(arrived, failed, last)
-        } catch (_: SendCancelledException) {
-            // Whatever was offered with the cancelled file is given back too.
-            withContext(Dispatchers.IO) { offered.forEach { runCatching { Net.outboxDecline(prefs, it.id) } } }
-            result = ReceiveResult.Cancelled(arrived)
-        } catch (_: StorageException) {
-            result = ReceiveResult.NoSpace
-        } catch (_: NotPairedException) {
-            result = ReceiveResult.Lost(arrived)
-        } catch (_: IOException) {
-            result = ReceiveResult.Lost(arrived)
+        }
+        val result = when {
+            cancelled || stopped.get() -> {
+                // Whatever was offered with the cancelled file is given back too.
+                withContext(Dispatchers.IO) { offered.forEach { runCatching { Net.outboxDecline(prefs, it.id) } } }
+                ReceiveResult.Cancelled(arrived.get())
+            }
+            noSpace.get() -> ReceiveResult.NoSpace
+            lost.get() -> ReceiveResult.Lost(arrived.get())
+            else -> ReceiveResult.Done(arrived.get(), failed.get(), last.get())
         }
         receiving = false
         state = null
         TransferService.finishReceive(ctx, result, visible = listener != null)
         val seen = listener
         if (seen != null) seen.onFinished(result) else pendingResult = result
+        return result
     }
 
     // ---------- one file ----------
@@ -211,7 +296,7 @@ object Inbox {
         var lastProgress = SystemClock.elapsedRealtime()
         try {
             while (true) {
-                if (cancelled) throw SendCancelledException()
+                if (cancelled || full) throw SendCancelledException()
                 var have = sizeOf(resolver, uri).coerceAtLeast(0)
                 if (have > item.size) { // not ours any more; start it again
                     resolver.delete(uri, null, null)
@@ -221,7 +306,7 @@ object Inbox {
                 if (have == item.size) break
                 try {
                     append(resolver, uri, have) { out ->
-                        Net.fetch(prefs, item, have, out, { cancelled }) { got ->
+                        Net.fetch(prefs, item, have, out, { cancelled || full }) { got ->
                             lastProgress = SystemClock.elapsedRealtime()
                             onProgress(got, false)
                         }
@@ -243,7 +328,7 @@ object Inbox {
                     onProgress(sizeOf(resolver, uri).coerceAtLeast(0), true)
                     val until = SystemClock.elapsedRealtime() + 1500
                     while (SystemClock.elapsedRealtime() < until) {
-                        if (cancelled) throw SendCancelledException()
+                        if (cancelled || full) throw SendCancelledException()
                         Thread.sleep(100)
                     }
                 }
@@ -262,6 +347,11 @@ object Inbox {
             return Arrived(uri, item.name, mime)
         } catch (e: SendCancelledException) {
             discard(resolver, prefs, item, uri)
+            if (full && !cancelled) {
+                // Stopped because a file beside this one found the phone full. Tell the PC the same.
+                runCatching { Net.outboxReport(prefs, item.id, false, "The phone ran out of space.") }
+                throw StorageException()
+            }
             throw e
         } catch (e: StorageException) {
             discard(resolver, prefs, item, uri)
