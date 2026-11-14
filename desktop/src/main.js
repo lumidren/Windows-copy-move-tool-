@@ -729,6 +729,7 @@ async function sendToPhone(paths, phoneId) {
   }
 }
 
+  outbox.release(phone.id);
 function outboxChanged(item) {
   const run = outRuns.get(item.deviceId);
   if (!run) return;
