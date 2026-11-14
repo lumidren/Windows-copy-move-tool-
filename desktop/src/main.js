@@ -686,6 +686,114 @@ function closeBatch(b) {
 // ---------- updates ----------
 // Flingo asks GitHub which release is the newest, and says so in the window when it is
 // not this one. A copy put in place by the Windows installer can fetch the new installer,
+// ---------- sending to a phone ----------
+// Files for a phone go into the outbox, and the phone collects them (see outbox.js). The
+// window shows one card per phone for everything sent to it in one go.
+const outbox = createOutbox({ cleanName: sanitizeName, onChange: outboxChanged });
+const ONLINE_MS = 15_000;
+
+/** The phone files go to when none is named: the chosen one, else the one heard from last. */
+function defaultPhone() {
+  const paired = settings.devices;
+  if (!paired.length) return null;
+  const chosen = paired.find((d) => d.id === settings.sendTo);
+  if (chosen) return chosen;
+  const heard = (d) => lastSeen.get(d.id)?.at || 0;
+  return [...paired].sort((a, b) => heard(b) - heard(a) || b.added - a.added)[0];
+}
+
+async function sendToPhone(paths, phoneId) {
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p).slice(0, 500);
+  if (!list.length) return;
+  const phone = settings.devices.find((d) => d.id === phoneId) || defaultPhone();
+  if (!phone) {
+    sendMain('transfer', { id: 'out|none', state: 'failed', title: 'No phone to send to', detail: 'Pair a phone first.', fraction: 1 });
+    return;
+  }
+  // The phone files were last sent to stays the choice, so the list beside the button agrees.
+  if (settings.sendTo !== phone.id) { settings.sendTo = phone.id; saveSettings(); pushStateSoon(); }
+  let run = outRuns.get(phone.id);
+  if (!run) {
+    run = { name: phone.name, total: 0, ids: new Set(), ended: new Map(), refused: [], timer: null };
+    outRuns.set(phone.id, run);
+  }
+  run.total += list.length;
+  showOut(phone.id);
+  // One after another: each is read once for its checksum, and the phone can start on the
+  // first while the rest are still being read.
+  for (const file of list) {
+    const added = outbox.add(phone.id, phone.name, file);
+    const item = await added;
+    if (item.error && !item.id) run.refused.push(item.error);
+    showOut(phone.id);
+  }
+}
+
+function outboxChanged(item) {
+  const run = outRuns.get(item.deviceId);
+  if (!run) return;
+  run.ids.add(item.id);
+  const over = item.state === 'done' || item.state === 'failed' || item.state === 'cancelled';
+  if (over) run.ended.set(item.id, { state: item.state, size: item.size, error: item.error });
+  if (over) { clearTimeout(run.timer); run.timer = null; showOut(item.deviceId); }
+  else if (!run.timer) run.timer = setTimeout(() => { run.timer = null; showOut(item.deviceId); }, 120);
+}
+
+function showOut(phoneId) {
+  const run = outRuns.get(phoneId);
+  if (!run) return;
+  const id = `out|${phoneId}`;
+  const open = [...run.ids].filter((i) => !run.ended.has(i)).map((i) => outbox.get(i)).filter(Boolean);
+  const done = [...run.ended.values()].filter((e) => e.state === 'done');
+  const settled = run.ended.size + run.refused.length;
+  const base = { id, out: true, phone: phoneId };
+
+  if (settled < run.total) {
+    const bytes = open.reduce((n, i) => n + i.size, 0) + done.reduce((n, e) => n + e.size, 0);
+    const sent = open.reduce((n, i) => n + Math.min(i.sent, i.size), 0) + done.reduce((n, e) => n + e.size, 0);
+    const moving = open.some((i) => i.state === 'sending') || done.length > 0;
+    const ready = open.filter((i) => i.state === 'queued').length;
+    if (moving) {
+      sendMain('transfer', {
+        ...base, cancel: true, state: 'active', title: `Sending ${files(run.total)} to ${run.name}`,
+        detail: `${done.length} of ${run.total} · {pct}%`, fraction: bytes ? sent / bytes : 0,
+      });
+    } else if (ready) {
+      const online = Date.now() - (lastSeen.get(phoneId)?.at || 0) < ONLINE_MS;
+      sendMain('transfer', {
+        ...base, cancel: true, state: 'waiting', title: `Waiting for ${run.name}`,
+        detail: online ? `${files(ready)} ready to go` : `${files(ready)} ready. Open Flingo on the phone and ${ready === 1 ? 'it' : 'they'} will arrive.`,
+        fraction: 1,
+      });
+    } else {
+      sendMain('transfer', { ...base, cancel: true, state: 'active', title: `Getting ${files(run.total)} ready for ${run.name}`, detail: '', fraction: null });
+    }
+    return;
+  }
+
+  // Everything is settled one way or the other.
+  outRuns.delete(phoneId);
+  clearTimeout(run.timer);
+  if (done.length === run.total) {
+    sendMain('transfer', { ...base, state: 'done', title: `Sent ${files(run.total)} to ${run.name}`, detail: fmtSize(done.reduce((n, e) => n + e.size, 0)), fraction: 1 });
+    return;
+  }
+  const cancelled = [...run.ended.values()].filter((e) => e.state === 'cancelled').length;
+  const why = run.refused[0] || [...run.ended.values()].find((e) => e.state === 'failed')?.error
+    || (cancelled ? 'Cancelled.' : 'Something went wrong.');
+  sendMain('transfer', {
+    ...base, state: 'failed', fraction: 1,
+    title: done.length ? `${done.length} of ${run.total} sent to ${run.name}` : `Not sent to ${run.name}`,
+    detail: why,
+  });
+}
+
+function cancelSend(phoneId) {
+  const run = outRuns.get(phoneId);
+  if (!run) return;
+  for (const id of run.ids) if (!run.ended.has(id)) outbox.cancel(id);
+}
+
 // check it and hand over to it. Every other copy gets a link to the download page.
 let update = { state: 'idle', version: '', fraction: 0, message: '' }; // state: idle, checking, current, available, downloading, ready, failed
 let found = null; // the newer release, as update.js describes it
