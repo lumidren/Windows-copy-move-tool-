@@ -527,19 +527,25 @@ class MainActivity : Activity() {
         )
     }
 
-    /** [progress] is 0..1000, or null for no bar. [cancelable] adds a Cancel button for the transfer in progress. */
+    /** [progress] is 0..1000, -1 for a transfer whose size is not known, or null for no bar. [cancelable] adds a Cancel button for the transfer in progress. */
     private fun showStatus(text: String, sticky: Boolean = false, progress: Int? = null, holdMs: Long = 2600, cancelable: Boolean = false) {
         statusJob?.cancel()
-        if (statusText.text != text) {
-            statusText.text = text
-            if (progress == null) status.announceForAccessibility(text)
-        }
+        if (statusText.text.toString() != text) statusText.text = text
+        // Progress is spoken by rules of its own (see ProgressVoice). Everything else is said as
+        // it appears, also when it is the same words as the last time.
+        if (progress == null) say(text)
         statusCancel.visibility = if (cancelable) View.VISIBLE else View.GONE
         statusBar.visibility = if (progress == null) View.GONE else View.VISIBLE
-        if (progress != null) statusBar.progress = progress
+        if (progress != null) {
+            // Size unknown: a bar that keeps moving says "working". With reduced motion it stays still and empty, and the words say it.
+            statusBar.isIndeterminate = progress < 0 && motionOk
+            if (progress >= 0) statusBar.progress = progress
+        }
         status.visibility = View.VISIBLE
         if (!sticky) statusJob = scope.launch {
-            delay(holdMs)
+            // Anyone who has asked Android for more time to read a message gets it here too.
+            val kind = AccessibilityManager.FLAG_CONTENT_TEXT or (if (cancelable) AccessibilityManager.FLAG_CONTENT_CONTROLS else 0)
+            delay(getSystemService(AccessibilityManager::class.java).getRecommendedTimeoutMillis(holdMs.toInt(), kind).toLong())
             status.visibility = View.GONE
         }
     }
@@ -582,6 +588,11 @@ class MainActivity : Activity() {
         updateBar.visibility = if (offer) View.VISIBLE else View.GONE
         if (!offer || update == null) return
         updateText.text = "Flingo ${update.version} is available"
+        // Said once for each version, not every time the screen comes back.
+        if (announcedUpdate != update.version) {
+            announcedUpdate = update.version
+            say("Flingo ${update.version} is available. The Update button is near the top of the screen.")
+        }
         updateGo.visibility = View.VISIBLE
         updateClose.visibility = View.VISIBLE
         updateGo.setOnClickListener { startUpdate(update) }
@@ -598,6 +609,7 @@ class MainActivity : Activity() {
         updateGo.visibility = View.GONE
         updateClose.visibility = View.GONE
         updateText.text = "Downloading Flingo ${update.version}…"
+        say("Downloading Flingo ${update.version}") // the percentage that follows changes four times a second and is not read out
         updateJob = scope.launch {
             var shown = 0L
             val result = withContext(Dispatchers.IO) {
@@ -619,7 +631,7 @@ class MainActivity : Activity() {
             when {
                 failure is BadDownloadException -> showStatus("The download did not match the release, so it was thrown away. Try again.", holdMs = 5000)
                 failure != null -> showStatus("The update could not be downloaded. Try again.", holdMs = 4000)
-                result.getOrNull() == Verdict.OK -> updateText.text = "Confirm the update on the next screen"
+                result.getOrNull() == Verdict.OK -> { updateText.text = "Confirm the update on the next screen"; say("Confirm the update on the next screen") }
                 result.getOrNull() == Verdict.OTHER_KEY -> explainOtherKey(update)
                 else -> showStatus("That download is not a newer Flingo, so it was not installed.", holdMs = 5000)
             }
@@ -683,6 +695,9 @@ class MainActivity : Activity() {
             return false
         }
         if (online != result) {
+            // Said when it really changes, and only then. Leaving it to the chip to announce
+            // itself made it speak again after every transfer.
+            if (online != null || !result) say("${prefs.pcName}, ${if (result) "connected" else "not reachable"}")
             online = result
             updateChip()
         }
@@ -824,6 +839,7 @@ class MainActivity : Activity() {
                     wasInZone = inZone
                     setZoneActive(inZone)
                     if (inZone) buzz(HapticFeedbackConstants.CLOCK_TICK) // a tick as the photo crosses into the send zone
+                    say(if (inZone) "In the send zone. Let go to send." else "Out of the send zone. Let go to put it back.")
                 }
             }
             MotionEvent.ACTION_UP -> finishDrag(cancelled = false)
@@ -886,8 +902,14 @@ class MainActivity : Activity() {
     // ---------- receiving from the PC ----------
     private fun showReceive(s: SendState) {
         cancelAction = { Inbox.cancel() }
-        showStatus(Words.progress(s, lines = if (s.long) 2 else 1), sticky = true, progress = Words.fraction(s), cancelable = s.long)
+        showStatus(Words.progress(s, lines = if (s.long) 2 else 1), sticky = true, progress = Words.fraction(s) ?: -1, cancelable = s.long)
+        speakProgress(s)
         if (s.long) askForNotifications()
+    }
+
+    /** The start, each quarter, a lost connection and the final check are said aloud; the steps in between are not. */
+    private fun speakProgress(s: SendState) {
+        voice.step(Words.title(s), Words.fraction(s), s.waiting, s.checking, SystemClock.elapsedRealtime())?.let(::say)
     }
 
     /** The mirror of the flick: the photo that just arrived drops in from the top of the screen. */
@@ -936,6 +958,7 @@ class MainActivity : Activity() {
     }
 
     private fun showReceived(result: ReceiveResult) {
+        voice.reset()
         val pc = prefs.pcName.ifEmpty { "your PC" }
         when (result) {
             is ReceiveResult.Done -> {
@@ -956,10 +979,12 @@ class MainActivity : Activity() {
 
     private fun showSend(s: SendState) {
         cancelAction = { Transfers.cancel(this) }
-        showStatus(Words.progress(s, lines = if (s.long) 2 else 1), sticky = true, progress = Words.fraction(s), cancelable = s.long)
+        showStatus(Words.progress(s, lines = if (s.long) 2 else 1), sticky = true, progress = Words.fraction(s) ?: -1, cancelable = s.long)
+        speakProgress(s)
     }
 
     private fun showResult(r: SendResult) {
+        voice.reset()
         val pc = prefs.pcName
         when (r) {
             is SendResult.Done -> {
