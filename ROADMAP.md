@@ -1,6 +1,6 @@
 # Flingo roadmap
 
-Twenty features, grouped by what they improve. Size is a rough guess: **S** is a day or two, **M** about a week, **L** several weeks.
+Thirty-six features, grouped by what they improve. Size is a rough guess: **S** is a day or two, **M** about a week, **L** several weeks.
 
 **Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14).
 **Shipped in 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
@@ -66,6 +66,19 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 | 26 | **Scan mode** | Crop and straighten a document photo automatically and save it on the PC as a PDF. | M |
 | 27 | **Auto-convert** | Turn HEIC into JPG, shrink huge photos, and optionally strip the GPS location before sending. | S |
 | 28 | **Auto-sort** | Save arrivals into folders by date or by phone, with clean file names. | S |
+
+## Comfort and reach
+
+| # | Feature | Why it matters | Size |
+|:-:|---|---|:-:|
+| 29 | **Unsend** | A few seconds to take back a flick sent by mistake: the PC moves it to the bin and the card flies back out. | S |
+| 30 | **History and search** | A searchable list of everything sent and received, on both devices. | M |
+| 31 | **Accessibility** | A plain Send button for anyone who can't do the gesture, screen-reader labels everywhere, and a reduced-motion setting that the effects respect. | M |
+| 32 | **Translations** | Move every string into translation files, including right-to-left layouts. | M |
+| 33 | **Browser receiver** | A guest PC opens a web page and receives files with nothing installed. The phone has to act as the server, and a browser tab cannot draw over the whole screen, so the arrival is plainer. | L |
+| 34 | **Phone to phone and tablets** | A tablet layout is quick. Receiving on a phone means running a server there in the background. | M |
+| 35 | **Windows menus** | "Send to phone" in Explorer's right-click menu is quick once PC to phone (6) exists. Appearing in the Windows Share menu needs the app packaged as MSIX. | M |
+| 36 | **Flick into an app** | Drop zones on the PC screen: flick to the left edge for a chosen folder, to the right to open the photo in a chosen app. | M |
 
 ## Suggested order
 
