@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('flingo', {
   getState: () => ipcRenderer.invoke('get-state'),
@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('flingo', {
   overlayIdle: (stats) => ipcRenderer.send('overlay-idle', stats),
   update: (what) => ipcRenderer.send('update', what),
   openLink: (which) => ipcRenderer.send('open-link', which),
+  // Sending to a phone: the window only ever names files the person dropped or picked.
+  pathOf: (file) => webUtils.getPathForFile(file),
+  sendFiles: (paths, phoneId) => ipcRenderer.send('send-files', paths, phoneId),
+  pickAndSend: (phoneId) => ipcRenderer.send('pick-and-send', phoneId),
+  cancelSend: (phoneId) => ipcRenderer.send('cancel-send', phoneId),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onDevices: (fn) => ipcRenderer.on('devices', (_e, d) => fn(d)),
   onTransfer: (fn) => ipcRenderer.on('transfer', (_e, t) => fn(t)),
