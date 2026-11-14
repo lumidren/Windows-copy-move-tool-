@@ -1460,34 +1460,14 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Pairs from a QR code: tries each address in it, pinned to the certificate in it. */
+    /** Pairs from a link that was opened from outside the app. (A code read by Flingo's own scanner is paired there.) */
     private fun pairWith(link: PairLink) {
         showStatus("Pairing with ${link.pc.name}…", sticky = true)
         scope.launch {
-            var problem = "Can't reach ${link.pc.name}. Put the phone and the PC on the same Wi-Fi or hotspot, then scan again."
-            val paired = withContext(Dispatchers.IO) {
-                for (host in link.pc.hosts) {
-                    try {
-                        return@withContext Net.pair(link.pc.copy(host = host), link.code, deviceName(), prefs.deviceId)
-                    } catch (_: WrongCodeException) {
-                        problem = "That QR code has already been used. The PC is showing a new one: scan it again."
-                        break
-                    } catch (_: PairingLockedException) {
-                        problem = "Pairing is locked on ${link.pc.name}. On the PC, press Pair a phone, then scan again."
-                        break
-                    } catch (e: PcRefusedException) {
-                        problem = e.message ?: problem
-                        break
-                    } catch (_: WrongPcException) {
-                        problem = "A different computer answered at that address. Scan the code on your own PC again."
-                    } catch (_: IOException) {
-                        // not reachable at this address; try the next one
-                    }
-                }
-                null
+            when (val outcome = withContext(Dispatchers.IO) { Pairing.byLink(link, deviceName(), prefs.deviceId) }) {
+                is PairOutcome.Done -> onPaired(outcome.paired)
+                is PairOutcome.Problem -> { buzz(hapticNo); showStatus(outcome.text, holdMs = 7000) }
             }
-            if (paired != null) onPaired(paired)
-            else { buzz(hapticNo); showStatus(problem, holdMs = 7000) }
         }
     }
 

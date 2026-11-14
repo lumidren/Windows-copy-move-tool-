@@ -276,23 +276,8 @@ object Net {
         }
     }.getOrNull()
 
-    /** Reads a pairing QR code: flingo://pair?h=addresses&c=code&fp=fingerprint (port, name and id are optional). */
-    fun parseLink(uri: Uri): PairLink? = runCatching {
-        if (uri.scheme != "flingo" || uri.host != "pair") return null
-        val hosts = (uri.getQueryParameter("h") ?: "").split(',').map { it.trim() }
-            .filter { it.matches(Regex("[0-9A-Za-z.:-]{1,64}")) }
-        val code = uri.getQueryParameter("c") ?: ""
-        val port = uri.getQueryParameter("p")?.toIntOrNull() ?: HTTP_PORT
-        if (hosts.isEmpty() || !code.matches(Regex("\\d{6}")) || port !in 1..65535) return null
-        val pc = Pc(
-            id = uri.getQueryParameter("id") ?: "",
-            name = (uri.getQueryParameter("n") ?: "your PC").take(40),
-            host = hosts.first(), port = port,
-            fp = uri.getQueryParameter("fp") ?: "",
-            hosts = hosts,
-        )
-        PairLink(pc, code)
-    }.getOrNull()
+    /** Reads a pairing link that another app handed over. The reading itself is in [Pairing.parse]. */
+    fun parseLink(uri: Uri): PairLink? = Pairing.parse(uri.toString())
 
     // ---------- pairing ----------
     /**
