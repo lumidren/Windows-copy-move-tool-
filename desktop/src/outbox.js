@@ -162,8 +162,15 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
     streams.set(item.id, stream);
     item.sent = offset;
     item.state = 'sending';
-    stream.on('data', (c) => { item.sent += c.length; changed(item); });
-    stream.on('close', () => { if (streams.get(item.id) === stream) streams.delete(item.id); });
+    item.stalled = false;
+    item.movedAt = Date.now();
+    stream.on('data', (c) => { item.sent += c.length; item.movedAt = Date.now(); changed(item); });
+    stream.on('close', () => {
+      if (streams.get(item.id) !== stream) return; // replaced by a newer download of the same file
+      streams.delete(item.id);
+      // Closed before the end and not finished or taken back: the connection dropped.
+      if (item.state === 'sending' && item.sent < item.size) { item.stalled = true; changed(item); }
+    });
     changed(item);
     return stream;
   }
