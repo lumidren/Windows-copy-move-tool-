@@ -211,6 +211,23 @@ code {
   mask: radial-gradient(circle at 50% 50%, #000 60%, transparent 61%);
 }
 
+/* Shown over the whole window while files are dragged onto it. */
+.drop {
+  position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+  background: rgba(14, 16, 22, .82); pointer-events: none;
+}
+.drop-box {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 34px 54px;
+  border: 2px dashed var(--accent); border-radius: 18px; background: var(--panel);
+}
+.drop-box b { font-size: 20px; font-weight: 600; }
+.drop-box span { color: var(--muted); }
+.transfer .head { display: flex; align-items: center; gap: 10px; }
+.transfer .head .label { flex: 1; min-width: 0; }
+.transfer .head button { padding: 3px 10px; font-size: 12px; }
+.transfer.sent { border-color: var(--ok); }
+.transfer.sent .bar { background: var(--ok); }
+#send-target { max-width: 160px; }
 .transfers { display: flex; flex-direction: column; gap: 8px; }
 .transfers:not(:empty) { margin-bottom: 12px; }
 .transfer { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
