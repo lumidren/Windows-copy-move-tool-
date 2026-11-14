@@ -76,9 +76,10 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
   /**
    * Puts a file in the outbox for one phone. Resolves to the item, or to { error } when the
    * file cannot be sent. The file is read once here to take its SHA-256; it is offered to the
-   * phone only after that, so the phone can always check what it received.
+   * phone only after that, so the phone can always check what it received. With `hold`, it is
+   * not offered until release(): files sent together then reach the phone as one batch.
    */
-  async function add(deviceId, deviceName, file) {
+  async function add(deviceId, deviceName, file, { hold = false } = {}) {
     let stat;
     try { stat = fs.statSync(file); } catch { return { error: 'That file cannot be read.' }; }
     if (!stat.isFile()) return { error: 'Folders cannot be sent yet. Send the files inside it.' };
@@ -101,9 +102,22 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
       return item;
     }
     if (item.state !== 'preparing') return item; // cancelled while it was being read
+    if (hold) { item.held = true; return item; }
     set(item, 'queued');
     wake(deviceId);
     return item;
+  }
+
+  /** Offers everything that was added with `hold` for this phone, all at once. */
+  function release(deviceId) {
+    let any = false;
+    for (const item of items.values()) {
+      if (item.deviceId !== deviceId || item.state !== 'preparing' || !item.held) continue;
+      item.held = false;
+      set(item, 'queued');
+      any = true;
+    }
+    if (any) wake(deviceId);
   }
 
   /**
@@ -172,7 +186,7 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
   }
 
   return {
-    add, wait, pending, find, open, finish, cancel,
+    add, release, wait, pending, find, open, finish, cancel,
     list: () => [...items.values()],
     get: (id) => items.get(id) || null,
   };
