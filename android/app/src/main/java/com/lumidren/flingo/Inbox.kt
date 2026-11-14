@@ -124,6 +124,7 @@ object Inbox {
     private suspend fun ask(ctx: Context) {
         val prefs = Prefs(ctx)
         var everything = true
+        var retold = 0
         while (coroutineContext.isActive && prefs.paired) {
             val offered = try {
                 // The first question asks for everything, including what an earlier run of the app had begun.
@@ -131,6 +132,7 @@ object Inbox {
             } catch (_: NotPairedException) {
                 return
             } catch (_: IOException) {
+                if (leaveWhenIdle) return // nobody is watching; the next time Flingo is opened it asks again
                 delay(4000) // the PC is not there right now; the health check says so on screen
                 continue
             } ?: return // an older Flingo on the PC, which cannot send to phones
@@ -145,7 +147,8 @@ object Inbox {
                 everything = true
                 delay(2000)
             }
-            if (leaveWhenIdle && !unheard) return
+            // With the screen gone, try a few more times to tell the PC, then leave it for the next visit.
+            if (leaveWhenIdle && (!unheard || ++retold > 3)) return
         }
     }
 
