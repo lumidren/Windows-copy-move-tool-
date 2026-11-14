@@ -85,5 +85,5 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 1. **Signed releases (4)**: the last trust gap. The Android half is built and waits for the key to be added to the repository's secrets. The Windows half needs a code-signing certificate.
 2. **A picture for every arrival**: have the phone send a small preview with videos and HEIC photos, so they fly in as pictures instead of file cards.
 3. **PC to phone (6)**: done on `main`. Next for it: delivery while Flingo is closed on the phone, and flicking a tile out of the window.
-4. **Faster batches**: send several small files over one connection, or a few at a time, instead of one after another.
+4. **Faster batches**: done on `main`. Three files of a batch travel at once over connections that stay open, in both directions ([measurements](docs/benchmarks.md)). Still unmeasured on a real phone.
 5. Everything else, in whatever order is most fun.
