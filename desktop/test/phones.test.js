@@ -69,3 +69,67 @@ test('the last address and time are the newest ones', () => {
   known = note(known, { at: 4000, ip: '10.0.0.9' });
   assert.deepEqual(known, { at: 4000, ip: '10.0.0.9', since: 1000, app: '', asks: false });
 });
+
+// ---------- one phone, paired more than once ----------
+const { withPaired, superseded, target, MAX_PAIRED } = require('../src/phones');
+const phone = (id, name, added, more = {}) => ({ id, name, deviceId: `install-${id}`, added, ...more });
+
+test('pairing the same install again replaces its entry', () => {
+  const before = [phone('a', 'Pixel 8', 100), phone('b', 'Galaxy', 200)];
+  const again = { ...phone('c', 'Pixel 8', 300), deviceId: 'install-a' };
+  assert.deepEqual(withPaired(before, again).map((d) => d.id), ['b', 'c']);
+});
+
+test('the same phone with Flingo installed again replaces its entry: same name, same address', () => {
+  const before = [phone('a', 'Pixel 8', 100, { ip: '10.0.0.7' }), phone('b', 'Galaxy', 200, { ip: '10.0.0.8' })];
+  assert.deepEqual(withPaired(before, phone('c', 'Pixel 8', 300, { ip: '10.0.0.7' })).map((d) => d.id), ['b', 'c']);
+});
+
+test('another phone of the same model is kept: same name, another address or none known', () => {
+  const before = [phone('a', 'Pixel 8', 100, { ip: '10.0.0.7' }), phone('b', 'Pixel 8', 150)];
+  assert.deepEqual(withPaired(before, phone('c', 'Pixel 8', 300, { ip: '10.0.0.9' })).map((d) => d.id), ['a', 'b', 'c']);
+  // A phone with no deviceId (a very old Flingo) is not taken for every other one without.
+  const bare = [{ id: 'x', name: 'Old', added: 1 }];
+  assert.deepEqual(withPaired(bare, { id: 'y', name: 'Other', added: 2, deviceId: '', ip: '' }).map((d) => d.id), ['x', 'y']);
+});
+
+test('the list of paired phones stays bounded, newest kept', () => {
+  let list = [];
+  for (let i = 0; i < MAX_PAIRED + 5; i++) list = withPaired(list, phone(`p${i}`, `Phone ${i}`, i));
+  assert.equal(list.length, MAX_PAIRED);
+  assert.equal(list[list.length - 1].id, `p${MAX_PAIRED + 4}`);
+});
+
+test('an entry is superseded when the same name paired later and it was not heard from since', () => {
+  const old = phone('a', '21121210G', 100);
+  const fresh = phone('b', '21121210G', 300);
+  assert.equal(superseded([old, fresh], old), true);
+  assert.equal(superseded([old, fresh], fresh), false);
+  // Heard from before the new pairing: still superseded. After it: a second real phone.
+  assert.equal(superseded([{ ...old, heard: 250 }, fresh], { ...old, heard: 250 }), true);
+  const alive = { ...old, heard: 350 };
+  assert.equal(superseded([alive, fresh], alive), false);
+  assert.equal(superseded([old, phone('c', 'Another', 300)], old), false);
+});
+
+test('files meant for a superseded entry go to the pairing that took over', () => {
+  const old = phone('a', '21121210G', 100);
+  const fresh = phone('b', '21121210G', 300);
+  const other = phone('c', 'Galaxy', 200);
+  const list = [old, other, fresh];
+  assert.equal(target(list, 'a').id, 'b', 'the phone that is not coming back is passed over');
+  assert.equal(target(list, 'b').id, 'b');
+  assert.equal(target(list, 'c').id, 'c', 'a phone with a name of its own is left alone, connected or not');
+  assert.equal(target(list, 'gone'), null);
+  // If the old entry is talking to this PC right now, it is a real phone and it gets its files.
+  assert.equal(target(list, 'a', (d) => d.id === 'a').id, 'a');
+  // Three pairings of one phone: the newest is the one.
+  assert.equal(target([old, fresh, phone('d', '21121210G', 500)], 'a').id, 'd');
+});
+
+test('two real phones of one model each keep their own files', () => {
+  const first = phone('a', 'Pixel 8', 100, { heard: 900 });
+  const second = phone('b', 'Pixel 8', 300, { heard: 800 });
+  assert.equal(target([first, second], 'a').id, 'a');
+  assert.equal(target([first, second], 'b').id, 'b');
+});

@@ -43,4 +43,45 @@ function receives(known, now) {
   return now - known.since >= GRACE_MS ? 'no' : 'unknown';
 }
 
-module.exports = { cleanApp, note, receives, GRACE_MS, QUIET_MS };
+// ---------- one phone, paired more than once ----------
+// Installing Flingo again on a phone gives it a new identity, so pairing it again adds a
+// second entry with the same name, and the first can never be used again. Files sent to that
+// first entry would wait for a phone that no longer exists.
+
+const MAX_PAIRED = 20;
+
+/**
+ * The list of paired phones after `added` has paired. It replaces its own older entry: the same
+ * install (the same deviceId), or one of the same name last heard from the same address, which
+ * is the same phone with Flingo installed again.
+ */
+function withPaired(devices, added) {
+  const same = (d) => (added.deviceId && d.deviceId === added.deviceId)
+    || (d.name === added.name && !!d.ip && d.ip === added.ip);
+  return [...devices.filter((d) => !same(d)), added].slice(-MAX_PAIRED);
+}
+
+/**
+ * True for an entry that a later pairing of the same name has taken over from: nothing has
+ * been heard from it since that pairing. Two real phones of one model are both heard from,
+ * so neither is taken for the other. It is only passed over, never removed: if it does speak
+ * again, it counts again.
+ */
+function superseded(devices, device) {
+  const heard = device.heard || device.added || 0;
+  return devices.some((d) => d !== device && d.name === device.name && d.added > device.added && heard < d.added);
+}
+
+/**
+ * The phone that files meant for `wantedId` should go to: that one, unless it has been
+ * superseded and is not here now, in which case the pairing that took over from it.
+ */
+function target(devices, wantedId, isOnline = () => false) {
+  const wanted = devices.find((d) => d.id === wantedId);
+  if (!wanted) return null;
+  if (isOnline(wanted) || !superseded(devices, wanted)) return wanted;
+  const heirs = devices.filter((d) => d.name === wanted.name && !superseded(devices, d));
+  return heirs.sort((a, b) => b.added - a.added)[0] || wanted;
+}
+
+module.exports = { cleanApp, note, receives, withPaired, superseded, target, GRACE_MS, QUIET_MS, MAX_PAIRED };
