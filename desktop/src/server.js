@@ -5,6 +5,7 @@ const dgram = require('dgram');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { cleanApp } = require('./phones');
 
 const HTTP_PORT = 47801;
 const DISCOVERY_PORT = 47800;
@@ -349,7 +350,14 @@ function startServer(hooks, options = {}) {
       const auth = req.headers.authorization || '';
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
       const device = token ? hooks.checkToken(token) : null;
-      if (device && hooks.seen) hooks.seen(device, ip);
+      // Besides being here, the phone may say which Flingo it runs, and asking for its files
+      // shows that it can receive them. An older Flingo does neither (see phones.js).
+      if (device && hooks.seen) {
+        hooks.seen(device, ip, {
+          app: cleanApp(req.headers['x-flingo-app']),
+          asks: url.pathname === '/outbox' || url.pathname.startsWith('/outbox/'),
+        });
+      }
 
       if (req.method === 'GET' && url.pathname === '/ping') {
         return device ? json(res, 200, { ok: true, ...hooks.info() }) : json(res, 401, { error: 'Not paired' });

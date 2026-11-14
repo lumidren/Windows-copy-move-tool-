@@ -26,6 +26,7 @@ async function boot(extra = {}) {
     onEnd: (e) => events.push(['end', e]),
     onFile: (f) => files.push(f),
     onCancel: extra.onCancel,
+    seen: extra.seen,
   };
   const s = startServer(hooks, { port: 0, discoveryPort: null, host: '127.0.0.1' });
   assert.equal(await s.ready, true);
@@ -96,6 +97,31 @@ test('unpaired phones cannot ping or send', async () => {
     assert.equal((await t.send('a.jpg', Buffer.from('x'), 'wrong')).status, 401);
     assert.deepEqual(fs.readdirSync(t.dir), []);
     assert.equal((await fetch(`${t.base}/ping`, { headers: { Authorization: `Bearer ${TOKEN}` } })).status, 200);
+  } finally { t.close(); }
+});
+
+test('each request tells the PC what the phone can do: its version, and whether it asks for files', async () => {
+  const said = [];
+  const t = await boot({ seen: (device, ip, what) => said.push({ id: device.id, ...what }) });
+  const get = (p, headers = {}) => fetch(`${t.base}${p}`, { headers: { Authorization: `Bearer ${TOKEN}`, ...headers } });
+  try {
+    // Flingo 0.3.0: checks in, says nothing about itself, never asks for files.
+    await get('/ping');
+    assert.deepEqual(said.pop(), { id: 'd1', app: '', asks: false });
+    // A newer one says its version with everything it sends.
+    await get('/ping', { 'X-Flingo-App': '0.4.0' });
+    assert.deepEqual(said.pop(), { id: 'd1', app: '0.4.0', asks: false });
+    // Something that is not a version is not passed on.
+    await get('/ping', { 'X-Flingo-App': '<img src=x>' });
+    assert.deepEqual(said.pop(), { id: 'd1', app: '', asks: false });
+    // Asking for its files, in any of the ways a phone does, shows it can receive them.
+    for (const p of ['/outbox?all=1', '/outbox?wait=0', `/outbox/${'0'.repeat(32)}`]) {
+      await get(p);
+      assert.deepEqual(said.pop(), { id: 'd1', app: '', asks: true }, p);
+    }
+    // A phone that is not paired is not heard at all.
+    await fetch(`${t.base}/outbox?all=1`, { headers: { Authorization: 'Bearer wrong', 'X-Flingo-App': '0.4.0' } });
+    assert.equal(said.length, 0);
   } finally { t.close(); }
 });
 
