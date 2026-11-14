@@ -8,9 +8,17 @@ import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.security.SecureRandom
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicIntegerArray
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicLongArray
+import java.util.concurrent.atomic.AtomicReference
 
 /** Something the person asked to send: one file or many, sent in the order given. */
 class SendJob(
@@ -68,13 +76,21 @@ object Transfers {
     private const val LONG_BYTES = 20L * 1024 * 1024
     /** How long a long transfer keeps trying after the connection drops. */
     private const val PATIENCE_MS = 45_000L
+    /**
+     * Files of one batch on their way at the same moment. Each has its own connection, so the
+     * wait for the PC's answer to one file is spent sending the next. Three, because a PC
+     * running Flingo 0.3 takes four at once and one is left spare for a second try.
+     */
+    const val STREAMS = 3
+    /** The screen and the notification are told this often at most: about ten times a second. */
+    const val PROGRESS_MS = 100L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val main = Handler(Looper.getMainLooper())
     private val queue = ArrayDeque<SendJob>()
     private val random = SecureRandom()
     @Volatile private var cancelled = false
-    @Volatile private var currentId = "" // the PC's name for the file being sent
+    private val current = ConcurrentHashMap.newKeySet<String>() // the PC's names for the files being sent
     private var running = false
 
     /** The screen that is showing progress, if one is in front. */
@@ -106,11 +122,11 @@ object Transfers {
         cancelled = true
         queue.clear()
         val prefs = Prefs(ctx.applicationContext)
-        val id = currentId
-        // Network work, so not on the main thread: drop the connection, then tell the PC it was on purpose.
+        val ids = current.toList()
+        // Network work, so not on the main thread: drop the connections, then tell the PC it was on purpose.
         Thread {
             Net.abort()
-            runCatching { Net.cancelOnPc(prefs, id) }
+            ids.forEach { runCatching { Net.cancelOnPc(prefs, it) } }
         }.start()
     }
 
@@ -137,59 +153,121 @@ object Transfers {
         val total = if (sizes.all { it >= 0 }) sizes.sum() else -1L
         val long = count > LONG_COUNT || total > LONG_BYTES || total < 0
         val batch = if (count > 1) id() else ""
-        var before = 0L // bytes of the files already finished
-        var sent = 0
-        var skipped = 0
         val meter = Meter()
 
-        fun report(index: Int, fileSent: Long, waiting: Boolean) {
-            val bytes = before + fileSent
-            val s = SendState(index, count, bytes, total, meter.speed(bytes, waiting), waiting, long, queue.size)
+        // Several files go at once, each on its own thread, so what they have done is kept in
+        // counters any thread may touch. The screen is only ever told from the main thread.
+        val gone = AtomicLongArray(count) // bytes of each file that have been sent
+        val lost = AtomicIntegerArray(count) // 1 while that file has lost its connection
+        val finished = AtomicInteger(0) // files dealt with: sent, or left out
+        val sent = AtomicInteger(0)
+        val skipped = AtomicInteger(0)
+        val stop = AtomicBoolean(false) // one file failed for good, so the rest give up
+        val failure = AtomicReference<SendResult.Failed?>(null)
+        val shownAt = AtomicLong(0)
+
+        fun report() {
+            var bytes = 0L
+            var waiting = false
+            for (i in 0 until count) {
+                bytes += gone.get(i)
+                if (lost.get(i) != 0) waiting = true
+            }
+            val s = SendState(minOf(count, finished.get() + 1), count, bytes, total, meter.speed(bytes, waiting), waiting, long, queue.size)
             state = s
             listener?.onProgress(s)
             TransferService.update(ctx, s)
         }
 
+        /** From any thread. Without [now], at most one report every [PROGRESS_MS]. */
+        fun show(now: Boolean) {
+            val at = SystemClock.elapsedRealtime()
+            if (!now && at - shownAt.get() < PROGRESS_MS) return
+            shownAt.set(at)
+            main.post { if (running && !cancelled && !stop.get()) report() }
+        }
+
+        fun fail(why: SendResult.Why, message: String = "") {
+            if (!failure.compareAndSet(null, SendResult.Failed(0, count, why, message))) return
+            stop.set(true)
+            Net.abort() // the files beside this one are not going to make it either
+        }
+
+        /** Sends file [i] on the calling thread. False when the whole job has to stop. */
+        fun sendOne(i: Int): Boolean {
+            if (cancelled || stop.get()) return false
+            val options = SendOptions(
+                quiet = !(job.animateFirst && i == 0),
+                batch = batch, index = i + 1, count = count, batchBytes = total,
+                id = id(),
+                patienceMs = if (long) PATIENCE_MS else 0,
+                // A kept connection can turn out to be dead, so only where a failure is tried again.
+                keepAlive = long && count > 1,
+            )
+            current.add(options.id)
+            try {
+                Net.send(ctx, prefs, job.uris[i], job.x, job.search, options, { cancelled || stop.get() }, described[i]) { fileSent, fileSize, waiting ->
+                    gone.set(i, fileSent)
+                    val was = lost.getAndSet(i, if (waiting) 1 else 0) != 0
+                    show(now = fileSent == fileSize || was != waiting)
+                }
+                sent.incrementAndGet()
+            } catch (_: UnreadableFileException) {
+                // One unreadable photo should not stop the other two hundred.
+                if (count == 1) { fail(SendResult.Why.UNREADABLE); return false }
+                skipped.incrementAndGet()
+            } catch (_: SendCancelledException) {
+                return false
+            } catch (_: NotPairedException) {
+                fail(SendResult.Why.NOT_PAIRED)
+                return false
+            } catch (e: PcRefusedException) {
+                fail(SendResult.Why.REFUSED, e.message ?: "")
+                return false
+            } catch (_: Exception) {
+                if (!cancelled) fail(SendResult.Why.UNREACHABLE)
+                return false
+            } finally {
+                current.remove(options.id)
+                lost.set(i, 0)
+            }
+            // Counted in full even when it was left out, so the bar still reaches the end.
+            gone.set(i, maxOf(gone.get(i), sizes[i]))
+            finished.incrementAndGet()
+            show(now = true)
+            return true
+        }
+
         if (long) TransferService.start(ctx)
-        report(1, 0, false)
-        try {
-            for ((i, uri) in job.uris.withIndex()) {
-                if (cancelled) return SendResult.Cancelled(sent, count)
-                val options = SendOptions(
-                    quiet = !(job.animateFirst && i == 0),
-                    batch = batch, index = i + 1, count = count, batchBytes = total,
-                    id = id(),
-                    patienceMs = if (long) PATIENCE_MS else 0,
-                )
-                var shownAt = 0L
-                currentId = options.id
-                try {
-                    withContext(Dispatchers.IO) {
-                        Net.send(ctx, prefs, uri, job.x, job.search, options, { cancelled }, described[i]) { fileSent, fileSize, waiting ->
-                            val now = SystemClock.elapsedRealtime()
-                            if (now - shownAt < 80 && fileSent != fileSize && !waiting) return@send
-                            shownAt = now
-                            main.post { if (running && !cancelled) report(i + 1, fileSent, waiting) }
+        report()
+        withContext(Dispatchers.IO) {
+            val last = count - 1
+            var from = 0
+            // A flicked photo goes first and alone, so it is the one that flies onto the PC's screen.
+            if (job.animateFirst && count > 1) {
+                sendOne(0)
+                from = 1
+            }
+            // The middle of a batch goes several files at a time.
+            if (last > from) {
+                val next = AtomicInteger(from)
+                coroutineScope {
+                    repeat(minOf(STREAMS, last - from)) {
+                        launch {
+                            while (true) {
+                                val i = next.getAndIncrement()
+                                if (i >= last || !sendOne(i)) break
+                            }
                         }
                     }
-                    sent++
-                } catch (e: UnreadableFileException) {
-                    // One unreadable photo should not stop the other two hundred.
-                    if (count == 1) return SendResult.Failed(0, 1, SendResult.Why.UNREADABLE)
-                    skipped++
                 }
-                before += sizes[i].coerceAtLeast(0)
             }
-            return SendResult.Done(sent, skipped)
-        } catch (_: SendCancelledException) {
-            return SendResult.Cancelled(sent, count)
-        } catch (_: NotPairedException) {
-            return SendResult.Failed(sent, count, SendResult.Why.NOT_PAIRED)
-        } catch (e: PcRefusedException) {
-            return SendResult.Failed(sent, count, SendResult.Why.REFUSED, e.message ?: "")
-        } catch (_: Exception) {
-            return if (cancelled) SendResult.Cancelled(sent, count) else SendResult.Failed(sent, count, SendResult.Why.UNREACHABLE)
+            // The last file goes after all the others: the PC takes it as the end of the batch.
+            sendOne(last)
         }
+        if (cancelled) return SendResult.Cancelled(sent.get(), count)
+        failure.get()?.let { return it.copy(sent = sent.get()) }
+        return SendResult.Done(sent.get(), skipped.get())
     }
 
     /** Turns byte counts into a steady bytes-per-second figure. */
