@@ -173,9 +173,11 @@ still open. After all of it, 60 photos were sent each way and compared by SHA-25
   not confirmed by a swipe.
 - **No screen reader was run on the PC** (Narrator, NVDA, Orca). Roles, names and what the
   announcer is given were checked in the page; how each reader voices them was not.
-- **The QR scanner screen** comes from a library and was not audited. Its scan line moves
-  whatever the motion setting is. Pairing does not need it: "Find my PC" and "Type it in"
-  avoid the camera.
+- **The QR scanner with a real camera.** The scanner is now Flingo's own screen: its three
+  buttons have names, roles and 48 dp, what it says ("Scanned", "Paired with…", or why not)
+  is spoken, and nothing on it moves. All of that was checked on the emulator, with a code
+  fed to it by a test hook, because an emulator's camera cannot be pointed at a screen.
+  Reading a real code with a real camera was not tried.
 - **The address and code fields** measured 45 dp tall; they were then raised to 48 dp and
   not measured again.
 - **The update bar on the phone** was not on screen during this pass (it needs a newer
