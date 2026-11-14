@@ -80,6 +80,9 @@ object Inbox {
     @Volatile private var cancelled = false
     @Volatile private var full = false // the phone ran out of room, so the files beside that one stop too
     @Volatile private var receiving = false
+    // A file arrived, but the PC could not be told (the connection went at that moment). Until
+    // it hears, the PC shows the file as still on its way, so the phone asks to be offered it again.
+    @Volatile private var unheard = false
     private var pendingResult: ReceiveResult? = null
 
     /** Set by the screen while it is in front. */
@@ -131,16 +134,25 @@ object Inbox {
                 continue
             } ?: return // an older Flingo on the PC, which cannot send to phones
             everything = false
-            if (offered.isNotEmpty()) {
-                // After a round that lost the connection, files are left half-fetched. The PC
-                // only lists those when asked for everything, so ask that way next time.
-                if (receive(ctx, prefs, offered) is ReceiveResult.Lost) {
-                    everything = true
-                    delay(2000)
-                }
+            unheard = false
+            // Files this phone already has are only confirmed again, without a second arrival.
+            val fresh = withContext(Dispatchers.IO) { offered.filterNot { retell(prefs, it) } }
+            // After a round that lost the connection, files are left half-fetched. The PC only
+            // lists those, and the ones it never heard about, when asked for everything.
+            val lost = fresh.isNotEmpty() && receive(ctx, prefs, fresh) is ReceiveResult.Lost
+            if (lost || unheard) {
+                everything = true
+                delay(2000)
             }
-            if (leaveWhenIdle) return
+            if (leaveWhenIdle && !unheard) return
         }
+    }
+
+    /** True if [item] arrived earlier and only its confirmation is owed to the PC, which is sent again here. */
+    private fun retell(prefs: Prefs, item: Incoming): Boolean {
+        prefs.inboxDone(item.id) ?: return false
+        try { Net.outboxReport(prefs, item.id, true) } catch (_: Exception) { unheard = true }
+        return true
     }
 
     // What one file of a round is doing, for the line of progress the screen shows.
@@ -285,11 +297,6 @@ object Inbox {
      */
     private fun receiveOne(ctx: Context, prefs: Prefs, item: Incoming, onCheck: () -> Unit, onProgress: (Long, Boolean) -> Unit): Arrived? {
         val resolver = ctx.contentResolver
-        // The PC did not hear that this one arrived (the connection dropped at the last moment). Say it again.
-        prefs.inboxDone(item.id)?.let { done ->
-            Net.outboxReport(prefs, item.id, true)
-            return Arrived(Uri.parse(done), item.name, typeOf(item))
-        }
         val mime = typeOf(item)
         var uri = prefs.inboxPart(item.id)?.let(Uri::parse)?.takeIf { sizeOf(resolver, it) >= 0 }
             ?: create(resolver, item, mime).also { prefs.setInboxPart(item.id, it.toString()) }
@@ -343,7 +350,8 @@ object Inbox {
             resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
             prefs.setInboxDone(item.id, uri.toString())
             prefs.setInboxPart(item.id, null)
-            runCatching { Net.outboxReport(prefs, item.id, true) } // if this is lost, it is repeated when the PC offers the file again
+            // If this is lost, it is said again when the PC next lists what it is still waiting to hear about.
+            runCatching { Net.outboxReport(prefs, item.id, true) }.onFailure { unheard = true }
             return Arrived(uri, item.name, mime)
         } catch (e: SendCancelledException) {
             discard(resolver, prefs, item, uri)
