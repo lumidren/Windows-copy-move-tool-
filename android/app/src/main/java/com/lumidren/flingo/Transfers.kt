@@ -38,6 +38,10 @@ data class SendState(
     val long: Boolean,
     /** More jobs are queued behind this one. */
     val queued: Int,
+    /** These files are coming from the PC, not going to it. */
+    val incoming: Boolean = false,
+    /** Everything has arrived and is being compared with the checksum the PC promised. */
+    val checking: Boolean = false,
 )
 
 sealed class SendResult {
@@ -226,6 +230,9 @@ object Words {
     /** What is happening, e.g. "Sending 7 of 24". */
     fun title(s: SendState): String = when {
         s.waiting -> "Connection lost. Trying to carry on…"
+        s.checking -> "Checking the file…"
+        s.incoming && s.count > 1 -> "Receiving ${s.index} of ${s.count}"
+        s.incoming -> "Receiving"
         s.count > 1 -> "Sending ${s.index} of ${s.count}"
         else -> "Sending"
     }
