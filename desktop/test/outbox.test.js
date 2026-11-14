@@ -120,11 +120,14 @@ test('a download that was cut off carries on from where it stopped', async (t) =
     req.on('error', reject);
   });
   assert.ok(first.length >= 2 * 1024 * 1024 && first.length < body.length);
+  await new Promise((r) => setTimeout(r, 200));
+  assert.equal(pc.outbox.get(item.id).stalled, true, 'the PC knows the download was interrupted');
   assert.deepEqual((await pc.ask('token-one', '?all=1')).items.map((i) => i.id), [item.id], 'still there after a restart of the phone app');
 
   const rest = await pc.fetchFile('token-one', item.id, { Range: `bytes=${first.length}-` });
   assert.equal(rest.status, 206);
   assert.equal(rest.headers.get('content-range'), `bytes ${first.length}-${body.length - 1}/${body.length}`);
+  assert.equal(pc.outbox.get(item.id).stalled, false);
   const whole = Buffer.concat([first, Buffer.from(await rest.arrayBuffer())]);
   assert.equal(sha256(whole), rest.headers.get('x-sha256'));
   assert.deepEqual(whole, body);
