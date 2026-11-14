@@ -12,7 +12,9 @@ import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.net.Socket
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.URLEncoder
@@ -20,6 +22,7 @@ import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
@@ -81,6 +84,8 @@ object Net {
     const val HTTP_PORT = 47801
     private const val DISCOVERY_PORT = 47800
     private const val MAGIC = "FLINGO_DISCOVER"
+    /** After the first PC answers a search, how long to keep listening for another. */
+    private const val FIRST_ANSWER_GRACE_MS = 350L
     private const val MISMATCH = "fingerprint mismatch"
 
     /**
@@ -211,15 +216,21 @@ object Net {
         return out
     }
 
-    fun discover(timeoutMs: Int = 2400): List<Pc> {
+    /**
+     * Asks the network who is running Flingo. It used to listen for the whole of [timeoutMs]
+     * whatever happened, so "Find my PC" took 2.4 seconds even when the PC answered in 20 ms.
+     * Now the wait ends shortly after the first answer (a moment is left for a second PC to
+     * speak up), and at once if the PC called [wantId] is the one that answered.
+     */
+    fun discover(timeoutMs: Int = 2400, wantId: String? = null): List<Pc> {
         val found = LinkedHashMap<String, Pc>()
         DatagramSocket().use { socket ->
             runCatching { wifi?.bindSocket(socket) }
             socket.broadcast = true
-            socket.soTimeout = 300
+            socket.soTimeout = 100
             val msg = MAGIC.toByteArray()
             val targets = broadcastAddresses()
-            val end = System.currentTimeMillis() + timeoutMs
+            var end = System.currentTimeMillis() + timeoutMs
             val buf = ByteArray(2048)
             var lastProbe = 0L
             while (System.currentTimeMillis() < end) {
@@ -238,7 +249,11 @@ object Net {
                     val host = packet.address.hostAddress ?: continue
                     // The fingerprint in a discovery reply is only a claim; pairing pins what TLS really shows.
                     val pc = Pc(json.getString("id"), json.getString("name"), host, json.optInt("port", HTTP_PORT))
-                    found.putIfAbsent(pc.id, pc)
+                    if (found.putIfAbsent(pc.id, pc) == null) {
+                        if (pc.id == wantId) return listOf(pc)
+                        // Somebody answered. Listen a little longer for others, not the whole time.
+                        if (found.size == 1) end = minOf(end, System.currentTimeMillis() + FIRST_ANSWER_GRACE_MS)
+                    }
                 } catch (_: SocketTimeoutException) {
                     // keep listening until the deadline
                 } catch (_: Exception) {
@@ -313,33 +328,65 @@ object Net {
     private fun candidates(prefs: Prefs): List<String> = (listOf(prefs.host) + prefs.hosts).filter { it.isNotEmpty() }.distinct()
 
     /**
-     * True if the paired PC answers. Tries every address it is known by and remembers the one that works.
+     * The first of [hosts] that accepts a connection on [port]. They are all tried at the same
+     * moment, so a dead address in the list costs nothing. Null if none answers in [timeoutMs].
+     * With a single address there is nothing to choose, and it is returned untested.
+     */
+    fun firstReachable(hosts: List<String>, port: Int, timeoutMs: Int = 1500): String? {
+        val all = hosts.distinct()
+        if (all.size <= 1) return all.firstOrNull()
+        return Race.first(all, timeoutMs.toLong()) { host ->
+            // Through the Wi-Fi network when there is one, like every other connection (see [wifi]).
+            (wifi?.socketFactory?.createSocket() ?: Socket()).use { socket ->
+                socket.connect(InetSocketAddress(host, port), timeoutMs)
+                true
+            }
+        }
+    }
+
+    /** One "are you there?" to the paired PC at one address. */
+    private fun pingAt(prefs: Prefs, host: String): Boolean {
+        val c = open(host, prefs.port, "/ping", prefs.fp, connectMs = 1500, reuse = true)
+        try {
+            c.http.readTimeout = 4000
+            c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+            val status = c.http.responseCode
+            if (status == 401) throw NotPairedException()
+            return status == 200
+        } catch (_: IOException) {
+            return false // not at this address
+        } finally {
+            c.http.disconnect()
+        }
+    }
+
+    /**
+     * True if the paired PC answers. The address it was last at is asked first, which is nearly
+     * always right. If it is silent there, every other address it is known by is asked at once,
+     * and the one that answers is remembered.
      * Throws [NotPairedException] if the PC answers but has forgotten this phone.
      */
     fun ping(prefs: Prefs): Boolean {
-        for (host in candidates(prefs)) {
-            val c = open(host, prefs.port, "/ping", prefs.fp, connectMs = 1500, reuse = true)
-            try {
-                c.http.readTimeout = 4000
-                c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
-                val status = c.http.responseCode
-                if (status == 401) throw NotPairedException()
-                if (status == 200) {
-                    if (host != prefs.host) prefs.host = host
-                    return true
-                }
-            } catch (_: IOException) {
-                // not at this address; try the next
-            } finally {
-                c.http.disconnect()
-            }
+        val all = candidates(prefs)
+        val usual = all.firstOrNull() ?: return false
+        if (pingAt(prefs, usual)) return true
+        val others = all.drop(1)
+        if (others.isEmpty()) return false
+        val forgotten = AtomicBoolean(false)
+        val found = Race.first(others, 2500) { host ->
+            try { pingAt(prefs, host) } catch (_: NotPairedException) { forgotten.set(true); false }
         }
-        return false
+        if (found == null) {
+            if (forgotten.get()) throw NotPairedException()
+            return false
+        }
+        prefs.host = found
+        return true
     }
 
-    /** Looks for the paired PC by name-and-id broadcast, for when its address has changed. */
+    /** Looks for the paired PC by name-and-id broadcast, for when its address has changed. Returns as soon as it answers. */
     fun relocate(prefs: Prefs): Boolean {
-        val moved = runCatching { discover(1500) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId } ?: return false
+        val moved = runCatching { discover(1500, wantId = prefs.pcId) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId } ?: return false
         prefs.host = moved.host
         return true
     }
@@ -464,7 +511,7 @@ object Net {
             }
         }
         if (!search) throw last ?: IOException("PC not reachable")
-        val moved = runCatching { discover(1800) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId && it.host !in tried }
+        val moved = runCatching { discover(1800, wantId = prefs.pcId) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId && it.host !in tried }
             ?: throw last ?: IOException("PC not reachable")
         val sent = sendTo(ctx, moved.host, prefs, uri, name, size, x, o, offset, cancelled, onProgress)
         prefs.host = moved.host
