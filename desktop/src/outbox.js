@@ -107,3 +107,21 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
   }
 
   /**
+   * Resolves to what is ready for this phone: at once if there is something, otherwise when
+   * something arrives or after `ms`, whichever is first. `signal` ends the wait early.
+   */
+  function wait(deviceId, ms, signal) {
+    const ready = pending(deviceId);
+    if (ready.length || ms <= 0) return Promise.resolve(ready);
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        waiters.get(deviceId)?.delete(done);
+        resolve(pending(deviceId));
+      };
+      const timer = setTimeout(done, ms);
+      if (!waiters.has(deviceId)) waiters.set(deviceId, new Set());
+      waiters.get(deviceId).add(done);
+      if (signal) signal.addEventListener('abort', done, { once: true });
+    });
+  }
