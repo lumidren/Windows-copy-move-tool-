@@ -298,7 +298,8 @@ function whenOverlayReady(fn) {
 function toOverlay(channel, payload) {
   const send = () => {
     if (!overlayShown) { overlayWin.showInactive(); overlayShown = true; }
-    overlayWin.webContents.send(channel, payload);
+    // Every message says how much movement is wanted, so a change of setting takes effect at once.
+    overlayWin.webContents.send(channel, { ...payload, motion: settings.motion });
   };
   // While it is already on screen there is no need to place it again for every progress tick.
   if (overlayShown && overlayWin && !overlayWin.isDestroyed() && !overlayWin.webContents.isLoading()) send();
@@ -309,7 +310,7 @@ function playOverlay(item) {
   whenOverlayReady(() => {
     overlayWin.showInactive();
     overlayShown = true;
-    overlayWin.webContents.send('arrive', { ...item, sound: settings.sound });
+    overlayWin.webContents.send('arrive', { ...item, sound: settings.sound, motion: settings.motion });
     const cap = process.env.FLINGO_DEBUG_CAPTURE;
     if (cap) {
       setTimeout(async () => {

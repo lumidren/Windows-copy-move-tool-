@@ -1,6 +1,7 @@
 // Renders the real arrival overlay at projector and monitor sizes and checks, pixel
 // by pixel, that the photo lands in the middle of the screen at the right size and
-// that nothing is left behind afterwards.
+// that nothing is left behind afterwards. Then it plays the arrival again with reduced
+// movement and checks that the photo stays put and no effect is drawn.
 //
 //   npm run test:overlay                       every size below
 //   electron test/overlay-sizes.js --case=3840x2160@1.5 [--out=folder]
@@ -46,6 +47,21 @@ const MEASURE = `(() => {
     if (a >= 250) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   }
   return { cw: c.width, ch: c.height, iw: innerWidth, ih: innerHeight, dpr: devicePixelRatio, any, x0, y0, x1, y1 };
+})()`;
+
+// The same for a photo that is fading in or out: where is everything at least a quarter
+// opaque (the photo, not its soft shadow), and is anything at all drawn in the lowest fifth?
+const MEASURE_CALM = `(() => {
+  const c = document.getElementById('c');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1, foot = 0;
+  const low = Math.floor(c.height * 0.8);
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const a = d[(y * c.width + x) * 4 + 3];
+    if (a > 0 && y >= low) foot++;
+    if (a >= 64) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  return { foot, x0, y0, x1, y1 };
 })()`;
 
 app.whenReady().then(async () => {
@@ -103,6 +119,39 @@ app.whenReady().then(async () => {
   const after = await win.webContents.executeJavaScript(MEASURE);
   check(after.any === 0, `${after.any} pixels left on screen after the arrival`);
   check(idle, 'overlay never reported that it was finished');
+
+  // ---------- the same arrival with reduced movement ----------
+  // The photo must be in its resting place from the first moment (it fades in, it does not
+  // fly), and the effect must not be drawn at all. Aurora is used because it fills the foot
+  // of the screen for the whole flight, so its absence is easy to see.
+  idle = false;
+  const calmStart = Date.now();
+  const calmAt = (ms) => new Promise((r) => setTimeout(r, Math.max(0, calmStart + ms - Date.now())));
+  win.webContents.send('arrive', { url: null, name: 'Preview', from: 'Pixel 8', x: 0.8, effect: 'aurora', sound: false, motion: 'reduce' });
+  const middle = (m, what) => {
+    check(m.x1 >= 0, `calm: no photo on screen ${what}`);
+    if (m.x1 < 0) return;
+    const cx = (m.x0 + m.x1) / 2 / k, cy = (m.y0 + m.y1) / 2 / k, bw = (m.x1 - m.x0) / k;
+    const side = Math.min(W, H) * 0.42;
+    check(Math.abs(cx - W / 2) < W * 0.015 && Math.abs(cy - H * 0.44) < H * 0.03, `calm: photo is at ${cx.toFixed(0)},${cy.toFixed(0)} ${what}, not in its resting place`);
+    check(bw > side && bw < side * 1.3, `calm: photo is ${bw.toFixed(0)} wide ${what}, not its resting size ${side.toFixed(0)}`);
+  };
+  await calmAt(170); // a flying photo would still be small and near the foot of the screen
+  const early = await win.webContents.executeJavaScript(MEASURE_CALM);
+  middle(early, 'as it appears');
+  check(early.foot === 0, `calm: ${early.foot} pixels drawn at the foot of the screen as it appears`);
+  await calmAt(1800);
+  const still = await win.webContents.executeJavaScript(MEASURE_CALM);
+  middle(still, 'while resting');
+  check(still.foot === 0, `calm: ${still.foot} pixels of the effect drawn at the foot of the screen`);
+  if (OUT) {
+    const png = await win.webContents.executeJavaScript("document.getElementById('c').toDataURL('image/png')");
+    fs.writeFileSync(path.join(OUT, `calm-${size}@${scaleText}.png`), nativeImage.createFromDataURL(png).resize({ width: Math.min(960, pw) }).toPNG());
+  }
+  await calmAt(4400);
+  const gone = await win.webContents.executeJavaScript(MEASURE);
+  check(gone.any === 0, `calm: ${gone.any} pixels left on screen after the arrival`);
+  check(idle, 'calm: overlay never reported that it was finished');
 
   const label = `${size} at ${Math.round(scale * 100)}%`.padEnd(22) + `logical ${W}x${H}`;
   if (errors.length) console.log(`FAIL  ${label}\n      ${errors.join('\n      ')}`);

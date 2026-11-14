@@ -1,5 +1,8 @@
 // Arrival animation. A photo enters from the bottom edge (where the phone is),
 // flies to the middle of the screen, rests, then tucks into the top-right corner.
+//
+// With reduced movement it does none of that: the photo fades in where it would have
+// rested, stays the same time, and fades out. Nothing flies, spins, bursts or pulses.
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0, dpr = 1;
@@ -19,6 +22,13 @@ resize();
 
 const FLY = 900, REST = 1700, TUCK = 650;
 const TOTAL = FLY + REST + TUCK;
+const FADE_IN = 350, FADE_OUT = 450; // the calm arrival: the same length, spent standing still
+
+// Movement is reduced when Flingo's setting says so, or when it follows this PC and the PC
+// has animations switched off. Each message from the app carries the setting.
+const systemCalm = window.matchMedia('(prefers-reduced-motion: reduce)');
+let motion = 'system';
+const calm = () => motion === 'reduce' || (motion !== 'full' && systemCalm.matches);
 const PALETTE = ['#6c8cff', '#9b6bff', '#ff6bb5', '#ffb84d', '#4de1c1'];
 const FONT = '"Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
 
@@ -97,6 +107,8 @@ function addFlight(item, img) {
   const w = iw * s, h = ih * s;
   flights.push({
     sprite: makeSprite(img, w, h, item.effect), w, h,
+    // Decided once, as it arrives: a photo that began calm does not start flying half-way.
+    calm: calm(),
     effect: item.effect, from: item.from, name: item.name, sound: !!item.sound,
     startX: lerp(W * 0.2, W * 0.8, item.x ?? 0.5),
     tilt: rand(-0.09, 0.09),
@@ -110,6 +122,7 @@ function addFlight(item, img) {
 // clock starts on its third frame. Otherwise the opening of the flight is skipped.
 function launch(f, now) {
   f.t0 = now;
+  if (f.calm) { if (f.sound) sfx('land'); f.landed = true; return; } // a chime, and no whoosh for a flight that is not happening
   if (f.effect === 'ripple') spawnRings(f.startX, H, 4);
   if (f.sound) sfx('whoosh');
 }
@@ -140,6 +153,12 @@ function spawnConfetti(x, y) {
 function pose(f, now) {
   const e = now - f.t0;
   const cx = W / 2, cy = H * 0.44;
+  if (f.calm) {
+    // In place from the first frame to the last. Only its opacity changes.
+    const alpha = Math.min(1, e / FADE_IN, Math.max(0, (TOTAL - e) / FADE_OUT));
+    const resting = e >= FADE_IN && e < TOTAL - FADE_OUT;
+    return { x: cx, y: cy, scale: 1, rot: 0, alpha, phase: resting ? 'rest' : 'fade', t: resting ? (e - FADE_IN) / (TOTAL - FADE_IN - FADE_OUT) : 0 };
+  }
   if (e < FLY) {
     const t = e / FLY;
     return {
@@ -194,7 +213,7 @@ function drawAurora(f, p) {
 
 function drawFlight(f, now) {
   const p = pose(f, now);
-  if (f.effect === 'aurora') drawAurora(f, p);
+  if (f.effect === 'aurora' && !f.calm) drawAurora(f, p);
 
   if (f.effect === 'comet' && p.phase === 'fly' && now - f.lastTrail > 12) {
     f.lastTrail = now;
@@ -292,8 +311,9 @@ function drawPills(now) {
     const target = p.state === 'done' ? 1 : known ? p.fraction : 0;
     p.shown += (target - p.shown) * 0.18;
 
+    const still = calm();
     const w = 440 * S, h = 66 * S;
-    const x = W / 2 - w / 2, y = H - (44 + row * 78) * S - h + (1 - Math.min(1, age / 200)) * 18 * S;
+    const x = W / 2 - w / 2, y = H - (44 + row * 78) * S - h + (still ? 0 : (1 - Math.min(1, age / 200)) * 18 * S);
     const amber = p.state === 'failed' || p.state === 'waiting';
     const color = amber ? AMBER : p.state === 'done' ? GREEN : BLUE;
     ctx.save();
@@ -314,10 +334,11 @@ function drawPills(now) {
     ctx.beginPath();
     if (p.state === 'failed' || p.state === 'done') ctx.arc(cx, cy, r, 0, Math.PI * 2);
     else if (p.state === 'waiting') {
-      // Holds its place and breathes, so it reads as paused rather than broken.
-      ctx.globalAlpha = alpha * (0.55 + 0.45 * Math.sin(now / 320));
+      // Holds its place and breathes, so it reads as paused rather than broken. The words say so too.
+      ctx.globalAlpha = alpha * (still ? 0.8 : 0.55 + 0.45 * Math.sin(now / 320));
       ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, p.shown));
     } else if (known) ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, p.shown));
+    else if (still) { ctx.globalAlpha = alpha * 0.6; ctx.arc(cx, cy, r, 0, Math.PI * 2); } // size unknown: a quiet full ring
     else { const a = now / 260; ctx.arc(cx, cy, r, a, a + Math.PI * 0.9); } // size unknown: spin
     ctx.stroke();
     ctx.globalAlpha = alpha;
@@ -393,6 +414,7 @@ function frame(now) {
 }
 
 window.flingo.onArrive((item) => {
+  if (item.motion) motion = item.motion;
   if (!item.url) {
     addFlight(item, item.name === 'Preview' ? placeholderImage() : fileCard(item.name));
     return;
@@ -404,6 +426,7 @@ window.flingo.onArrive((item) => {
 });
 
 window.flingo.onProgress((card) => {
+  if (card.motion) motion = card.motion;
   const now = performance.now();
   let pill = pills.get(card.id);
   if (!pill) {
