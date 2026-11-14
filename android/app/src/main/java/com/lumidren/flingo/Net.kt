@@ -530,8 +530,9 @@ object Net {
             } catch (e: UnreadableFileException) {
                 throw e
             } catch (e: PcRefusedException) {
-                // 409: the PC and the phone disagree about where to carry on. Anything else is final.
-                if (e.status != 409 || SystemClock.elapsedRealtime() - lastProgress >= o.patienceMs) throw e
+                // 409: the PC and the phone disagree about where to carry on. 429: the PC is taking
+                // as many files as it can right now. Both pass; anything else is final.
+                if ((e.status != 409 && e.status != 429) || SystemClock.elapsedRealtime() - lastProgress >= o.patienceMs) throw e
             } catch (e: IOException) {
                 if (SystemClock.elapsedRealtime() - lastProgress >= o.patienceMs) throw e
             }
