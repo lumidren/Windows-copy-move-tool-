@@ -125,3 +125,31 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
       if (signal) signal.addEventListener('abort', done, { once: true });
     });
   }
+
+  /** The file with this id, if it is this phone's and still to be collected. */
+  function find(id, deviceId) {
+    const item = items.get(id);
+    return item && item.deviceId === deviceId ? item : null;
+  }
+
+  /**
+   * Opens the file for reading from `offset`. Throws if it has changed since it was put in
+   * the outbox: the checksum the phone was promised would no longer match.
+   */
+  function open(item, offset) {
+    let stat;
+    try { stat = fs.statSync(item.path); } catch { stat = null; }
+    if (!stat || stat.size !== item.size || stat.mtimeMs !== item.mtimeMs) {
+      set(item, 'failed', 'The file changed or was removed before it was sent.');
+      throw new Error('changed');
+    }
+    streams.get(item.id)?.destroy(); // the phone is asking again, so the old download is dead
+    const stream = fs.createReadStream(item.path, { start: offset, highWaterMark: 1024 * 1024 });
+    streams.set(item.id, stream);
+    item.sent = offset;
+    item.state = 'sending';
+    stream.on('data', (c) => { item.sent += c.length; changed(item); });
+    stream.on('close', () => { if (streams.get(item.id) === stream) streams.delete(item.id); });
+    changed(item);
+    return stream;
+  }
