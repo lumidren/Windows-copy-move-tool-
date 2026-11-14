@@ -85,6 +85,10 @@
 
 **Coming in 0.4.0** (on `main` now; the downloads below are still 0.3.0)
 
+- **PC to phone.** Flingo is two-way. Drag files onto the Flingo window, or press **Send to phone** and pick them. They land in the phone's Pictures/Flingo (photos and videos) or Download/Flingo (everything else), with a photo dropping in from the top of the phone's screen and a notification that opens the file.
+  - The phone collects from the PC over the same encrypted, pinned connection it sends on, so nothing new has to be trusted and the PC never has to find the phone.
+  - A dropped connection carries on from where it stopped, in either direction, and every file is checked against its SHA-256 before the phone shows it.
+  - Files arrive at once while Flingo is open on the phone, and otherwise the next time it is opened.
 - **Updates itself.** Both apps ask GitHub which release is the newest, and offer it when it is not the one you have.
   - **Windows:** *Update now* downloads the installer, checks it against the release's checksum, and restarts into the new version.
   - **Android:** *Update* downloads the APK, checks it the same way, and hands it to Android, which asks before it installs.
@@ -248,6 +252,7 @@ desktop/
   src/server.js     UDP discovery + HTTPS API (pair, ping, send, resume), limits, filename sanitising
   src/cert.js       the PC's TLS identity: a self-signed X.509 certificate built by hand
   src/preflight.js  the pre-flight checklist, including the Windows Firewall reading
+  src/outbox.js     files waiting for a phone to collect: ids, SHA-256, resume, cancel
   src/update.js     finds a newer release, downloads the installer, checks its SHA-256
   src/main.js       tray, windows, settings, pairing, stage mode, arrival screen, batches
   src/overlay.js    canvas arrival animation, the four effects, progress pills, sound
@@ -258,6 +263,7 @@ android/
     Net.kt          pinned TLS, pairing, streaming upload that resumes, reconnection
     Transfers.kt    the send queue: batches, progress, speed, cancel
     TransferService.kt  keeps a long transfer alive in the background, with a notification
+    Inbox.kt        collects what the PC sends: asks, downloads, resumes, checks, saves via MediaStore
     Updater.kt      finds a newer release, downloads and checks the APK, hands it to Android
     UpdateReceiver.kt   opens Android's install prompt and reports how it went
     Gallery.kt      MediaStore query, thumbnail cache, grid adapter with selection
@@ -284,7 +290,7 @@ android/
 | **Updating without an app store** | Each app reads GitHub's public release list, and only trusts a download that comes from this project's releases and matches the SHA-256 the release declares. The phone also compares who signed the APK before asking Android to install it, so a mismatch is explained instead of failing oddly. The PC never checks while in stage mode. |
 | **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
 
-**Tested how.** `npm test` runs 37 tests on the receiver, the certificate, the pre-flight logic and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
+**Tested how.** `npm test` runs 52 tests on the receiver, the outbox, the certificate, the pre-flight logic and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
@@ -298,7 +304,7 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 | Needs an account | no | optional | Microsoft account | no | no | no |
 | Works with no internet | ✅ | ✅ | partly | ✅ | ✅ | needs its server to connect |
 | Encrypted in transit | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| PC → phone | ❌ *(roadmap #6)* | ✅ | ✅ | ✅ | ✅ | ✅ |
+| PC → phone | ✅ *(from 0.4.0)* | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Steps to send a photo | hold + flick | share → pick device → accept | open app, find photo, drag | open app → pick file → pick device → accept | share → pick device | open tab on both → pick file |
 | Arrival on the PC | animated, on screen, where you aimed | notification | inside the app | notification | notification | browser download |
 | Scope | photos and files | files | calls, texts, notifications, photos | files and text | clipboard, notifications, remote input, files | files and text |
@@ -315,14 +321,14 @@ Flingo is not the only way to move a photo. This is where it sits, including whe
 
 **Where Flingo is better:** one gesture, no account, no receiver prompt, and the only one that makes the arrival visible on screen at the spot you aimed for.
 
-**Where Flingo is worse today:** one direction, Android-only on the phone side, installers that are not code-signed, and not yet in any app store. The [roadmap](ROADMAP.md) lists what closes these gaps, in priority order.
+**Where Flingo is worse today:** Android-only on the phone side, installers that are not code-signed, and not yet in any app store. The [roadmap](ROADMAP.md) lists what closes these gaps, in priority order.
 
 <sub>Comparison reflects the tools as generally documented in late 2026. Check each project for its current feature set.</sub>
 
 ## Limits
 
 - Both devices must be on the same local network, or one must be the other's hotspot.
-- One direction only: phone to PC.
+- PC to phone needs 0.4.0 on both sides. The phone collects while Flingo is open on it (or a transfer is running), so a file sent to a phone in a pocket arrives when Flingo is next opened.
 - Pairing by **typed code** trusts the certificate the PC presents on that first connection. Pairing by **QR code** does not have that gap, because the fingerprint arrives through the camera. After a typed pairing, compare the security code on the phone with the one on the PC.
 - The arrival shows the picture itself for JPEG, PNG, GIF, WebP and AVIF. Videos, HEIC photos and other files arrive intact but animate as a file card.
 - A transfer that is carried on after a drop is not checksummed end to end; TLS protects each part in flight, and the PC checks the final size.
