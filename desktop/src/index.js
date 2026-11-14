@@ -71,19 +71,22 @@ function renderDevices() {
   else { text = `Ready to pair as “${state.name}”`; dot.className = 'dot wait'; }
   $('status-text').textContent = text;
 
-  const key = devices.map((d) => `${d.id}:${d.name}:${isOnline(d)}:${!!d.lastSeen}`).join('|');
+  const key = devices.map((d) => `${d.id}:${d.name}:${isOnline(d)}:${!!d.lastSeen}:${d.app}:${d.receives}`).join('|');
   if (key === devicesKey) return;
   devicesKey = key;
   $('devices').replaceChildren(...(devices.length ? devices.map((d) => {
     const rm = el('button', { className: 'ghost', textContent: 'Remove', ariaLabel: `Remove ${d.name}` });
     rm.onclick = async () => render(await api.removeDevice(d.id));
     const on = isOnline(d);
+    // Which Flingo the phone runs, when it says. One too old to be sent files is called that.
+    const what = d.app ? `Flingo ${d.app}` : d.receives === 'no' ? 'Older Flingo: it can only send. Update it on the phone.' : '';
+    const how = on ? 'Connected' : d.lastSeen ? 'Not connected right now' : 'Not seen since Flingo started';
     return el('li', {}, [
       el('span', { className: 'who' }, [
         el('span', { className: `dot ${on ? '' : 'off'}`, ariaHidden: 'true' }),
         el('span', {}, [
           el('span', { textContent: d.name }),
-          el('small', { className: 'muted', textContent: on ? 'Connected' : d.lastSeen ? 'Not connected right now' : 'Not seen since Flingo started' }),
+          el('small', { className: 'muted', textContent: what && on ? `${how} · ${what}` : how }),
         ]),
       ]),
       rm,
