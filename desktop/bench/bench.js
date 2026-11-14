@@ -1,12 +1,14 @@
-// Measures how fast the PC takes files, the way a phone sends them.
+// Measures how fast the PC takes files from a phone, and hands them to one.
 //
-//   node bench/bench.js                     one 1 GB file, then 500 photos of 3 MB
+//   node bench/bench.js                     one 1 GB file, then 500 photos of 3 MB, both ways
 //   node bench/bench.js --big=200 --count=100 --size=3 --parallel=4 --keepalive
+//   node bench/bench.js --no-down           phone to PC only
 //
-// It starts the real receiver (src/server.js, with TLS) in a second process, so the sender
-// and the receiver do not share one event loop, and plays the phone from this one. Both run
-// on this computer: the numbers show what the software costs, not what a Wi-Fi link allows.
-// Everything is written to a temporary folder and deleted afterwards.
+// It starts the real receiver (src/server.js, with TLS) in a second process, so the phone
+// and the PC do not share one event loop, and plays the phone from this one. Both run on
+// this computer: the numbers show what the software costs, not what a Wi-Fi link allows.
+// The files the PC received are then put in its outbox and collected again, which is the
+// PC to phone direction. Everything is written to a temporary folder and deleted afterwards.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -21,18 +23,28 @@ const MB = 1024 * 1024;
 if (process.argv.includes('--serve')) {
   const { startServer } = require('../src/server');
   const { loadOrCreateIdentity } = require('../src/cert');
+  const { createOutbox } = require('../src/outbox');
   const dir = process.argv[process.argv.indexOf('--serve') + 1];
   const tls = loadOrCreateIdentity(path.join(dir, 'identity.json'), 'Bench');
   const saved = path.join(dir, 'saved');
   fs.mkdirSync(saved, { recursive: true });
+  const outbox = createOutbox();
   const s = startServer({
     info: () => ({ id: 'bench', name: 'Bench PC' }),
     pair: () => ({ error: 'locked' }),
     checkToken: (t) => (t === TOKEN ? { id: 'phone', name: 'Bench phone' } : null),
     saveDir: () => saved,
     onFile: () => {},
+    outbox,
   }, { port: 0, discoveryPort: null, host: '127.0.0.1', tls });
   s.ready.then(() => process.stdout.write(`${JSON.stringify({ port: s.port })}\n`));
+  // A line naming a prefix puts every received file that starts with it in the outbox.
+  require('readline').createInterface({ input: process.stdin }).on('line', async (prefix) => {
+    const names = fs.readdirSync(saved).filter((f) => f.startsWith(prefix));
+    for (const name of names) await outbox.add('phone', 'Bench phone', path.join(saved, name), { hold: true });
+    outbox.release('phone');
+    process.stdout.write(`${JSON.stringify({ queued: names.length })}\n`);
+  });
   return;
 }
 
@@ -92,6 +104,61 @@ async function sendMany(port, { count, bytes, parallel, keepalive, label }) {
   return Number(process.hrtime.bigint() - started) / 1e9;
 }
 
+// ---------- the phone, collecting ----------
+function ask(port, agent, method, where, body) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      host: '127.0.0.1', port, method, path: where, agent, rejectUnauthorized: false,
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        ...(body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {}),
+        ...(agent ? {} : { Connection: 'close' }),
+      },
+    }, (res) => {
+      let text = '';
+      res.on('data', (c) => { text += c; });
+      res.on('end', () => (res.statusCode === 200 ? resolve(JSON.parse(text)) : reject(new Error(`${where}: status ${res.statusCode}`))));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+/** Fetches one outbox file to disk, as the phone does, then tells the PC it arrived. */
+function fetchFile(port, agent, item, dir) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      host: '127.0.0.1', port, method: 'GET', path: `/outbox/${item.id}`, agent, rejectUnauthorized: false,
+      headers: { Authorization: `Bearer ${TOKEN}`, ...(agent ? {} : { Connection: 'close' }) },
+    }, (res) => {
+      if (res.statusCode !== 200) { res.resume(); reject(new Error(`${item.name}: status ${res.statusCode}`)); return; }
+      const out = fs.createWriteStream(path.join(dir, item.name), { highWaterMark: MB });
+      res.pipe(out);
+      out.on('error', reject);
+      out.on('finish', () => {
+        if (out.bytesWritten !== item.size) { reject(new Error(`${item.name}: came short`)); return; }
+        ask(port, agent, 'POST', `/outbox/${item.id}/done`, JSON.stringify({ ok: true })).then(resolve, reject);
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+/** Collects everything in the outbox, at most `parallel` files at a time. Returns seconds taken. */
+async function collect(port, dir, { parallel, keepalive }) {
+  const agent = keepalive ? new https.Agent({ keepAlive: true, maxSockets: parallel }) : false;
+  const started = process.hrtime.bigint();
+  const { items } = await ask(port, agent, 'GET', '/outbox?all=1');
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fetchFile(port, agent, items[next++], dir);
+  };
+  await Promise.all(Array.from({ length: Math.min(parallel, items.length) }, worker));
+  if (agent) agent.destroy();
+  return Number(process.hrtime.bigint() - started) / 1e9;
+}
+
 async function main() {
   const big = option('big', 1024);
   const count = option('count', 500);
@@ -99,27 +166,35 @@ async function main() {
   const parallel = option('parallel', 1);
   const keepalive = !!option('keepalive', false);
 
+  const down = !process.argv.includes('--no-down');
+
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flingo-bench-'));
-  const server = spawn(process.execPath, [__filename, '--serve', dir], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const got = path.join(dir, 'got');
+  fs.mkdirSync(got);
+  const server = spawn(process.execPath, [__filename, '--serve', dir], { stdio: ['pipe', 'pipe', 'inherit'] });
   try {
-    const port = await new Promise((resolve, reject) => {
-      server.once('exit', () => reject(new Error('the receiver did not start')));
-      server.stdout.once('data', (d) => resolve(JSON.parse(String(d)).port));
+    const lines = require('readline').createInterface({ input: server.stdout });
+    const said = () => new Promise((resolve, reject) => {
+      server.once('exit', () => reject(new Error('the receiver stopped')));
+      lines.once('line', (l) => resolve(JSON.parse(l)));
     });
+    const { port } = await said();
     const how = `${parallel} at a time, ${keepalive ? 'connections reused' : 'a new connection per file'}`;
-    console.log(`Flingo receive benchmark (${how}; Node ${process.version}, ${os.cpus()[0].model.trim()})`);
+    console.log(`Flingo benchmark (${how}; Node ${process.version}, ${os.cpus()[0].model.trim()})`);
 
     const results = [];
-    if (big > 0) {
-      const s = await sendMany(port, { count: 1, bytes: big * MB, parallel: 1, keepalive, label: 'big' });
-      results.push([`one ${big} MB file`, big, s]);
-    }
-    if (count > 0) {
-      const s = await sendMany(port, { count, bytes: size * MB, parallel, keepalive, label: 'photo' });
-      results.push([`${count} files of ${size} MB`, count * size, s]);
-    }
-    for (const [what, mb, s] of results) {
-      console.log(`  ${what.padEnd(24)} ${s.toFixed(1).padStart(7)} s   ${(mb / s).toFixed(0).padStart(5)} MB/s`);
+    const run = async (label, what, mb, n, opts) => {
+      const up = await sendMany(port, { count: n, bytes: (mb / n) * MB, label, ...opts });
+      results.push(['phone to PC', what, mb, up]);
+      if (!down) return;
+      server.stdin.write(`${label}-\n`);
+      await said(); // read and checksummed, as the PC does before it offers a file
+      results.push(['PC to phone', what, mb, await collect(port, got, opts)]);
+    };
+    if (big > 0) await run('big', `one ${big} MB file`, big, 1, { parallel: 1, keepalive });
+    if (count > 0) await run('photo', `${count} files of ${size} MB`, count * size, count, { parallel, keepalive });
+    for (const [way, what, mb, s] of results) {
+      console.log(`  ${way.padEnd(12)} ${what.padEnd(22)} ${s.toFixed(1).padStart(7)} s   ${(mb / s).toFixed(0).padStart(5)} MB/s`);
     }
   } finally {
     server.kill();
