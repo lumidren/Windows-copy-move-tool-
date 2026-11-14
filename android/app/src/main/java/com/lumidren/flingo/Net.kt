@@ -662,12 +662,28 @@ object Net {
         }
     }
 
-    /** Tells the PC whether the file arrived whole and passed its checksum. */
-    fun outboxReport(prefs: Prefs, id: String, ok: Boolean, error: String = "") =
-        post(prefs, "/outbox/$id/done", JSONObject().put("ok", ok).put("error", error).toString())
+    /**
+     * Tells the PC whether the file arrived whole and passed its checksum. The first try goes
+     * over the connection the file came on. If that fails it is said again on a fresh one,
+     * because a PC that never hears the verdict keeps showing the file as on its way.
+     */
+    fun outboxReport(prefs: Prefs, id: String, ok: Boolean, error: String = "") {
+        val body = JSONObject().put("ok", ok).put("error", error).toString()
+        var last: IOException? = null
+        for (attempt in 0 until 3) {
+            try {
+                post(prefs, "/outbox/$id/done", body, keep = attempt == 0)
+                return
+            } catch (e: IOException) {
+                last = e
+                Thread.sleep(400L * (attempt + 1))
+            }
+        }
+        throw last ?: IOException("PC not reachable")
+    }
 
-    /** Tells the PC this phone will not be taking the file. */
-    fun outboxDecline(prefs: Prefs, id: String) = post(prefs, "/outbox/$id/cancel", "")
+    /** Tells the PC this phone will not be taking the file. One connection serves a whole batch of these. */
+    fun outboxDecline(prefs: Prefs, id: String) = post(prefs, "/outbox/$id/cancel", "", keep = true)
 
     private const val BUFFER = 256 * 1024
 }
