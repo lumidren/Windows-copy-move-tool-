@@ -693,7 +693,8 @@ class MainActivity : Activity() {
         healthJob = scope.launch {
             var misses = 0
             while (isActive) {
-                if (!Transfers.busy) checkConnection(relocate = misses >= 2)
+                // After a single miss the PC is looked for by name as well, so a changed address is found in a second or two, not ten.
+                if (!Transfers.busy) checkConnection(relocate = misses >= 1)
                 misses = if (online == false) misses + 1 else 0
                 delay(if (online == true) 4000 else 2500)
             }
