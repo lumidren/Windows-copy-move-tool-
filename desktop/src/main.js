@@ -18,6 +18,7 @@ const updates = require('./update');
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const TRAY_ICON = path.join(__dirname, '..', 'assets', 'tray.png');
 const EFFECTS = ['comet', 'ripple', 'confetti', 'aurora'];
+const MOTION = ['system', 'reduce', 'full'];
 const STAGE_EFFECT = 'comet'; // reads best from the back of a room
 const STAGE_ZOOM = 1.22;
 const SELF_TEST = 'Pre-flight test';
@@ -82,6 +83,7 @@ function loadSettings() {
     effect: 'comet',
     showOverlay: true,
     sound: false,
+    motion: 'system', // 'system' follows this PC's animation setting, 'reduce' and 'full' override it
     stage: false,
     pairingLocked: false,
     overlayDisplay: 'auto', // or a display id
@@ -94,6 +96,7 @@ function loadSettings() {
   try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; }
   catch { settings = defaults; }
   if (!EFFECTS.includes(settings.effect)) settings.effect = 'comet';
+  if (!MOTION.includes(settings.motion)) settings.motion = 'system';
   if (!Array.isArray(settings.devices)) settings.devices = [];
   saveSettings();
   try { history = JSON.parse(fs.readFileSync(historyFile(), 'utf8')); } catch { history = []; }
@@ -195,6 +198,7 @@ function publicState() {
     effects: EFFECTS,
     showOverlay: settings.showOverlay,
     sound: settings.sound,
+    motion: settings.motion,
     stage: settings.stage,
     launchAtLogin: settings.launchAtLogin,
     sendToMenu: settings.sendToMenu !== false,
@@ -1136,6 +1140,7 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
       if (EFFECTS.includes(patch.effect)) settings.effect = patch.effect;
       if (typeof patch.showOverlay === 'boolean') settings.showOverlay = patch.showOverlay || settings.stage;
       if (typeof patch.sound === 'boolean') settings.sound = patch.sound;
+      if (MOTION.includes(patch.motion)) settings.motion = patch.motion;
       if (typeof patch.pairingLocked === 'boolean') settings.pairingLocked = patch.pairingLocked;
       if (typeof patch.autoUpdate === 'boolean') settings.autoUpdate = patch.autoUpdate;
       if (typeof patch.sendTo === 'string' && settings.devices.some((d) => d.id === patch.sendTo)) settings.sendTo = patch.sendTo;

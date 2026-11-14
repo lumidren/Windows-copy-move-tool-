@@ -95,6 +95,7 @@ function render(s) {
   state = s;
   devices = s.devices;
   document.body.classList.toggle('stage', s.stage);
+  document.body.classList.toggle('calm', wantsCalm(s));
   $('stage-badge').hidden = !s.stage;
   $('stage').checked = s.stage;
   if (s.stage) showTab('home'); // the bar of tabs is hidden on stage, so make sure Home is what shows
@@ -133,6 +134,10 @@ function render(s) {
   $('show-overlay').checked = s.showOverlay;
   $('show-overlay').disabled = s.stage;
   $('sound').checked = s.sound;
+  $('motion').value = s.motion;
+  $('motion-hint').textContent = wantsCalm(s)
+    ? 'Movement is reduced now: a photo fades in where it lands and fades out again.'
+    : s.motion === 'system' ? `Following this PC, which has animations switched on.${s.platform === 'win32' ? ' Windows: Settings, Accessibility, Visual effects.' : ''}` : '';
   $('launch').checked = s.launchAtLogin;
   $('launch-label').textContent = s.platform === 'win32' ? 'Start with Windows' : 'Start when I log in';
   $('send-to-menu-row').hidden = s.platform !== 'win32';
@@ -458,6 +463,7 @@ $('open-folder').onclick = () => api.openFolder();
 $('clear').onclick = async () => render(await api.clearHistory());
 $('show-overlay').onchange = async (e) => render(await api.set({ showOverlay: e.target.checked }));
 $('sound').onchange = async (e) => render(await api.set({ sound: e.target.checked }));
+$('motion').onchange = async (e) => render(await api.set({ motion: e.target.value }));
 $('launch').onchange = async (e) => render(await api.set({ launchAtLogin: e.target.checked }));
 $('send-to-menu').onchange = async (e) => render(await api.set({ sendToMenu: e.target.checked }));
 $('name').onchange = async (e) => render(await api.set({ name: e.target.value }));

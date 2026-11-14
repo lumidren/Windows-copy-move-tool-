@@ -288,5 +288,10 @@ body.stage .status .dot { width: 11px; height: 11px; }
 body.stage #qr:not(.big) { width: 176px; height: 176px; }
 body.stage #qr.big { width: min(70vw, 70vh); height: min(70vw, 70vh); }
 
+/* Reduced movement, from this PC's own setting or from Flingo's: nothing slides, pulses or
+   glides. What an animation was saying is still said, by the words beside it. */
+body.calm *, body.calm *::before, body.calm *::after { animation: none !important; transition: none !important; }
+body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
