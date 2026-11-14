@@ -545,8 +545,130 @@ object Net {
         }
     }
 
+    // ---------- PC to phone ----------
+    // The PC cannot reach a phone reliably, so the phone collects: it asks the PC what is
+    // waiting in its outbox, fetches each file by id over the same pinned connection, and
+    // says how it went. Inbox.kt decides when; this is only the talking.
+
+    @Volatile private var asking: HttpsURLConnection? = null
+    @Volatile private var fetching: HttpsURLConnection? = null
+
+    /** Ends a wait on the outbox at once, for when the screen goes away. */
+    fun stopAsking() { runCatching { asking?.disconnect() } }
+
+    /** Drops the download in progress, so a read that is stuck returns at once. */
+    fun abortFetch() { runCatching { fetching?.disconnect() } }
+
+    /**
+     * What the paired PC has put aside for this phone. Waits up to [waitSeconds] for something
+     * to turn up. With [all] it does not wait, and also lists what this phone had begun and not
+     * finished. Null means the PC runs an older Flingo that cannot send to phones.
+     */
+    fun outbox(prefs: Prefs, waitSeconds: Int, all: Boolean = false): List<Incoming>? {
+        var last: IOException? = null
+        for (host in candidates(prefs)) {
+            val c = open(host, prefs.port, if (all) "/outbox?all=1" else "/outbox?wait=$waitSeconds", prefs.fp, connectMs = 1500, reuse = true)
+            asking = c.http
+            try {
+                c.http.readTimeout = (waitSeconds + 15) * 1000
+                c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+                val status = c.http.responseCode
+                if (status == 401) throw NotPairedException()
+                if (status == 404) return null
+                if (status != 200) throw IOException("The PC answered $status")
+                if (host != prefs.host) prefs.host = host
+                val items = JSONObject(c.http.body()).optJSONArray("items") ?: return emptyList()
+                return (0 until items.length()).mapNotNull { i ->
+                    val o = items.optJSONObject(i) ?: return@mapNotNull null
+                    val id = o.optString("id")
+                    val size = o.optLong("size", -1)
+                    val sha = o.optString("sha256")
+                    // Anything that does not look like what the PC is meant to send is left alone.
+                    if (!id.matches(Regex("[0-9a-f]{32}")) || size < 0 || !sha.matches(Regex("[0-9a-f]{64}"))) null
+                    else Incoming(id, o.optString("name", "file"), size, o.optString("mime"), sha)
+                }
+            } catch (e: IOException) {
+                if (isMismatch(e)) throw WrongPcException()
+                last = e
+            } finally {
+                if (asking === c.http) asking = null
+                c.http.disconnect()
+            }
+        }
+        throw last ?: IOException("PC not reachable")
+    }
+
+    /**
+     * Downloads [item] from byte [offset] into [out]. Returns when every byte up to the file's
+     * size has been written. [GoneException] if the PC no longer has it for this phone,
+     * [StorageException] if the phone cannot write it.
+     */
+    fun fetch(prefs: Prefs, item: Incoming, offset: Long, out: java.io.OutputStream, cancelled: () -> Boolean, onProgress: (Long) -> Unit) {
+        val c = open(prefs.host, prefs.port, "/outbox/${item.id}", prefs.fp, connectMs = 1500, reuse = true)
+        val conn = c.http
+        fetching = conn
+        try {
+            conn.readTimeout = 30000
+            conn.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+            // Bytes exactly as they are on the PC, so offsets and the checksum mean what they say.
+            conn.setRequestProperty("Accept-Encoding", "identity")
+            if (offset > 0) conn.setRequestProperty("Range", "bytes=$offset-")
+            val status = try { conn.responseCode } catch (e: IOException) { throw if (isMismatch(e)) WrongPcException() else e }
+            when {
+                status == 401 -> throw NotPairedException()
+                status == 404 || status == 410 -> throw GoneException()
+                status == 409 -> throw PcRefusedException(status, conn.error("The file changed on the PC before it was sent."))
+                status == 200 && offset > 0 -> throw IOException("The PC started again from the beginning")
+                status != 200 && status != 206 -> throw IOException("The PC answered $status")
+            }
+            var got = offset
+            conn.inputStream.use { input ->
+                val buf = ByteArray(BUFFER)
+                while (true) {
+                    if (cancelled()) throw SendCancelledException()
+                    val n = try { input.read(buf) } catch (e: IOException) { if (cancelled()) throw SendCancelledException() else throw e }
+                    if (n < 0) break
+                    try { out.write(buf, 0, n) } catch (e: IOException) { throw StorageException() }
+                    got += n
+                    onProgress(got)
+                }
+            }
+            if (got != item.size) throw IOException("The download stopped early")
+        } finally {
+            if (fetching === conn) fetching = null
+            conn.disconnect()
+        }
+    }
+
+    private fun post(prefs: Prefs, path: String, body: String) {
+        val c = open(prefs.host, prefs.port, path, prefs.fp, connectMs = 1500, reuse = true)
+        try {
+            val bytes = body.toByteArray()
+            c.http.requestMethod = "POST"
+            c.http.readTimeout = 5000
+            c.http.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+            c.http.setRequestProperty("Content-Type", "application/json")
+            c.http.setFixedLengthStreamingMode(bytes.size)
+            c.http.doOutput = true
+            c.http.outputStream.use { it.write(bytes) }
+            c.http.responseCode
+        } finally {
+            c.http.disconnect()
+        }
+    }
+
+    /** Tells the PC whether the file arrived whole and passed its checksum. */
+    fun outboxReport(prefs: Prefs, id: String, ok: Boolean, error: String = "") =
+        post(prefs, "/outbox/$id/done", JSONObject().put("ok", ok).put("error", error).toString())
+
+    /** Tells the PC this phone will not be taking the file. */
+    fun outboxDecline(prefs: Prefs, id: String) = post(prefs, "/outbox/$id/cancel", "")
+
     private const val BUFFER = 256 * 1024
 }
+
+/** The PC took the file back, or no longer has it for this phone. */
+class GoneException : IOException("No longer in the outbox")
 
 /** The file on this phone could not be opened or read. */
 class UnreadableFileException : IOException("Cannot read file")
