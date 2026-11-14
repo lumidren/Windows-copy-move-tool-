@@ -691,6 +691,7 @@ function closeBatch(b) {
 // window shows one card per phone for everything sent to it in one go.
 const outbox = createOutbox({ cleanName: sanitizeName, onChange: outboxChanged });
 const ONLINE_MS = 15_000;
+const STALLED_MS = 5_000; // no bytes for this long means the phone has gone quiet
 
 /** The phone files go to when none is named: the chosen one, else the one heard from last. */
 function defaultPhone() {
@@ -714,22 +715,23 @@ async function sendToPhone(paths, phoneId) {
   if (settings.sendTo !== phone.id) { settings.sendTo = phone.id; saveSettings(); pushStateSoon(); }
   let run = outRuns.get(phone.id);
   if (!run) {
-    run = { name: phone.name, total: 0, ids: new Set(), ended: new Map(), refused: [], timer: null };
+    run = { name: phone.name, total: 0, ids: new Set(), ended: new Map(), refused: [], timer: null, watch: null };
+    // A Wi-Fi link that dies says nothing, so look again now and then while files are going out.
+    run.watch = setInterval(() => showOut(phone.id), 2000);
     outRuns.set(phone.id, run);
   }
   run.total += list.length;
   showOut(phone.id);
-  // One after another: each is read once for its checksum, and the phone can start on the
-  // first while the rest are still being read.
+  // Each file is read once for its checksum, one after another, and all of them are offered
+  // together, so the phone sees one batch and says "3 of 50", not fifty separate arrivals.
   for (const file of list) {
-    const added = outbox.add(phone.id, phone.name, file);
-    const item = await added;
+    const item = await outbox.add(phone.id, phone.name, file, { hold: true });
     if (item.error && !item.id) run.refused.push(item.error);
     showOut(phone.id);
   }
+  outbox.release(phone.id);
 }
 
-  outbox.release(phone.id);
 function outboxChanged(item) {
   const run = outRuns.get(item.deviceId);
   if (!run) return;
@@ -754,7 +756,13 @@ function showOut(phoneId) {
     const sent = open.reduce((n, i) => n + Math.min(i.sent, i.size), 0) + done.reduce((n, e) => n + e.size, 0);
     const moving = open.some((i) => i.state === 'sending') || done.length > 0;
     const ready = open.filter((i) => i.state === 'queued').length;
-    if (moving) {
+    const going = open.filter((i) => i.state === 'sending');
+    if (going.length && going.every((i) => i.stalled || Date.now() - i.movedAt > STALLED_MS)) {
+      sendMain('transfer', {
+        ...base, cancel: true, state: 'waiting', title: 'Connection lost',
+        detail: `Waiting for ${run.name} to carry on · ${done.length} of ${run.total} · {pct}%`, fraction: bytes ? sent / bytes : 0,
+      });
+    } else if (moving) {
       sendMain('transfer', {
         ...base, cancel: true, state: 'active', title: `Sending ${files(run.total)} to ${run.name}`,
         detail: `${done.length} of ${run.total} · {pct}%`, fraction: bytes ? sent / bytes : 0,
@@ -775,6 +783,7 @@ function showOut(phoneId) {
   // Everything is settled one way or the other.
   outRuns.delete(phoneId);
   clearTimeout(run.timer);
+  clearInterval(run.watch);
   if (done.length === run.total) {
     sendMain('transfer', { ...base, state: 'done', title: `Sent ${files(run.total)} to ${run.name}`, detail: fmtSize(done.reduce((n, e) => n + e.size, 0)), fraction: 1 });
     return;
