@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
@@ -178,6 +179,7 @@ object Inbox {
         val failed = AtomicInteger(0)
         val last = AtomicReference<Arrived?>(null)
         val lost = AtomicBoolean(false) // the connection went for too long: take no more files this round
+        val settled = ConcurrentHashMap.newKeySet<String>() // files the PC has already had an answer about
         val shownAt = AtomicLong(0)
 
         fun report() {
@@ -228,6 +230,7 @@ object Inbox {
                 doing.set(i, 0)
             }
             got.set(i, item.size)
+            settled.add(item.id)
             dealt.incrementAndGet()
             if (saved == null) {
                 failed.incrementAndGet()
@@ -273,7 +276,9 @@ object Inbox {
         val result = when {
             cancelled || stopped.get() -> {
                 // Whatever was offered with the cancelled file is given back too.
-                withContext(Dispatchers.IO) { offered.forEach { runCatching { Net.outboxDecline(prefs, it.id) } } }
+                withContext(Dispatchers.IO) {
+                    offered.filterNot { it.id in settled }.forEach { runCatching { Net.outboxDecline(prefs, it.id) } }
+                }
                 ReceiveResult.Cancelled(arrived.get())
             }
             noSpace.get() -> ReceiveResult.NoSpace
