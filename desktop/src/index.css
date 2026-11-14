@@ -104,7 +104,7 @@ p { margin: 0 0 10px; }
 .pair-steps b { color: var(--text); }
 #qr { display: block; margin: 0 auto; width: 190px; height: 190px; border-radius: 12px; image-rendering: pixelated; cursor: zoom-in; }
 .more { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
-.more summary { cursor: pointer; color: var(--muted); list-style-position: inside; }
+.more summary { cursor: pointer; color: var(--muted); list-style-position: inside; padding: 4px 0; border-radius: 6px; }
 .more summary:hover { color: var(--text); }
 .more[open] summary { margin-bottom: 10px; }
 .more .row { margin-top: 12px; }
@@ -206,11 +206,13 @@ code {
 
 .history {
   flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; margin-top: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px;
+  /* Room inside the scrolling box for the focus ring of a tile at its edge. */
+  padding: 5px; margin: 1px -5px 0;
 }
 .tile {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-  overflow: hidden; cursor: pointer; padding: 0; text-align: left; color: var(--text);
+  overflow: hidden; cursor: pointer; padding: 0; text-align: left; color: var(--text); font-weight: 400;
 }
 .tile:hover { border-color: var(--accent); }
 .tile .thumb { height: 104px; background: #0b0d12 center/cover no-repeat; display: grid; place-items: center; color: var(--muted); font-weight: 700; letter-spacing: 1px; }
@@ -240,7 +242,7 @@ code {
 .drop-box span { color: var(--muted); }
 .transfer .head { display: flex; align-items: center; gap: 10px; }
 .transfer .head .label { flex: 1; min-width: 0; }
-.transfer .head button { padding: 3px 10px; font-size: 12px; }
+.transfer .head button { padding: 4px 10px; font-size: 12px; }
 .transfer.sent { border-color: var(--ok); }
 .transfer.sent .bar { background: var(--ok); }
 #send-target { max-width: 160px; }
