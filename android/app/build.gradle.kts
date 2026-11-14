@@ -69,4 +69,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // QR scanner for pairing. Runs on the device: no Play services, no network.
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // Runs on a plain JVM: contrast of the palette, and when progress is spoken aloud.
+    testImplementation("junit:junit:4.13.2")
 }
