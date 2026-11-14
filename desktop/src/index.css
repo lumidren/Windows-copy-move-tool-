@@ -293,5 +293,24 @@ body.stage #qr.big { width: min(70vw, 70vh); height: min(70vw, 70vh); }
 body.calm *, body.calm *::before, body.calm *::after { animation: none !important; transition: none !important; }
 body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
 
+/* A narrow window, or a wide one zoomed in: one column, and the page scrolls instead of the
+   text being cut off. At 200% zoom the smallest window is 380 points wide. */
+@media (max-width: 720px) {
+  html, body { height: auto; min-height: 100%; }
+  header, .update-bar, .row { flex-wrap: wrap; }
+  .status { flex-basis: 100%; order: 3; justify-content: flex-start; }
+  .status span:last-child, .transfer .label, .tile .name, .tile .sub { white-space: normal; overflow-wrap: anywhere; }
+  .shell { flex-direction: column; }
+  .side { flex-direction: row; flex-wrap: wrap; width: auto; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .tab { width: auto; }
+  .side-foot { display: none; }
+  main { padding: 12px; }
+  .page { flex-direction: column; }
+  .col, .col.wide, .col.solo, .page.first-run .col { width: 100%; flex: none; overflow: visible; padding-right: 0; }
+  .history { overflow: visible; }
+  code { white-space: normal; overflow-wrap: anywhere; }
+  #send-target { max-width: none; }
+}
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
