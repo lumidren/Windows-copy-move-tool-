@@ -162,8 +162,10 @@ test('progress is not read out at every step', () => {
   assert.doesNotMatch(/<div id="transfers"[^>]*>/.exec(html)[0], /aria-live|role="status"|role="alert"/);
   assert.match(html, /<div class="sr-only" id="announcer" role="status" aria-live="polite">/);
   assert.match(html, /<div class="sr-only" id="alerts" role="alert">/);
-  // Spoken only when a card changes state, not when its number moves.
-  assert.match(js, /if \(card\.state !== row\.state\) \{[\s\S]{0,400}say\(/);
+  // Spoken only when a card changes state, or finds that it is waiting for nothing, not when its number moves.
+  assert.match(js, /if \(card\.state !== row\.state \|\| stuck !== row\.stuck\) \{[\s\S]{0,500}say\(/);
+  // A phone that will never collect its files is something gone wrong: it interrupts.
+  assert.match(js, /if \(card\.state === 'failed' \|\| card\.lost \|\| stuck\) say\([^\n]*, true\);/);
   assert.match(js, /role: 'progressbar'/);
 });
 

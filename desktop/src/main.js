@@ -818,12 +818,23 @@ function showOut(phoneId) {
         detail: `${done.length} of ${run.total} · {pct}%`, fraction: bytes ? sent / bytes : 0,
       });
     } else if (ready) {
-      const online = Date.now() - (lastSeen.get(phoneId)?.at || 0) < ONLINE_MS;
-      sendMain('transfer', {
-        ...base, cancel: true, state: 'waiting', title: `Waiting for ${run.name}`,
-        detail: online ? `${files(ready)} ready to go` : `${files(ready)} ready. Open Flingo on the phone and ${ready === 1 ? 'it' : 'they'} will arrive.`,
-        fraction: 1,
-      });
+      const known = lastSeen.get(phoneId);
+      const online = Date.now() - (known?.at || 0) < ONLINE_MS;
+      const they = ready === 1 ? 'it' : 'they';
+      if (online && phones.receives(known, Date.now()) === 'no') {
+        // The phone is there but will never come for these: its Flingo is from before phones could receive.
+        sendMain('transfer', {
+          ...base, cancel: true, state: 'waiting', stuck: true, title: `${run.name} needs a newer Flingo`,
+          detail: `${files(ready)} waiting. Update Flingo on the phone and ${they} will arrive.`,
+          fraction: 1,
+        });
+      } else {
+        sendMain('transfer', {
+          ...base, cancel: true, state: 'waiting', title: `Waiting for ${run.name}`,
+          detail: online ? `${files(ready)} ready to go` : `${files(ready)} ready. Open Flingo on the phone and ${they} will arrive.`,
+          fraction: 1,
+        });
+      }
     } else {
       sendMain('transfer', { ...base, cancel: true, state: 'active', title: `Getting ${files(run.total)} ready for ${run.name}`, detail: '', fraction: null });
     }

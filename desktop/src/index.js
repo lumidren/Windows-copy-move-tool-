@@ -377,11 +377,14 @@ function onTransfer(card) {
   row.node.classList.toggle('unknown', !known && card.state === 'active');
   row.bar.style.width = `${card.state === 'failed' || !known ? 100 : pct}%`;
 
-  if (card.state !== row.state) {
+  const stuck = !!card.stuck;
+  if (card.state !== row.state || stuck !== row.stuck) {
     const was = row.state;
     row.state = card.state;
-    // Only what has gone wrong interrupts. Waiting for a phone to pick its files up is not that.
-    if (card.state === 'failed' || card.lost) say(`${card.title}. ${detail}`, true);
+    row.stuck = stuck;
+    // Only what has gone wrong interrupts. Waiting for a phone to pick its files up is not that;
+    // waiting for a phone that never will is.
+    if (card.state === 'failed' || card.lost || stuck) say(`${card.title}. ${detail}`, true);
     else if (card.state === 'waiting') say(`${card.title}. ${detail}`);
     else if (card.state === 'done') say(`${card.title}, ${detail}`);
     else if (was === 'waiting') say(`Carrying on. ${card.title}`);
