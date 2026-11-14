@@ -312,5 +312,20 @@ body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
   #send-target { max-width: none; }
 }
 
+/* Windows' high-contrast themes replace every colour. The pieces that are drawn with a
+   background alone would vanish, so they are given the theme's own colours. */
+@media (forced-colors: active) {
+  .switch { forced-color-adjust: none; background: Canvas; border-color: ButtonText; }
+  .switch::after { background: ButtonText; }
+  .toggle input:checked + .switch { background: Highlight; border-color: Highlight; }
+  .toggle input:checked + .switch::after { background: HighlightText; }
+  .transfer .bar, .update-bar .bar { forced-color-adjust: none; background: Highlight; }
+  .transfer .track, .update-bar .track { border: 1px solid ButtonText; }
+  .dot { forced-color-adjust: none; background: Highlight; box-shadow: none; }
+  .dot.off { background: GrayText; }
+  .tab.active, .effect.active { outline: 2px solid Highlight; outline-offset: -2px; }
+  .check .mark { border: 1px solid ButtonText; }
+}
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
