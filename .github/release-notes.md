@@ -16,6 +16,17 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 - **Linux is told, not changed.** The offer opens the download page, because installing a package needs your password.
 - **Yours to control.** Nothing installs without a click. *Check for updates* can be switched off in both apps, *Later* hides an offer, and *Check now* asks straight away.
 
+### For everyone: accessibility
+
+Both apps were taken through WCAG 2.2 level AA. What was checked, and what was not, is in [docs/accessibility.md](https://github.com/lumidren/Windows-copy-move-tool-/blob/main/docs/accessibility.md).
+
+- **Send without the flick.** Tap a photo and press **Send**, and it flies in on the PC as a flick would. With TalkBack, double-tap and hold a photo; with a keyboard, hold Enter on it.
+- **Screen readers.** Every control has a name and a role, every photo says which one it is, and progress is spoken in a few sentences instead of ten times a second. On the PC, a lost connection or a failure interrupts; the rest waits its turn.
+- **Easier to see.** Text and control outlines meet AA contrast in both apps, and states are a shape as well as a colour. Windows high-contrast themes are respected.
+- **Easier to hit.** Every button on the phone is at least 48 dp. The whole PC window works from the keyboard, with a clear focus ring.
+- **Large text, zoom and rotation.** The phone follows its text size and turns with the screen; the PC window reflows at 200% zoom.
+- **Reduced motion.** *Movement* on the PC (under Arrivals) and *Reduce motion* on the phone, and both follow the system setting: an arriving photo fades in where it lands, and nothing flies, spins or bursts.
+
 ### A tidier look
 
 - **The PC window has a bar of tabs down the left:** Home, Phones, Arrivals (the effects), Settings and About.
@@ -32,6 +43,9 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 
 ### Changed
 
+- **Send** with one photo selected now sends it the way a flick does, so it flies in on the PC. Several photos still arrive quietly as a batch.
+- The phone app is no longer locked upright.
+- A card about a transfer that went wrong stays in the PC window until you dismiss it.
 - The **Files** button on the phone is now **Browse files**, and outlined so it is easier to find. It opens the phone's file browser, for a large video, a document or anything else that is not in the photo grid.
 
 ### Good to know
