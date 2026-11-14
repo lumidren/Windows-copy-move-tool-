@@ -83,7 +83,7 @@
 | **Runs as** | A real window with a launcher entry; tray icon where the desktop has one | Regular app + system share target |
 | **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~6 MB APK |
 
-**Coming in 0.4.0** (on `main` now; the downloads below are still 0.3.0)
+**New in 0.4.0**
 
 - **PC to phone.** Flingo is two-way. Drag files onto the Flingo window, or press **Send to phone** and pick them. They land in the phone's Pictures/Flingo (photos and videos) or Download/Flingo (everything else), with a photo dropping in from the top of the phone's screen and a notification that opens the file.
   - The phone collects from the PC over the same encrypted, pinned connection it sends on, so nothing new has to be trusted and the PC never has to find the phone.
@@ -192,7 +192,7 @@ sequenceDiagram
 Every download is built by GitHub Actions from this repository and attached to the [latest release](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest).
 
 > [!NOTE]
-> The latest release is **0.3.0**. It works with 0.2.0 on the other side, but selecting many photos, the Files button and resuming need 0.3.0 on both the phone and the PC. 0.1.0 cannot talk to anything newer, because every connection has been encrypted since 0.2.0.
+> The latest release is **0.4.0**. It works with 0.3.0 and 0.2.0 on the other side, but sending from the PC to the phone needs 0.4.0 on both, and the PC says so when the phone is older. Coming from 0.3.0 on Android, uninstall Flingo once, install 0.4.0 and pair again: from 0.4.0 on, the app updates itself. 0.1.0 cannot talk to anything newer, because every connection has been encrypted since 0.2.0.
 
 | Platform | Download | Notes |
 |---|---|---|
