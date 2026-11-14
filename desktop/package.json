@@ -42,7 +42,8 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "include": "installer/sendto.nsh"
     },
     "linux": {
       "target": [
