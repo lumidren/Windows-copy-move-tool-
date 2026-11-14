@@ -19,6 +19,7 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
@@ -338,10 +339,11 @@ object Net {
         return name to size
     }
 
-    @Volatile private var inFlight: HttpsURLConnection? = null
+    // Several files of a batch are sent at the same time, so there can be several of these.
+    private val inFlight = ConcurrentHashMap.newKeySet<HttpsURLConnection>()
 
-    /** Drops the connection of the file being sent, so a write that is stuck returns at once. */
-    fun abort() { runCatching { inFlight?.disconnect() } }
+    /** Drops the connection of every file being sent, so a write that is stuck returns at once. */
+    fun abort() { inFlight.toList().forEach { runCatching { it.disconnect() } } }
 
     private fun sendPath(x: Float, o: SendOptions, offset: Long): String {
         val q = StringBuilder("/send?x=$x")
@@ -364,7 +366,8 @@ object Net {
     ): String {
         val c = open(host, prefs.port, sendPath(x, o, offset), prefs.fp, connectMs = 1500, reuse = true)
         val conn = c.http
-        inFlight = conn
+        inFlight.add(conn)
+        var answered = false
         try {
             conn.requestMethod = "POST"
             conn.doOutput = true
@@ -411,8 +414,8 @@ object Net {
             if (status != 200) throw PcRefusedException(status, conn.error("The PC could not take the file."))
             return name
         } finally {
-            if (inFlight === conn) inFlight = null
-            conn.disconnect()
+            inFlight.remove(conn)
+            if (answered) conn.finish(o.keepAlive) else conn.disconnect()
         }
     }
 
@@ -552,13 +555,13 @@ object Net {
     // says how it went. Inbox.kt decides when; this is only the talking.
 
     @Volatile private var asking: HttpsURLConnection? = null
-    @Volatile private var fetching: HttpsURLConnection? = null
+    private val fetching = ConcurrentHashMap.newKeySet<HttpsURLConnection>()
 
     /** Ends a wait on the outbox at once, for when the screen goes away. */
     fun stopAsking() { runCatching { asking?.disconnect() } }
 
-    /** Drops the download in progress, so a read that is stuck returns at once. */
-    fun abortFetch() { runCatching { fetching?.disconnect() } }
+    /** Drops every download in progress, so a read that is stuck returns at once. */
+    fun abortFetch() { fetching.toList().forEach { runCatching { it.disconnect() } } }
 
     /**
      * What the paired PC has put aside for this phone. Waits up to [waitSeconds] for something
@@ -607,7 +610,8 @@ object Net {
     fun fetch(prefs: Prefs, item: Incoming, offset: Long, out: java.io.OutputStream, cancelled: () -> Boolean, onProgress: (Long) -> Unit) {
         val c = open(prefs.host, prefs.port, "/outbox/${item.id}", prefs.fp, connectMs = 1500, reuse = true)
         val conn = c.http
-        fetching = conn
+        fetching.add(conn)
+        var whole = false
         try {
             conn.readTimeout = 30000
             conn.setRequestProperty("Authorization", "Bearer ${prefs.token}")
@@ -636,8 +640,8 @@ object Net {
             }
             if (got != item.size) throw IOException("The download stopped early")
         } finally {
-            if (fetching === conn) fetching = null
-            conn.disconnect()
+            fetching.remove(conn)
+            if (!whole) conn.disconnect()
         }
     }
 
