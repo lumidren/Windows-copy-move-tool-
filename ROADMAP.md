@@ -5,7 +5,7 @@ Thirty-six features, grouped by what they improve. Size is a rough guess: **S** 
 **Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14).
 **Shipped in 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
 
-**Done on `main` for 0.4.0:** PC to phone (6), with resume and a checksum on every file; both apps find and install their own updates (the second half of 20), and the build signs the APK with a stable key once that key is added (the Android half of 4; see [RELEASING.md](RELEASING.md)).
+**Done on `main` for 0.4.0:** PC to phone (6), with resume and a checksum on every file; batches that travel three files at a time, in both directions; a "Phone (Flingo)" entry in Explorer's Send to menu (35); both apps find and install their own updates (the second half of 20), and the build signs the APK with the project's own key (the Android half of 4; see [RELEASING.md](RELEASING.md)).
 
 Finished items stay in the tables below, marked ✅, so the numbering other documents refer to does not move.
 
@@ -77,12 +77,56 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 | 32 | **Translations** | Move every string into translation files, including right-to-left layouts. | M |
 | 33 | **Browser receiver** | A guest PC opens a web page and receives files with nothing installed. The phone has to act as the server, and a browser tab cannot draw over the whole screen, so the arrival is plainer. | L |
 | 34 | **Phone to phone and tablets** | A tablet layout is quick. Receiving on a phone means running a server there in the background. | M |
-| 35 | **Windows menus** | "Send to phone" in Explorer's right-click menu is quick once PC to phone (6) exists. Appearing in the Windows Share menu needs the app packaged as MSIX. | M |
+| 35 | ✅ **Windows "Send to" menu** | Right-click files in Explorer, **Send to**, **Phone (Flingo)**: one batch, whether Flingo was running or not. Added by the installer, removed by the uninstaller, and switchable in Settings. Still open: the Windows Share menu and the top level of Windows 11's right-click menu, which need a signed package ([the plan](#the-windows-share-menu-what-it-takes)). | M |
 | 36 | **Flick into an app** | Drop zones on the PC screen: flick to the left edge for a chosen folder, to the right to open the photo in a chosen app. | M |
+
+## The Windows Share menu: what it takes
+
+Not built. Written down so the cost is known before anyone starts.
+
+**Why it is not just another shortcut.** The Send to menu lists whatever shortcuts are in a
+folder, so one shortcut was enough. The Share menu (and the top level of Windows 11's new
+right-click menu, which today hides Send to under "Show more options") only lists apps that
+Windows knows by a *package identity*. Flingo is installed by an ordinary installer and has
+none.
+
+**What gives an app an identity.** Either of two things, both described in Microsoft's
+documentation:
+
+1. Shipping Flingo as an **MSIX package**, through the Microsoft Store or as a download.
+2. Keeping today's installer and adding a small identity-only package beside it, which
+   Microsoft calls a *sparse package* or *packaging with external location*. Windows 10
+   version 2004 or later.
+
+**What both of them need, and Flingo lacks: a signature Windows trusts.** A package only
+registers if it is signed by a certificate the PC already trusts. That means a code-signing
+certificate (paid, renewed every year or so), or the Microsoft Store signing it for us. A
+self-made certificate works only on PCs where someone has installed it by hand as an
+administrator, which is not something to ask of a stranger. This is the same certificate the
+Windows half of signed releases (4) is waiting for, so the two should be done together.
+
+**The work, once there is a certificate.**
+
+- A package manifest that declares Flingo as a *share target* for files, and as a command in
+  File Explorer's right-click menu.
+- A small native piece, because Windows hands a share to the app through an activation that
+  Electron does not expose: it reads what was shared and starts `Flingo.exe --send` with the
+  files. The receiving end of that is already built and tested, for the Send to menu.
+- Shared things that are not files (a link, a piece of text, a picture copied from a web
+  page) have to be written to a file first, or refused with a clear message.
+- The installer registers the package and the uninstaller removes it; the release build signs
+  it. Both in CI.
+- Tested by hand on Windows 10 and on Windows 11, since the two draw these menus differently.
+
+**Rough size:** M, about a week, most of it packaging and testing rather than code.
+
+**Recommendation.** Take the second route, so the installer and the built-in updater stay as
+they are, and do it in the same release as Windows code signing. Until then the Send to
+entry is the way in, and it works on both Windows 10 and 11.
 
 ## Suggested order
 
-1. **Signed releases (4)**: the last trust gap. The Android half is built and waits for the key to be added to the repository's secrets. The Windows half needs a code-signing certificate.
+1. **Signed releases (4)**: the last trust gap. The Android half is built and signs with the project's key. The Windows half needs a code-signing certificate, and the same certificate opens the door to the Windows Share menu (35).
 2. **A picture for every arrival**: have the phone send a small preview with videos and HEIC photos, so they fly in as pictures instead of file cards.
 3. **PC to phone (6)**: done on `main`. Next for it: delivery while Flingo is closed on the phone, and flicking a tile out of the window.
 4. **Faster batches**: done on `main`. Three files of a batch travel at once over connections that stay open, in both directions ([measurements](docs/benchmarks.md)). Still unmeasured on a real phone.
