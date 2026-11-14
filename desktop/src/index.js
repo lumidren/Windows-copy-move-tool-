@@ -142,6 +142,7 @@ function render(s) {
 
   renderDevices();
 
+  renderSendTargets(s);
   renderHistory(s.history);
 }
 
@@ -164,7 +165,7 @@ function makeTile(h) {
   ]);
   tile.onclick = () => api.openFile(h.path);
   tile.oncontextmenu = (e) => { e.preventDefault(); api.revealFile(h.path); };
-  tile.ondragstart = (e) => { e.preventDefault(); api.dragFile(h.path); };
+  tile.ondragstart = (e) => { e.preventDefault(); ownDrag = true; api.dragFile(h.path); };
   return tile;
 }
 
@@ -188,6 +189,62 @@ function renderHistory(history) {
     else list.insertBefore(tile, before);
   });
 }
+
+// ---------- sending to a phone ----------
+// Drop files anywhere on the window, or press "Send to phone". With several phones paired,
+// the list beside the button says which one gets them.
+let ownDrag = false; // a tile being dragged out of the window is not a file being dropped in
+let dragDepth = 0;
+let targetsKey = null;
+
+function renderSendTargets(s) {
+  $('send-to-phone').hidden = s.devices.length === 0;
+  $('send-target').hidden = s.devices.length < 2;
+  const key = s.devices.map((d) => `${d.id}:${d.name}`).join('|');
+  if (key !== targetsKey) {
+    targetsKey = key;
+    $('send-target').replaceChildren(...s.devices.map((d) => el('option', { value: d.id, textContent: d.name })));
+  }
+  if (s.sendTo) $('send-target').value = s.sendTo;
+}
+
+const sendTarget = () => $('send-target').value || (state && state.sendTo) || '';
+const carriesFiles = (e) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+
+function showDrop(on) {
+  const phone = state && state.devices.find((d) => d.id === sendTarget());
+  $('drop-title').textContent = phone ? `Send to ${phone.name}` : 'Pair a phone first';
+  $('drop-note').textContent = phone ? 'Let go to send' : 'Then drop files here to send them to it.';
+  $('drop').hidden = !on;
+}
+
+window.addEventListener('mousemove', (e) => { if (!e.buttons) ownDrag = false; });
+window.addEventListener('dragenter', (e) => {
+  if (!carriesFiles(e) || ownDrag) return;
+  e.preventDefault();
+  dragDepth++;
+  showDrop(true);
+});
+window.addEventListener('dragover', (e) => {
+  if (!carriesFiles(e) || ownDrag) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+window.addEventListener('dragleave', (e) => {
+  if (!carriesFiles(e) || ownDrag) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) showDrop(false);
+});
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  showDrop(false);
+  if (ownDrag || !state || !state.devices.length) { ownDrag = false; return; }
+  const paths = [...e.dataTransfer.files].map((f) => api.pathOf(f)).filter(Boolean);
+  if (!paths.length) return;
+  showTab('home'); // where the progress shows
+  api.sendFiles(paths, sendTarget());
+});
 
 // ---------- tabs ----------
 function showTab(name) {
@@ -238,7 +295,7 @@ function renderUpdate(u) {
 const rows = new Map();
 function onTransfer(card) {
   let row = rows.get(card.id);
-  if (card.state === 'done') {
+  if (card.state === 'done' && !card.out) {
     // The files themselves appear in the list below, so the row has nothing left to say.
     if (row) { rows.delete(card.id); row.node.remove(); }
     return;
@@ -247,10 +304,20 @@ function onTransfer(card) {
     const title = el('b');
     const detail = el('span');
     const bar = el('div', { className: 'bar' });
-    const node = el('div', { className: 'transfer' }, [el('div', { className: 'label' }, [title, ' ', detail]), el('div', { className: 'track' }, [bar])]);
-    row = { node, title, detail, bar };
+    const cancel = el('button', { className: 'ghost', textContent: 'Cancel', hidden: true });
+    const head = el('div', { className: 'head' }, [el('div', { className: 'label' }, [title, ' ', detail]), cancel]);
+    const node = el('div', { className: 'transfer' }, [head, el('div', { className: 'track' }, [bar])]);
+    row = { node, title, detail, bar, cancel };
     rows.set(card.id, row);
     $('transfers').append(node);
+  }
+  // Files on their way to a phone can be taken back, and say so when they have arrived.
+  row.cancel.hidden = !card.cancel;
+  row.cancel.onclick = () => api.cancelSend(card.phone);
+  row.node.classList.toggle('sent', card.state === 'done');
+  if (card.state === 'done') {
+    rows.delete(card.id);
+    setTimeout(() => row.node.remove(), 4000);
   }
   const known = card.fraction !== null && card.fraction !== undefined;
   const pct = known ? Math.round(card.fraction * 100) : 0;
@@ -324,6 +391,8 @@ $('preflight-again').onclick = runPreflight;
 $('preflight-close').onclick = () => { $('preflight-card').hidden = true; };
 for (const tab of document.querySelectorAll('.tab')) tab.onclick = () => showTab(tab.dataset.tab);
 for (const b of document.querySelectorAll('[data-link]')) b.onclick = () => api.openLink(b.dataset.link);
+$('send-to-phone').onclick = () => api.pickAndSend(sendTarget());
+$('send-target').onchange = async (e) => render(await api.set({ sendTo: e.target.value }));
 $('auto-update').onchange = async (e) => render(await api.set({ autoUpdate: e.target.checked }));
 $('check-update').onclick = () => api.update('check');
 $('update-notes').onclick = () => api.update('notes');
