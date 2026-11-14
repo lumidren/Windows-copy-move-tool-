@@ -1295,7 +1295,7 @@ class MainActivity : Activity() {
             .setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
             .setPrompt("Point at the QR code in Flingo on your PC")
             .setBeepEnabled(false)
-            .setOrientationLocked(true)
+            .setOrientationLocked(false) // the scanner turns with the phone, like the rest of Flingo
             .initiateScan()
     }
 
