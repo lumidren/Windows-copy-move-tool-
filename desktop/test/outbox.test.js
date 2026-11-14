@@ -78,6 +78,20 @@ test('a phone that is waiting hears about a new file at once', async (t) => {
   assert.ok(Date.now() - started < 5000, 'did not wait for the timeout');
 });
 
+test('files sent together are offered together', async (t) => {
+  const pc = await boot(t);
+  const waiting = pc.ask('token-one', '?wait=20');
+  const held = [];
+  for (const name of ['a.jpg', 'b.jpg', 'c.jpg']) held.push(await pc.outbox.add('d1', 'Phone one', pc.file(name, name), { hold: true }));
+  assert.deepEqual(held.map((i) => i.state), ['preparing', 'preparing', 'preparing']);
+  assert.deepEqual((await pc.ask('token-one', '?all=1')).items, [], 'nothing is offered while the batch is being read');
+  pc.outbox.release('d1');
+  assert.deepEqual((await waiting).items.map((i) => i.name), ['a.jpg', 'b.jpg', 'c.jpg']);
+  assert.equal(pc.outbox.cancel(held[0].id), true);
+  pc.outbox.release('d2'); // another phone's release changes nothing here
+  assert.deepEqual((await pc.ask('token-one')).items.map((i) => i.name), ['b.jpg', 'c.jpg']);
+});
+
 test('a wait with nothing to collect ends empty', async (t) => {
   const pc = await boot(t);
   const started = Date.now();
