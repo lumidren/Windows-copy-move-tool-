@@ -7,6 +7,8 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 
 ### New
 
+- **PC to phone.** Flingo is two-way now. Drag files onto the Flingo window, or press **Send to phone**. Photos and videos land in the phone's Pictures/Flingo, everything else in Download/Flingo, and a notification opens what arrived. With several phones paired, pick which one gets the files.
+- **Nothing is lost on the way back either.** A dropped connection carries on from where it stopped, and the phone checks every file against its SHA-256 before showing it.
 - **Update offers.** Each app asks GitHub which release is the newest and tells you when it is not the one you have.
 - **Windows updates in place.** *Update now* downloads the installer, checks it against the release's SHA-256, and *Restart and install* swaps the app and opens it again. Paired phones and settings are kept.
 - **Android updates in place.** *Update* downloads the APK, checks it the same way, and hands it to Android, which asks you to confirm. The first time, Android also asks you to allow Flingo to install apps.
@@ -31,6 +33,7 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 
 ### Good to know
 
+- Files from the PC arrive at once while Flingo is open on the phone. If it is closed, they wait on the PC and arrive when you next open it. They are lost if Flingo on the PC is closed before the phone collects them.
 - The update check is the only time Flingo uses the internet. It reads a public page and sends nothing about your devices or files. Everything else still works with no internet at all.
 - In stage mode the PC does not check and shows no offer.
 - From this release on the APK is signed with the project's own key, which is what lets one version install over another. Older APKs were signed with throwaway keys, so this one cannot install over them: uninstall the old app first.
