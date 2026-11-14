@@ -66,3 +66,63 @@ test('the phone downloads the whole file, checks it and says so', async (t) => {
   assert.deepEqual((await pc.ask('token-one', '?all=1')).items, []);
   assert.equal((await pc.fetchFile('token-one', item.id)).status, 404, 'a finished file cannot be fetched again');
 });
+
+test('a phone that is waiting hears about a new file at once', async (t) => {
+  const pc = await boot(t);
+  const started = Date.now();
+  const waiting = pc.ask('token-one', '?wait=20');
+  await new Promise((r) => setTimeout(r, 150));
+  const item = await pc.outbox.add('d1', 'Phone one', pc.file('note.txt', 'hello'));
+  const answer = await waiting;
+  assert.deepEqual(answer.items.map((i) => i.id), [item.id]);
+  assert.ok(Date.now() - started < 5000, 'did not wait for the timeout');
+});
+
+test('a wait with nothing to collect ends empty', async (t) => {
+  const pc = await boot(t);
+  const started = Date.now();
+  assert.deepEqual((await pc.ask('token-one', '?wait=1')).items, []);
+  assert.ok(Date.now() - started >= 900);
+  assert.deepEqual((await pc.ask('token-one', '?wait=nonsense')).items, [], 'a bad wait is no wait');
+});
+
+test('a download that was cut off carries on from where it stopped', async (t) => {
+  const pc = await boot(t);
+  const body = crypto.randomBytes(8 * 1024 * 1024);
+  const item = await pc.outbox.add('d1', 'Phone one', pc.file('film.mkv', body));
+
+  // Take the first part, then drop the connection the way a Wi-Fi blip would.
+  const first = await new Promise((resolve, reject) => {
+    const req = http.get({ host: '127.0.0.1', port: pc.port, path: `/outbox/${item.id}`, headers: { Authorization: 'Bearer token-one' } }, (res) => {
+      const got = [];
+      let size = 0;
+      res.on('data', (c) => {
+        got.push(c);
+        size += c.length;
+        if (size >= 2 * 1024 * 1024) { req.destroy(); resolve(Buffer.concat(got)); }
+      });
+      res.on('error', () => {});
+    });
+    req.on('error', reject);
+  });
+  assert.ok(first.length >= 2 * 1024 * 1024 && first.length < body.length);
+  assert.deepEqual((await pc.ask('token-one', '?all=1')).items.map((i) => i.id), [item.id], 'still there after a restart of the phone app');
+
+  const rest = await pc.fetchFile('token-one', item.id, { Range: `bytes=${first.length}-` });
+  assert.equal(rest.status, 206);
+  assert.equal(rest.headers.get('content-range'), `bytes ${first.length}-${body.length - 1}/${body.length}`);
+  const whole = Buffer.concat([first, Buffer.from(await rest.arrayBuffer())]);
+  assert.equal(sha256(whole), rest.headers.get('x-sha256'));
+  assert.deepEqual(whole, body);
+});
+
+test('a range that makes no sense is refused', async (t) => {
+  const pc = await boot(t);
+  const item = await pc.outbox.add('d1', 'Phone one', pc.file('a.bin', Buffer.alloc(100)));
+  for (const range of ['bytes=101-', 'bytes=5-9', 'bytes=-5', 'lines=1-', 'bytes=abc-']) {
+    assert.equal((await pc.fetchFile('token-one', item.id, { Range: range })).status, 416, range);
+  }
+  const end = await pc.fetchFile('token-one', item.id, { Range: 'bytes=100-' });
+  assert.equal(end.status, 206, 'asking from the very end is an empty answer, not an error');
+  assert.equal((await end.arrayBuffer()).byteLength, 0);
+});
