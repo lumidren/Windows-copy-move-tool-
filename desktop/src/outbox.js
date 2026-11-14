@@ -74,3 +74,36 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
   }
 
   /**
+   * Puts a file in the outbox for one phone. Resolves to the item, or to { error } when the
+   * file cannot be sent. The file is read once here to take its SHA-256; it is offered to the
+   * phone only after that, so the phone can always check what it received.
+   */
+  async function add(deviceId, deviceName, file) {
+    let stat;
+    try { stat = fs.statSync(file); } catch { return { error: 'That file cannot be read.' }; }
+    if (!stat.isFile()) return { error: 'Folders cannot be sent yet. Send the files inside it.' };
+    if (stat.size > maxBytes()) return { error: 'That file is too large to send.' };
+    const waiting = [...items.values()].filter((i) => i.deviceId === deviceId && OPEN.has(i.state)).length;
+    if (waiting >= MAX_WAITING) return { error: 'Too many files are already waiting for that phone.' };
+
+    const name = cleanName(path.basename(file));
+    const item = {
+      id: crypto.randomBytes(16).toString('hex'),
+      deviceId, deviceName, path: file, name, size: stat.size, mtimeMs: stat.mtimeMs, mime: typeOf(name),
+      sha256: '', state: 'preparing', error: '', sent: 0, addedAt: Date.now(), endedAt: 0,
+    };
+    items.set(item.id, item);
+    changed(item);
+    try {
+      item.sha256 = await hashFile(file);
+    } catch {
+      set(item, 'failed', 'That file could not be read.');
+      return item;
+    }
+    if (item.state !== 'preparing') return item; // cancelled while it was being read
+    set(item, 'queued');
+    wake(deviceId);
+    return item;
+  }
+
+  /**
