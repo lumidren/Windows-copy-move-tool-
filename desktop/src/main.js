@@ -346,6 +346,7 @@ function identifyScreens() {
 
 function showMain() {
   if (!mainWin || mainWin.isDestroyed()) createMainWindow();
+  if (mainWin.isMinimized()) mainWin.restore();
   mainWin.show();
   mainWin.focus();
 }
