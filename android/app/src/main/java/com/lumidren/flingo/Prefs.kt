@@ -68,6 +68,28 @@ class Prefs(ctx: Context) {
         get() = sp.getString("updateDismissed", "") ?: ""
         set(v) = sp.edit().putString("updateDismissed", v).apply()
 
+    // ---------- files on their way in from the PC ----------
+    // Kept so a download carries on, and is not fetched twice, across a restart of the app.
+    private fun ids(key: String): org.json.JSONObject =
+        runCatching { org.json.JSONObject(sp.getString(key, "{}") ?: "{}") }.getOrDefault(org.json.JSONObject())
+
+    private fun remember(key: String, id: String, uri: String?, keep: Int) {
+        val all = ids(key)
+        if (uri == null) all.remove(id) else all.put(id, uri)
+        // Old entries make way for new ones; the PC forgets a file long before this list does.
+        val names = all.keys().asSequence().toList()
+        names.dropLast(keep).forEach { all.remove(it) }
+        sp.edit().putString(key, all.toString()).apply()
+    }
+
+    /** Where the part of file [id] that has arrived so far is kept, if any. */
+    fun inboxPart(id: String): String? = ids("inboxParts").optString(id).ifEmpty { null }
+    fun setInboxPart(id: String, uri: String?) = remember("inboxParts", id, uri, 50)
+
+    /** Where file [id] was saved, if it arrived whole. */
+    fun inboxDone(id: String): String? = ids("inboxDone").optString(id).ifEmpty { null }
+    fun setInboxDone(id: String, uri: String) = remember("inboxDone", id, uri, 200)
+
     // A pairing made before transfers were encrypted has no fingerprint, so it has to be made again.
     val paired: Boolean get() = token.isNotEmpty() && host.isNotEmpty() && fp.isNotEmpty()
 
