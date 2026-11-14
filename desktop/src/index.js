@@ -90,6 +90,7 @@ function render(s) {
   for (const id of ['pair-card', 'phones-card']) if ($(id).parentNode !== side) side.append($(id));
   $('home-side').hidden = !pairingOnHome;
   $('phones-card').hidden = s.devices.length === 0;
+  if (s.devices.length) $('pair-notice').hidden = true; // paired now, so the notice has done its job
   const phonesTab = document.querySelector('.tab[data-tab="phones"]');
   phonesTab.hidden = pairingOnHome;
   if (pairingOnHome && phonesTab.classList.contains('active')) showTab('home');
@@ -296,7 +297,18 @@ function renderUpdate(u) {
 // ---------- transfers in progress ----------
 // One row per card from the app: a single large file, or a whole batch.
 const rows = new Map();
+/** Files were to be sent, and there is no phone. Says so beside the way to pair one. */
+let noticeTimer = null;
+function showPairNotice(text) {
+  $('pair-notice').textContent = text;
+  $('pair-notice').hidden = false;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { $('pair-notice').hidden = true; }, 12000);
+}
+
 function onTransfer(card) {
+  // With no phone paired, Home may show nothing but pairing, and a card in the list would not be seen.
+  if (card.id === 'out|none') { showPairNotice('Nothing was sent: no phone is paired yet. Pair one here, then send again.'); return; }
   let row = rows.get(card.id);
   if (card.state === 'done' && !card.out) {
     // The files themselves appear in the list below, so the row has nothing left to say.
