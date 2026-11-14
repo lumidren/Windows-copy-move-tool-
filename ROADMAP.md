@@ -49,6 +49,15 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 | 19 | **Native Wayland overlay** | Use the layer-shell protocol for the arrival overlay on GNOME and KDE Wayland instead of relying on XWayland. | M |
 | 20 | **Store listings and auto-update** | Publish to F-Droid, Google Play, winget and Flathub, and let the desktop app update itself. | M |
 
+## Show-stoppers
+
+| # | Feature | Why it matters | Size |
+|:-:|---|---|:-:|
+| 21 | **Party wall** | Many phones flick onto one big screen, which fills up as a live photo wall and then plays as a slideshow. Made for events, weddings and stage demos. Pairing already handles several phones; the work is the wall layout and slideshow window. | M |
+| 22 | **Camera flick** | Take a photo inside Flingo and flick it straight away, without a trip through the gallery. The send path already exists; this adds an in-app camera screen. | S |
+| 23 | **Throw physics** | A harder flick flies in faster, a sideways flick spins. The phone already measures the flick; it only needs to send the speed along with the position. | S |
+| 24 | **Pull from the PC** | Swipe down on the phone to grab a screenshot of the PC screen. Builds on PC to phone (6). | M |
+
 ## Suggested order
 
 1. **Signed releases (4)**: the last trust gap. The Android half is built and waits for the key to be added to the repository's secrets. The Windows half needs a code-signing certificate.
