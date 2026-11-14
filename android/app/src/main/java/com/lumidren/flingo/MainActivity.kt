@@ -93,6 +93,8 @@ class MainActivity : Activity() {
     private var statusJob: Job? = null
     private var healthJob: Job? = null
     private var updateJob: Job? = null
+    private var cancelAction: () -> Unit = {}
+    private var dropping = false
     private var pendingShare: List<Uri> = emptyList()
 
     // Keeps Net.wifi pointing at the current Wi-Fi network, including one with no internet.
@@ -105,6 +107,13 @@ class MainActivity : Activity() {
     private var online: Boolean? = null
 
     // Progress and results of whatever is being sent, while this screen is in front.
+    // Files coming in from the PC, while this screen is in front.
+    private val receiveWatcher = object : Inbox.Listener {
+        override fun onProgress(state: SendState) = showReceive(state)
+        override fun onArrived(file: Arrived) = dropIn(file)
+        override fun onFinished(result: ReceiveResult) = showReceived(result)
+    }
+
     private val sendWatcher = object : Transfers.Listener {
         override fun onProgress(state: SendState) = showSend(state)
         override fun onFinished(result: SendResult) = showResult(result)
@@ -152,6 +161,11 @@ class MainActivity : Activity() {
         Transfers.listener = sendWatcher
         Transfers.takeResult()?.let(::showResult)
         Transfers.state?.let(::showSend)
+        // And with whatever the PC has been sending this way.
+        Inbox.listener = receiveWatcher
+        Inbox.takeResult()?.let(::showReceived)
+        Inbox.state?.let(::showReceive)
+        Inbox.start(this)
         Updater.onFailure = ::updateFailed
         Updater.takeFailure()?.let(::updateFailed)
         checkForUpdate()
@@ -160,6 +174,8 @@ class MainActivity : Activity() {
     override fun onPause() {
         healthJob?.cancel()
         Transfers.listener = null
+        Inbox.listener = null
+        Inbox.pause()
         Updater.onFailure = null
         super.onPause()
     }
@@ -374,7 +390,7 @@ class MainActivity : Activity() {
             minHeight = dpi(32f)
             setPadding(dpi(14f), 0, dpi(2f), 0)
             visibility = View.GONE
-            setOnClickListener { Transfers.cancel(this@MainActivity) }
+            setOnClickListener { cancelAction() }
         }
         val statusLine = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -772,7 +788,69 @@ class MainActivity : Activity() {
         Transfers.enqueue(this, SendJob(uris, x, animateFirst, search = online != false))
     }
 
+    // ---------- receiving from the PC ----------
+    private fun showReceive(s: SendState) {
+        cancelAction = { Inbox.cancel() }
+        showStatus(Words.progress(s, lines = if (s.long) 2 else 1), sticky = true, progress = Words.fraction(s), cancelable = s.long)
+        if (s.long) askForNotifications()
+    }
+
+    /** The mirror of the flick: the photo that just arrived drops in from the top of the screen. */
+    private fun dropIn(file: Arrived) {
+        if (!file.mime.startsWith("image/") && !file.mime.startsWith("video/")) return
+        // One at a time: fifty photos arriving in a few seconds should not be fifty pictures in the air.
+        if (dropping) return
+        dropping = true
+        scope.launch {
+            val size = dpi(190f)
+            val picture = withContext(Dispatchers.IO) {
+                runCatching { contentResolver.loadThumbnail(file.uri, android.util.Size(size, size), null) }.getOrNull()
+            }
+            if (picture == null) { dropping = false; return@launch }
+            val view = ImageView(this@MainActivity).apply {
+                setImageBitmap(picture)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                elevation = dp(14f)
+                clipToOutline = true
+                outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(v: View, o: Outline) = o.setRoundRect(0, 0, v.width, v.height, dp(18f))
+                }
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                translationY = -size * 1.2f
+                rotation = -9f
+            }
+            root.addView(view, FrameLayout.LayoutParams(size, size, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+            val rest = root.height * 0.3f
+            view.animate().translationY(rest).rotation(0f).setDuration(520)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
+                .withEndAction {
+                    view.animate().setStartDelay(700).alpha(0f).scaleX(0.3f).scaleY(0.3f).translationY(rest + dp(90f)).setDuration(260)
+                        .withEndAction { root.removeView(view); dropping = false }.start()
+                }.start()
+        }
+    }
+
+    private fun showReceived(result: ReceiveResult) {
+        val pc = prefs.pcName.ifEmpty { "your PC" }
+        when (result) {
+            is ReceiveResult.Done -> {
+                if (result.arrived > 0) { buzz(hapticYes); loadGallery() }
+                val where = if (result.last?.mime?.let { it.startsWith("image/") || it.startsWith("video/") } == true) "Pictures/Flingo" else "Download/Flingo"
+                val text = when {
+                    result.arrived == 0 -> "Nothing arrived: it was taken back or changed on $pc."
+                    result.arrived == 1 -> "Received ${result.last?.name ?: "1 file"} ✓\nSaved in $where"
+                    else -> "Received ${Words.files(result.arrived)} from $pc ✓"
+                } + if (result.failed > 0 && result.arrived > 0) "\n${Words.files(result.failed)} did not arrive." else ""
+                showStatus(text, holdMs = 4500)
+            }
+            is ReceiveResult.Cancelled -> showStatus("Cancelled.")
+            is ReceiveResult.Lost -> showStatus("Lost the connection to $pc.\nWhat arrived is kept; it carries on when the PC is back.", holdMs = 6000)
+            is ReceiveResult.NoSpace -> { buzz(hapticNo); showStatus("Not enough space on this phone for that file.", holdMs = 6000) }
+        }
+    }
+
     private fun showSend(s: SendState) {
+        cancelAction = { Transfers.cancel(this) }
         showStatus(Words.progress(s, lines = if (s.long) 2 else 1), sticky = true, progress = Words.fraction(s), cancelable = s.long)
     }
 
@@ -1164,6 +1242,7 @@ class MainActivity : Activity() {
         startHealthChecks()
         buzz(hapticYes)
         showStatus("Paired with ${p.pc.name} ✓")
+        Inbox.start(this)
         if (pendingShare.isNotEmpty()) {
             val uris = pendingShare
             pendingShare = emptyList()
