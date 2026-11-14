@@ -24,6 +24,23 @@ function el(tag, props = {}, children = []) {
 
 const isOnline = (d) => d.lastSeen && Date.now() - d.lastSeen < ONLINE_MS;
 
+// ---------- saying things to a screen reader ----------
+// Progress moves many times a second, and a screen reader that read every step would never
+// stop. So the cards are silent, and only the moments that matter are spoken: a transfer
+// starting, finishing, losing its connection or failing. `urgent` interrupts what is being read.
+function say(text, urgent = false) {
+  const box = $(urgent ? 'alerts' : 'announcer');
+  box.textContent = '';
+  // Emptied first and filled a moment later, so the same sentence twice is read twice.
+  setTimeout(() => { box.textContent = text; }, 80);
+}
+
+// ---------- movement ----------
+// Follows this PC's "show animations" setting unless Flingo's own setting says otherwise.
+const systemCalm = window.matchMedia('(prefers-reduced-motion: reduce)');
+const wantsCalm = (s) => s.motion === 'reduce' || (s.motion !== 'full' && systemCalm.matches);
+systemCalm.addEventListener('change', () => { if (state) render(state); });
+
 // ---------- pairing QR ----------
 function drawQr(rows) {
   const key = rows.join('');
@@ -58,12 +75,12 @@ function renderDevices() {
   if (key === devicesKey) return;
   devicesKey = key;
   $('devices').replaceChildren(...(devices.length ? devices.map((d) => {
-    const rm = el('button', { className: 'ghost', textContent: 'Remove' });
+    const rm = el('button', { className: 'ghost', textContent: 'Remove', ariaLabel: `Remove ${d.name}` });
     rm.onclick = async () => render(await api.removeDevice(d.id));
     const on = isOnline(d);
     return el('li', {}, [
       el('span', { className: 'who' }, [
-        el('span', { className: `dot ${on ? '' : 'off'}` }),
+        el('span', { className: `dot ${on ? '' : 'off'}`, ariaHidden: 'true' }),
         el('span', {}, [
           el('span', { textContent: d.name }),
           el('small', { className: 'muted', textContent: on ? 'Connected' : d.lastSeen ? 'Not connected right now' : 'Not seen since Flingo started' }),
@@ -97,7 +114,7 @@ function render(s) {
   document.querySelector('.page[data-page="home"]').classList.toggle('first-run', !s.stage && s.devices.length === 0 && s.history.length === 0);
 
   // pairing
-  if (s.pairingLocked) $('qr').classList.remove('big');
+  if (s.pairingLocked) showBigQr(false);
   $('pair-open').hidden = s.pairingLocked;
   $('pair-locked').hidden = !s.pairingLocked;
   if (!s.pairingLocked) {
@@ -167,6 +184,8 @@ function makeTile(h) {
       el('div', { className: 'sub', textContent: `${fmtSize(h.size)} · ${h.from}` }),
     ]),
   ]);
+  // Dragging a tile out is a mouse-only convenience; the keyboard gets the same file another way.
+  tile.setAttribute('aria-description', 'Enter opens it. The menu key, or Shift and F10, shows it in its folder.');
   tile.onclick = () => api.openFile(h.path);
   tile.oncontextmenu = (e) => { e.preventDefault(); api.revealFile(h.path); };
   tile.ondragstart = (e) => { e.preventDefault(); ownDrag = true; api.dragFile(h.path); };
@@ -278,6 +297,7 @@ function renderUpdate(u) {
       : busy ? '' : u.selfUpdate ? `You have ${state.version}.` : `You have ${state.version}. The download page opens in your browser.`);
   $('update-track').hidden = !busy;
   $('update-fill').style.width = `${pct}%`;
+  $('update-track').setAttribute('aria-valuenow', pct);
   $('update-later').hidden = u.state !== 'available';
   $('update-go').hidden = busy;
   $('update-go').textContent = u.state === 'ready' ? 'Restart and install' : u.selfUpdate ? 'Update now' : 'Get the update';
@@ -297,59 +317,91 @@ function renderUpdate(u) {
 // ---------- transfers in progress ----------
 // One row per card from the app: a single large file, or a whole batch.
 const rows = new Map();
-/** Files were to be sent, and there is no phone. Says so beside the way to pair one. */
-let noticeTimer = null;
+/**
+ * Files were to be sent, and there is no phone. Says so beside the way to pair one, and
+ * leaves it there until a phone is paired: nobody should have to read it against a clock.
+ */
 function showPairNotice(text) {
   $('pair-notice').textContent = text;
   $('pair-notice').hidden = false;
-  clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => { $('pair-notice').hidden = true; }, 12000);
 }
+
+const KEPT_FAILURES = 3; // cards about something that went wrong stay until dismissed; this many at most
+const failures = [];
 
 function onTransfer(card) {
   // With no phone paired, Home may show nothing but pairing, and a card in the list would not be seen.
   if (card.id === 'out|none') { showPairNotice('Nothing was sent: no phone is paired yet. Pair one here, then send again.'); return; }
+  const known = card.fraction !== null && card.fraction !== undefined;
+  const pct = known ? Math.round(card.fraction * 100) : 0;
+  const detail = card.detail.replace('{pct}', pct);
   let row = rows.get(card.id);
   if (card.state === 'done' && !card.out) {
     // The files themselves appear in the list below, so the row has nothing left to say.
     if (row) { rows.delete(card.id); row.node.remove(); }
+    say(`${card.title}, ${detail}`);
     return;
   }
   if (!row) {
     const title = el('b');
-    const detail = el('span');
+    const text = el('span');
     const bar = el('div', { className: 'bar' });
+    const track = el('div', { className: 'track', role: 'progressbar', ariaValueMin: '0', ariaValueMax: '100' }, [bar]);
     const cancel = el('button', { className: 'ghost', textContent: 'Cancel', hidden: true });
-    const head = el('div', { className: 'head' }, [el('div', { className: 'label' }, [title, ' ', detail]), cancel]);
-    const node = el('div', { className: 'transfer' }, [head, el('div', { className: 'track' }, [bar])]);
-    row = { node, title, detail, bar, cancel };
+    const head = el('div', { className: 'head' }, [el('div', { className: 'label' }, [title, ' ', text]), cancel]);
+    const node = el('div', { className: 'transfer', role: 'group' }, [head, track]);
+    row = { node, title, detail: text, bar, track, cancel, state: '' };
     rows.set(card.id, row);
     $('transfers').append(node);
   }
   // Files on their way to a phone can be taken back, and say so when they have arrived.
   row.cancel.hidden = !card.cancel;
+  row.cancel.textContent = 'Cancel';
+  row.cancel.ariaLabel = `Cancel: ${card.title}`;
   row.cancel.onclick = () => api.cancelSend(card.phone);
   row.node.classList.toggle('sent', card.state === 'done');
-  if (card.state === 'done') {
-    rows.delete(card.id);
-    setTimeout(() => row.node.remove(), 4000);
-  }
-  const known = card.fraction !== null && card.fraction !== undefined;
-  const pct = known ? Math.round(card.fraction * 100) : 0;
   row.title.textContent = card.title;
-  row.detail.textContent = card.detail.replace('{pct}', pct);
+  row.detail.textContent = detail;
+  row.node.ariaLabel = card.title;
+  row.track.ariaLabel = card.title;
+  // A screen reader can ask how far it has got; it is not told at every step.
+  if (known && card.state !== 'failed') row.track.ariaValueNow = String(pct); else row.track.removeAttribute('aria-valuenow');
+  row.track.ariaValueText = detail;
   row.node.classList.toggle('failed', card.state === 'failed');
   row.node.classList.toggle('waiting', card.state === 'waiting');
   row.node.classList.toggle('unknown', !known && card.state === 'active');
   row.bar.style.width = `${card.state === 'failed' || !known ? 100 : pct}%`;
-  if (card.state === 'failed') {
+
+  if (card.state !== row.state) {
+    const was = row.state;
+    row.state = card.state;
+    // Only what has gone wrong interrupts. Waiting for a phone to pick its files up is not that.
+    if (card.state === 'failed' || card.lost) say(`${card.title}. ${detail}`, true);
+    else if (card.state === 'waiting') say(`${card.title}. ${detail}`);
+    else if (card.state === 'done') say(`${card.title}, ${detail}`);
+    else if (was === 'waiting') say(`Carrying on. ${card.title}`);
+    else say(card.title);
+  }
+  if (card.state === 'done') {
     rows.delete(card.id);
     setTimeout(() => row.node.remove(), 6000);
+  }
+  if (card.state === 'failed') {
+    rows.delete(card.id);
+    if (state && state.stage) { setTimeout(() => row.node.remove(), 6000); return; } // on stage nobody is at the keyboard
+    // Something went wrong: it stays until it has been read, not for a few seconds.
+    row.cancel.hidden = false;
+    row.cancel.textContent = 'Dismiss';
+    row.cancel.ariaLabel = `Dismiss: ${card.title}`;
+    row.cancel.onclick = () => row.node.remove();
+    failures.push(row.node);
+    while (failures.length > KEPT_FAILURES) failures.shift().remove();
   }
 }
 
 // ---------- pre-flight ----------
 const MARK = { ok: '✓', warn: '!', fail: '✕', manual: '☐' };
+const MARK_WORDS = { ok: 'Passed', warn: 'Worth a look', fail: 'Must be fixed', manual: 'For you to check' };
 const ACTIONS = { firewall: 'Open firewall settings', notifications: 'Open notification settings', folder: 'Open folder' };
 
 async function runPreflight() {
@@ -380,13 +432,23 @@ async function runPreflight() {
       b.onclick = () => api.openSettings(i.action);
       body.append(b);
     }
-    return el('li', { className: `check ${i.status}` }, [el('span', { className: 'mark', textContent: MARK[i.status] }), body]);
+    // The mark is a shape as well as a colour, and has words for a screen reader.
+    return el('li', { className: `check ${i.status}` }, [el('span', { className: 'mark', textContent: MARK[i.status], role: 'img', ariaLabel: MARK_WORDS[i.status] }), body]);
   }));
 }
 
-// Click the QR code to fill the window with it, for scanning from a few steps away.
-$('qr').onclick = () => $('qr').classList.toggle('big');
-$('qr').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') $('qr').classList.toggle('big', e.key !== 'Escape' && !$('qr').classList.contains('big')); };
+// Click the QR code, or press Enter on it, to fill the window with it for scanning from a
+// few steps away. Escape, Enter or another click puts it back.
+function showBigQr(on) {
+  $('qr').classList.toggle('big', on);
+  $('qr').setAttribute('aria-pressed', String(on));
+  $('qr').setAttribute('aria-label', on ? 'Pairing QR code, filling the window. Press Escape to put it back.' : 'Pairing QR code. Press Enter to make it fill the window.');
+}
+$('qr').onclick = () => showBigQr(!$('qr').classList.contains('big'));
+$('qr').onkeydown = (e) => {
+  if (e.key === 'Escape') showBigQr(false);
+  else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showBigQr(!$('qr').classList.contains('big')); }
+};
 $('new-code').onclick = async () => render(await api.newCode());
 $('lock').onclick = async () => render(await api.set({ pairingLocked: true }));
 $('unlock').onclick = async () => render(await api.set({ pairingLocked: false }));

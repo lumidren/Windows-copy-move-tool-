@@ -563,7 +563,7 @@ function showTransfer(tr) {
   if (tr.total === null || tr.total > SLOW_TRANSFER_BYTES) tr.onScreen = true;
   if (tr.waiting) {
     post({
-      id: tr.key, state: 'waiting', title: 'Connection lost',
+      id: tr.key, state: 'waiting', lost: true, title: 'Connection lost',
       detail: `Waiting for ${tr.from} to carry on with ${short(tr.name, 24)}`,
       fraction: tr.total ? tr.received / tr.total : null,
     }, tr.onScreen);
@@ -670,7 +670,7 @@ function showBatch(b) {
   const fraction = Math.min(1, b.bytes ? (b.doneBytes + inFlight) / b.bytes : (b.done + partFiles) / b.count);
   const at = Math.min(b.count, Math.max(b.index, b.done + 1));
   post(b.waiting ? {
-    id: b.id, state: 'waiting', title: 'Connection lost',
+    id: b.id, state: 'waiting', lost: true, title: 'Connection lost',
     detail: `Waiting for ${b.from} to carry on · ${b.done} of ${b.count} received`, fraction,
   } : {
     id: b.id, state: 'active', title: `Receiving ${files(b.count)}`,
@@ -800,7 +800,7 @@ function showOut(phoneId) {
     const going = open.filter((i) => i.state === 'sending');
     if (going.length && going.every((i) => i.stalled || Date.now() - i.movedAt > STALLED_MS)) {
       sendMain('transfer', {
-        ...base, cancel: true, state: 'waiting', title: 'Connection lost',
+        ...base, cancel: true, state: 'waiting', lost: true, title: 'Connection lost',
         detail: `Waiting for ${run.name} to carry on · ${done.length} of ${run.total} · {pct}%`, fraction: bytes ? sent / bytes : 0,
       });
     } else if (moving) {

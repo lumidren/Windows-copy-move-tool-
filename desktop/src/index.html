@@ -8,15 +8,16 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo"></span><h1>Flingo</h1><span class="badge" id="stage-badge" hidden>Stage mode</span></div>
-  <div class="status" id="status" role="status"><span class="dot" id="dot"></span><span id="status-text">Starting…</span></div>
+  <div class="brand"><span class="logo" aria-hidden="true"></span><h1>Flingo</h1><span class="badge" id="stage-badge" hidden>Stage mode</span></div>
+  <div class="status" id="status" role="status"><span class="dot" id="dot" aria-hidden="true"></span><span id="status-text">Starting…</span></div>
   <div class="row">
     <button id="preflight" class="ghost">Pre-flight check</button>
     <label class="toggle compact" title="For presenting: keeps the screen awake, locks pairing, and makes this window easy to read from a distance.">
-      <input type="checkbox" id="stage">
+      <input type="checkbox" role="switch" id="stage" aria-describedby="stage-help">
       <span class="switch"></span>
       <span>Stage mode</span>
     </label>
+    <span class="sr-only" id="stage-help">For presenting: keeps the screen awake, locks pairing, and makes this window easy to read from a distance.</span>
   </div>
 </header>
 
@@ -24,7 +25,7 @@
   <div class="update-text">
     <b id="update-title"></b>
     <span class="muted" id="update-note"></span>
-    <div class="track" id="update-track" hidden><div class="bar" id="update-fill"></div></div>
+    <div class="track" id="update-track" role="progressbar" aria-label="Downloading the update" aria-valuemin="0" aria-valuemax="100" hidden><div class="bar" id="update-fill"></div></div>
   </div>
   <div class="row">
     <button id="update-notes" class="ghost">What's new</button>
@@ -55,12 +56,12 @@
           <li>Tap <b>Pair with PC</b>, then <b>Scan QR code</b>.</li>
           <li>Point the phone at this code.</li>
         </ol>
-        <canvas id="qr" width="10" height="10" role="img" aria-label="Pairing QR code" title="Click to enlarge" tabindex="0"></canvas>
+        <canvas id="qr" width="10" height="10" role="button" aria-label="Pairing QR code. Press Enter to make it fill the window." aria-pressed="false" title="Click to enlarge" tabindex="0"></canvas>
         <details class="more" id="pair-more">
           <summary>Other ways to pair</summary>
           <div class="qr-side">
             <div class="muted small">No camera? On the phone choose <b>Type it in</b> and enter this code</div>
-            <div class="code" id="code" aria-label="Pairing code"></div>
+            <div class="code" id="code"></div>
             <div class="muted small">This PC's address</div>
             <div class="addr" id="addr"></div>
           </div>
@@ -107,11 +108,11 @@
           <button id="clear" class="ghost">Clear list</button>
         </div>
       </div>
-      <div id="transfers" class="transfers" aria-live="polite"></div>
+      <div id="transfers" class="transfers"></div>
       <p class="muted small" id="history-hint">Click to open. Drag a tile into any app or folder.</p>
       <div id="history" class="history"></div>
       <div id="empty" class="empty">
-        <div class="empty-art"></div>
+        <div class="empty-art" aria-hidden="true"></div>
         <p>Nothing yet.</p>
         <p class="muted">Hold a photo on your phone and flick it toward this screen.</p>
       </div>
@@ -163,17 +164,17 @@
         </div>
       </div>
       <label class="toggle">
-        <input type="checkbox" id="launch">
+        <input type="checkbox" role="switch" id="launch">
         <span class="switch"></span>
         <span id="launch-label">Start with Windows</span>
       </label>
       <label class="toggle" id="send-to-menu-row" hidden>
-        <input type="checkbox" id="send-to-menu">
+        <input type="checkbox" role="switch" id="send-to-menu">
         <span class="switch"></span>
         <span>Show in Explorer's "Send to" menu<br><small class="muted" id="send-to-menu-hint"></small></span>
       </label>
       <label class="toggle">
-        <input type="checkbox" id="auto-update">
+        <input type="checkbox" role="switch" id="auto-update">
         <span class="switch"></span>
         <span>Check for updates<br><small class="muted">Asks GitHub which version is the newest. Nothing installs without a click.</small></span>
       </label>
@@ -190,7 +191,7 @@
     <div class="card about">
       <h2>About</h2>
       <div class="about-head">
-        <span class="logo big"></span>
+        <span class="logo big" aria-hidden="true"></span>
         <div>
           <div><b class="about-name">Flingo</b> <span class="muted small" id="about-version"></span></div>
           <div class="muted small">Flick a photo off your phone. Watch it land on your PC.</div>
@@ -213,6 +214,10 @@
   </div>
 </main>
 </div>
+<!-- What a screen reader is told. Progress cards move many times a second and stay silent;
+     these two say only the moments that matter. The second interrupts, for things gone wrong. -->
+<div class="sr-only" id="announcer" role="status" aria-live="polite"></div>
+<div class="sr-only" id="alerts" role="alert"></div>
 <div class="drop" id="drop" hidden>
   <div class="drop-box">
     <b id="drop-title"></b>
