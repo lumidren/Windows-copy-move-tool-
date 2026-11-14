@@ -8,6 +8,7 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 ### New
 
 - **PC to phone.** Flingo is two-way now. Drag files onto the Flingo window, or press **Send to phone**. Photos and videos land in the phone's Pictures/Flingo, everything else in Download/Flingo, and a notification opens what arrived. With several phones paired, pick which one gets the files.
+- **It needs 0.4.0 on the phone, and says so.** A phone still on 0.3.0 can only send. If you send it a file, the PC says "needs a newer Flingo" instead of waiting, and the file goes by itself once the phone is updated. The Phones tab shows which Flingo each phone runs.
 - **Send from Explorer.** Select files in Explorer, right-click, and choose **Send to**, then **Phone (Flingo)**. They go as one batch, and Flingo starts by itself if it was not running. On Windows 11, Send to is under **Show more options**. Settings has a switch to remove the entry.
 - **Nothing is lost on the way back either.** A dropped connection carries on from where it stopped, and the phone checks every file against its SHA-256 before showing it.
 - **Update offers.** Each app asks GitHub which release is the newest and tells you when it is not the one you have.
