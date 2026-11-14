@@ -1,5 +1,7 @@
 :root {
   --bg: #0e1016; --panel: #171a23; --panel-2: #1f2330; --line: #2a2f3f;
+  /* The bar of sections: a shade apart from the page. The row in view: the accent, thinned. */
+  --rail: #0b0d12; --tint: #232b4d;
   --text: #eef0f6; --muted: #9097aa; --accent: #6c8cff; --accent-2: #9b6bff; --ok: #4de1a1;
   --warn: #ffb84d; --bad: #ff6b81;
   /* The outline of a field, a switch or a quiet button: 3:1 or better against every panel. */
@@ -71,26 +73,31 @@ body.stage .side { display: none; }
 /* A bar of tabs down the left, and one page at a time beside it. */
 .shell { flex: 1; min-height: 0; display: flex; }
 .side {
-  flex: none; width: 158px; display: flex; flex-direction: column; gap: 4px;
-  padding: 16px 10px 14px; border-right: 1px solid var(--line);
+  flex: none; width: 184px; display: flex; flex-direction: column; gap: 2px;
+  padding: 14px 12px; background: var(--rail); border-right: 1px solid var(--line);
 }
+/* One row per section: a drawn icon and its name. The section in view is a filled row with
+   its icon in a brighter colour, so it is told apart by shape and weight as well as colour. */
 .tab {
-  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
-  padding: 10px 12px; border: 0; border-radius: 10px;
-  background: transparent; color: var(--muted); font-weight: 500;
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 9px 12px; min-height: 40px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--muted); font-weight: 500; font-size: 14px;
+  transition: background .12s, color .12s;
 }
 .tab:hover { background: var(--panel); color: var(--text); }
-.tab.active { background: var(--panel-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
-.tab-icon { width: 18px; text-align: center; font-size: 15px; }
+.tab.active { background: var(--tint); color: var(--text); font-weight: 600; }
+.tab.active .tab-icon { color: var(--focus); }
+.tab-icon { flex: none; width: 20px; height: 20px; }
+.tab-icon svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .side-foot { margin-top: auto; padding: 0 12px; }
-main { flex: 1; min-width: 0; min-height: 0; display: flex; padding: 16px 22px 22px; }
-.page { flex: 1; min-width: 0; min-height: 0; display: flex; gap: 16px; }
-.col.solo { width: min(520px, 100%); }
-.col { width: 330px; flex: none; display: flex; flex-direction: column; gap: 16px; overflow: hidden auto; padding-right: 4px; }
+main { flex: 1; min-width: 0; min-height: 0; display: flex; padding: 20px 24px 24px; }
+.page { flex: 1; min-width: 0; min-height: 0; display: flex; gap: 18px; }
+.col.solo { width: min(560px, 100%); }
+.col { width: 300px; flex: none; display: flex; flex-direction: column; gap: 18px; overflow: hidden auto; padding-right: 4px; }
 .col.wide { flex: 1; width: auto; min-width: 0; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
 .card.grow { flex: 1 0 auto; min-height: 300px; display: flex; flex-direction: column; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+h2 { font-size: 15px; letter-spacing: .1px; color: var(--text); margin: 0 0 12px; font-weight: 600; }
 p { margin: 0 0 10px; }
 .muted { color: var(--muted); }
 /* Something was asked for that cannot happen yet, said where the way to fix it is. */
@@ -223,10 +230,17 @@ code {
 
 .empty { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .empty.show { display: flex; }
+.empty p { margin: 0 0 6px; }
+.empty p:not(.muted) { font-size: 16px; font-weight: 600; }
+/* A photo on its way in: a tilted frame with a sun and two hills, drawn with gradients. */
 .empty-art {
-  width: 84px; height: 84px; border-radius: 22px; margin-bottom: 14px; opacity: .85;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  mask: radial-gradient(circle at 50% 50%, #000 60%, transparent 61%);
+  width: 92px; height: 78px; border-radius: 14px; margin-bottom: 18px; transform: rotate(-6deg);
+  border: 2px solid var(--edge);
+  background:
+    radial-gradient(circle at 70% 30%, var(--warn) 0 7px, transparent 8px),
+    linear-gradient(155deg, transparent 58%, var(--accent) 59%),
+    linear-gradient(205deg, transparent 66%, var(--accent-2) 67%),
+    var(--panel-2);
 }
 
 /* Shown over the whole window while files are dragged onto it. */
@@ -308,6 +322,7 @@ body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
   main { padding: 12px; }
   .page { flex-direction: column; }
   .col, .col.wide, .col.solo, .page.first-run .col { width: 100%; flex: none; overflow: visible; padding-right: 0; }
+  .card.grow { min-height: 0; }
   .history { overflow: visible; }
   code { white-space: normal; overflow-wrap: anywhere; }
   #send-target { max-width: none; }
@@ -325,6 +340,7 @@ body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
   .dot { forced-color-adjust: none; background: Highlight; box-shadow: none; }
   .dot.off { background: GrayText; }
   .tab.active, .effect.active { outline: 2px solid Highlight; outline-offset: -2px; }
+  .side { background: Canvas; }
   .check .mark { border: 1px solid ButtonText; }
 }
 
