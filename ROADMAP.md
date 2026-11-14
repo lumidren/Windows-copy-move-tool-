@@ -5,7 +5,7 @@ Thirty-six features, grouped by what they improve. Size is a rough guess: **S** 
 **Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14).
 **Shipped in 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
 
-**Done on `main` for 0.4.0:** both apps find and install their own updates (the second half of 20), and the build signs the APK with a stable key once that key is added (the Android half of 4; see [RELEASING.md](RELEASING.md)).
+**Done on `main` for 0.4.0:** PC to phone (6), with resume and a checksum on every file; both apps find and install their own updates (the second half of 20), and the build signs the APK with a stable key once that key is added (the Android half of 4; see [RELEASING.md](RELEASING.md)).
 
 Finished items stay in the tables below, marked ✅, so the numbering other documents refer to does not move.
 
@@ -23,7 +23,7 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 
 | # | Feature | Why it matters | Size |
 |:-:|---|---|:-:|
-| 6 | **PC to phone** | Drag a file onto the Flingo window, or flick it off the bottom of the screen, and it lands on the phone. Makes the app two-way. | L |
+| 6 | ✅ **PC to phone** | Drag a file onto the Flingo window, or press Send to phone, and it lands on the phone. Makes the app two-way. Still open: flicking a tile off the bottom of the window. | L |
 | 7 | ✅ **Multi-select** | Tap to select several photos, or a whole day at once, then press Send or flick the stack. The PC counts them in on one card instead of playing a flight for each. Still open: showing a flicked stack fanning out. | M |
 | 8 | ✅ **Resumable large transfers** | A large file survives a Wi-Fi drop: the PC keeps what arrived and the phone sends only the rest. Still open: a checksum of the whole file. | M |
 | 9 | ✅ **Progress and speed** | A progress ring on the phone and on the arrival card for anything larger than a few megabytes. | S |
@@ -84,6 +84,6 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 
 1. **Signed releases (4)**: the last trust gap. The Android half is built and waits for the key to be added to the repository's secrets. The Windows half needs a code-signing certificate.
 2. **A picture for every arrival**: have the phone send a small preview with videos and HEIC photos, so they fly in as pictures instead of file cards.
-3. **PC to phone (6)**: the feature people ask for once the basics work.
+3. **PC to phone (6)**: done on `main`. Next for it: delivery while Flingo is closed on the phone, and flicking a tile out of the window.
 4. **Faster batches**: send several small files over one connection, or a few at a time, instead of one after another.
 5. Everything else, in whatever order is most fun.
