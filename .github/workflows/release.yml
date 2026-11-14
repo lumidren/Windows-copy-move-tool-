@@ -146,6 +146,8 @@ jobs:
           else
             echo "::warning::No ANDROID_KEYSTORE_BASE64 secret. This APK is signed with a throwaway key, so it cannot update an installed Flingo and no later release can update it."
           fi
+      # Colour contrast of the phone's palette and the rules for what a screen reader is told.
+      - run: ./gradlew testDebugUnitTest --no-daemon
       - run: ./gradlew assembleDebug --no-daemon
         env:
           FLINGO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
