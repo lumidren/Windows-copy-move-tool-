@@ -402,6 +402,7 @@ $('update-go').onclick = () => api.update(state.update.state === 'ready' ? 'inst
 api.onState(render);
 api.onDevices((d) => { devices = d; renderDevices(); });
 api.onTransfer(onTransfer);
+api.onShowTab(showTab);
 api.onUpdate(renderUpdate);
 api.getState().then(render);
 setInterval(renderDevices, 2000); // a phone that goes quiet turns grey without waiting for an event

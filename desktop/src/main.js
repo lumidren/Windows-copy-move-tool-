@@ -10,6 +10,7 @@ const { pathToFileURL } = require('url');
 const qrcode = require('qrcode-generator');
 const { startServer, cleanStaleParts, sanitizeName, HTTP_PORT } = require('./server');
 const { createOutbox } = require('./outbox');
+const { filesFromArgv, filesFromHandover, toHandover } = require('./sendargs');
 const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
 const { runPreflight } = require('./preflight');
 const updates = require('./update');
@@ -37,6 +38,8 @@ const UPDATE_EVERY_MS = 12 * 60 * 60 * 1000;
 // Opening one of these by double-click would run it, so the app shows it in its folder instead.
 const RUNNABLE = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|ps1|vbs|vbe|js|jse|wsf|wsh|hta|jar|reg|cpl|msc|dll|sh|desktop|appimage|run|apk)$/i;
 const startHidden = process.argv.includes('--hidden');
+// Files to send to a phone, when Flingo was started from Explorer's "Send to" menu. Null otherwise.
+const sendAtStart = filesFromArgv(process.argv);
 const isLinux = process.platform === 'linux';
 
 // Transparent windows need an ARGB visual on X11 and XWayland (GNOME, Xfce, KDE).
@@ -807,6 +810,20 @@ function cancelSend(phoneId) {
   for (const id of run.ids) if (!run.ended.has(id)) outbox.cancel(id);
 }
 
+/**
+ * Files that arrived from outside the window: Explorer's "Send to" menu, either as this
+ * copy's own command line or handed over by a second copy that then left.
+ */
+function sendFromOutside(files) {
+  showMain();
+  const go = () => {
+    sendMain('show-tab', 'home'); // the card for these files is on Home
+    if (files.length) sendToPhone(files);
+  };
+  // A window that is still loading would miss the card.
+  if (mainWin.webContents.isLoading()) mainWin.webContents.once('did-finish-load', go); else go();
+}
+
 // ---------- updates ----------
 // Flingo asks GitHub which release is the newest, and says so in the window when it is
 // not this one. A copy put in place by the Windows installer can fetch the new installer,
@@ -1006,10 +1023,14 @@ function preflight() {
 }
 
 // ---------- app ----------
-if (!app.requestSingleInstanceLock()) {
+// Only one Flingo runs. A second copy hands over what it was asked to send, then leaves.
+if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
   app.quit();
 } else {
-  app.on('second-instance', showMain);
+  app.on('second-instance', (_e, _argv, _cwd, data) => {
+    const files = filesFromHandover(data);
+    if (files) sendFromOutside(files); else showMain();
+  });
   app.setAppUserModelId('com.lumidren.flingo');
 
   app.whenReady().then(() => {
@@ -1146,6 +1167,8 @@ if (!app.requestSingleInstanceLock()) {
       if (what === 'later') dismissUpdate();
       if (what === 'notes' && found) shell.openExternal(found.page);
     });
+    // Started from Explorer's "Send to" menu with nothing running yet: send what it named.
+    if (sendAtStart) sendFromOutside(sendAtStart);
     setTimeout(checkForUpdate, UPDATE_FIRST_CHECK_MS);
     setInterval(checkForUpdate, UPDATE_EVERY_MS);
 
