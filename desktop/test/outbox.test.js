@@ -126,3 +126,86 @@ test('a range that makes no sense is refused', async (t) => {
   assert.equal(end.status, 206, 'asking from the very end is an empty answer, not an error');
   assert.equal((await end.arrayBuffer()).byteLength, 0);
 });
+
+test('only an id opens a file: paths and guesses lead nowhere', async (t) => {
+  const pc = await boot(t);
+  pc.file('secret.txt', 'not for sending');
+  await pc.outbox.add('d1', 'Phone one', pc.file('a.txt', 'a'));
+  for (const p of ['/outbox/secret.txt', '/outbox/..%2Fsecret.txt', '/outbox/../secret.txt', `/outbox/${'0'.repeat(32)}`, `/outbox/${'g'.repeat(32)}`, '/outbox/abc/done']) {
+    const res = await fetch(pc.base + p, { headers: { Authorization: 'Bearer token-one' } });
+    assert.equal(res.status, 404, p);
+  }
+});
+
+test('a file that changed after it was queued is not sent', async (t) => {
+  const pc = await boot(t);
+  const file = pc.file('draft.txt', 'first version');
+  const item = await pc.outbox.add('d1', 'Phone one', file);
+  fs.writeFileSync(file, 'a second, longer version');
+  assert.equal((await pc.fetchFile('token-one', item.id)).status, 409);
+  assert.equal(pc.outbox.get(item.id).state, 'failed');
+});
+
+test('a file can be taken back from the PC, or declined by the phone', async (t) => {
+  const pc = await boot(t);
+  const one = await pc.outbox.add('d1', 'Phone one', pc.file('one.bin', Buffer.alloc(10)));
+  assert.equal(pc.outbox.cancel(one.id), true);
+  assert.equal((await pc.fetchFile('token-one', one.id)).status, 410, 'the phone is told it is gone');
+  assert.deepEqual((await pc.ask('token-one')).items, []);
+  assert.equal(pc.outbox.cancel(one.id), false, 'only once');
+
+  const two = await pc.outbox.add('d1', 'Phone one', pc.file('two.bin', Buffer.alloc(10)));
+  const res = await fetch(`${pc.base}/outbox/${two.id}/cancel`, { method: 'POST', headers: { Authorization: 'Bearer token-one' } });
+  assert.equal(res.status, 200);
+  assert.equal(pc.outbox.get(two.id).state, 'cancelled');
+});
+
+test('the phone can say a file did not arrive intact', async (t) => {
+  const pc = await boot(t);
+  const item = await pc.outbox.add('d1', 'Phone one', pc.file('x.bin', Buffer.alloc(10)));
+  await pc.done('token-one', item.id, { ok: false, error: 'Checksum did not match\u0007' });
+  assert.equal(pc.outbox.get(item.id).state, 'failed');
+  assert.equal(pc.outbox.get(item.id).error, 'Checksum did not match');
+
+  const other = await pc.outbox.add('d1', 'Phone one', pc.file('y.bin', Buffer.alloc(10)));
+  await fetch(`${pc.base}/outbox/${other.id}/done`, { method: 'POST', headers: { Authorization: 'Bearer token-one' }, body: 'not json' });
+  assert.equal(pc.outbox.get(other.id).state, 'failed', 'an unreadable verdict is not a success');
+});
+
+test('what cannot be sent is refused with a reason', async (t) => {
+  const pc = await boot(t, { maxBytes: () => 1000 });
+  assert.match((await pc.outbox.add('d1', 'Phone one', path.join(pc.dir, 'missing.jpg'))).error, /cannot be read/);
+  assert.match((await pc.outbox.add('d1', 'Phone one', pc.dir)).error, /Folders/);
+  assert.match((await pc.outbox.add('d1', 'Phone one', pc.file('big.bin', Buffer.alloc(1001)))).error, /too large/);
+  const empty = await pc.outbox.add('d1', 'Phone one', pc.file('empty.txt', ''));
+  assert.equal(empty.state, 'queued', 'an empty file is still a file');
+  assert.deepEqual(pc.outbox.list().map((i) => i.name), ['empty.txt']);
+});
+
+test('names are made safe before they leave the PC', async (t) => {
+  const pc = await boot(t);
+  const item = await pc.outbox.add('d1', 'Phone one', pc.file('report ..', 'x'));
+  assert.equal(item.name, sanitizeName('report ..'));
+  assert.ok(!/[\\/]/.test(item.name));
+  assert.equal(typeOf('PHOTO.JPG'), 'image/jpeg');
+  assert.equal(typeOf('archive.7z'), 'application/octet-stream');
+});
+
+test('one phone cannot have an endless queue', async (t) => {
+  const pc = await boot(t);
+  const file = pc.file('tiny.txt', 'x');
+  await Promise.all(Array.from({ length: MAX_WAITING }, () => pc.outbox.add('d1', 'Phone one', file)));
+  assert.match((await pc.outbox.add('d1', 'Phone one', file)).error, /Too many/);
+  assert.equal((await pc.outbox.add('d2', 'Phone two', file)).state, 'queued', 'the limit is per phone');
+});
+
+test('progress is reported while a file goes out', async (t) => {
+  const pc = await boot(t);
+  const body = crypto.randomBytes(4 * 1024 * 1024);
+  const item = await pc.outbox.add('d1', 'Phone one', pc.file('p.bin', body));
+  await (await pc.fetchFile('token-one', item.id)).arrayBuffer();
+  const sent = pc.changes.filter(([id, state]) => id === item.id && state === 'sending').map(([, , n]) => n);
+  assert.ok(sent.length >= 2);
+  assert.equal(sent.at(-1), body.length);
+  assert.deepEqual(pc.changes.filter(([id]) => id === item.id).map(([, state]) => state).slice(0, 2), ['preparing', 'queued']);
+});
