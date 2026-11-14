@@ -190,3 +190,89 @@ object Inbox {
         val seen = listener
         if (seen != null) seen.onFinished(result) else pendingResult = result
     }
+
+    // ---------- one file ----------
+
+    /**
+     * Fetches one file into shared storage. Returns it once it is complete, checked and
+     * visible; null when it will not be coming (taken back on the PC, changed there, or it
+     * failed the check). Throws when the whole round has to stop.
+     */
+    private fun receiveOne(ctx: Context, prefs: Prefs, item: Incoming, onCheck: () -> Unit, onProgress: (Long, Boolean) -> Unit): Arrived? {
+        val resolver = ctx.contentResolver
+        // The PC did not hear that this one arrived (the connection dropped at the last moment). Say it again.
+        prefs.inboxDone(item.id)?.let { done ->
+            Net.outboxReport(prefs, item.id, true)
+            return Arrived(Uri.parse(done), item.name, typeOf(item))
+        }
+        val mime = typeOf(item)
+        var uri = prefs.inboxPart(item.id)?.let(Uri::parse)?.takeIf { sizeOf(resolver, it) >= 0 }
+            ?: create(resolver, item, mime).also { prefs.setInboxPart(item.id, it.toString()) }
+        var lastProgress = SystemClock.elapsedRealtime()
+        try {
+            while (true) {
+                if (cancelled) throw SendCancelledException()
+                var have = sizeOf(resolver, uri).coerceAtLeast(0)
+                if (have > item.size) { // not ours any more; start it again
+                    resolver.delete(uri, null, null)
+                    uri = create(resolver, item, mime).also { prefs.setInboxPart(item.id, it.toString()) }
+                    have = 0
+                }
+                if (have == item.size) break
+                try {
+                    append(resolver, uri, have) { out ->
+                        Net.fetch(prefs, item, have, out, { cancelled }) { got ->
+                            lastProgress = SystemClock.elapsedRealtime()
+                            onProgress(got, false)
+                        }
+                    }
+                    break
+                } catch (e: SendCancelledException) {
+                    throw e
+                } catch (e: StorageException) {
+                    throw e
+                } catch (e: GoneException) {
+                    throw e
+                } catch (e: PcRefusedException) {
+                    throw e
+                } catch (e: NotPairedException) {
+                    throw e
+                } catch (e: IOException) {
+                    // A dropped connection. Keep what arrived and carry on from there, for a while.
+                    if (SystemClock.elapsedRealtime() - lastProgress >= PATIENCE_MS) throw e
+                    onProgress(sizeOf(resolver, uri).coerceAtLeast(0), true)
+                    val until = SystemClock.elapsedRealtime() + 1500
+                    while (SystemClock.elapsedRealtime() < until) {
+                        if (cancelled) throw SendCancelledException()
+                        Thread.sleep(100)
+                    }
+                }
+            }
+            // Check what is actually on the phone, not what went past on the way in.
+            onCheck()
+            if (sha256(resolver, uri) != item.sha256) {
+                discard(resolver, prefs, item, uri)
+                runCatching { Net.outboxReport(prefs, item.id, false, "The file did not arrive intact.") }
+                return null
+            }
+            resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+            prefs.setInboxDone(item.id, uri.toString())
+            prefs.setInboxPart(item.id, null)
+            runCatching { Net.outboxReport(prefs, item.id, true) } // if this is lost, it is repeated when the PC offers the file again
+            return Arrived(uri, item.name, mime)
+        } catch (e: SendCancelledException) {
+            discard(resolver, prefs, item, uri)
+            throw e
+        } catch (e: StorageException) {
+            discard(resolver, prefs, item, uri)
+            runCatching { Net.outboxReport(prefs, item.id, false, "The phone ran out of space.") }
+            throw e
+        } catch (_: GoneException) {
+            discard(resolver, prefs, item, uri) // taken back on the PC
+            return null
+        } catch (_: PcRefusedException) {
+            discard(resolver, prefs, item, uri) // changed on the PC since it was queued
+            return null
+        }
+        // Any other IOException leaves the partial file in place: the next run carries on from it.
+    }
