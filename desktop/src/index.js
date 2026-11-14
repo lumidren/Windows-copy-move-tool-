@@ -126,7 +126,7 @@ function render(s) {
   renderUpdate(s.update);
 
   $('effects').replaceChildren(...s.effects.map((name) => {
-    const b = el('button', { className: `effect${name === s.effect ? ' active' : ''}`, textContent: LABELS[name] || name });
+    const b = el('button', { className: `effect${name === s.effect ? ' active' : ''}` }, [el('span', { textContent: LABELS[name] || name })]);
     b.dataset.effect = name;
     b.setAttribute('aria-pressed', String(name === s.effect));
     b.onclick = async () => { render(await api.set({ effect: name })); api.previewEffect(name); };
