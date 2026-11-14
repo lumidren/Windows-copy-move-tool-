@@ -171,6 +171,9 @@ object Net {
         conn.connectTimeout = connectMs
         conn.readTimeout = 20000
         conn.useCaches = false
+        // Which Flingo this is. The PC shows it beside the phone's name, and knows from it that
+        // this phone can be sent files; one that says nothing is taken for 0.3.0 or older.
+        conn.setRequestProperty("X-Flingo-App", BuildConfig.VERSION_NAME)
         // Otherwise one connection per request: a kept-alive socket goes stale when the PC sleeps or restarts.
         if (!(keep && kept != null)) conn.setRequestProperty("Connection", "close")
         return Conn(conn, trust)
