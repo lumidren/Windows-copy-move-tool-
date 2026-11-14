@@ -339,6 +339,70 @@ test('a batch says which file of how many, and whether to arrive quietly', async
   } finally { t.close(); }
 });
 
+test('a batch sent four files at a time over connections that stay open arrives intact', async () => {
+  const t = await boot();
+  const agent = new http.Agent({ keepAlive: true, maxSockets: 4 });
+  let connections = 0;
+  t.s.server.on('connection', () => { connections++; });
+  try {
+    const count = 24;
+    const bodies = Array.from({ length: count }, (_, i) => crypto.randomBytes(40_000 + i * 9_973));
+    const post = (i) => new Promise((resolve, reject) => {
+      const req = http.request(`${t.base}/send?quiet=1&batch=par4&i=${i + 1}&n=${count}&id=f${i}`, {
+        method: 'POST', agent,
+        headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': `p-${i}.jpg`, 'Content-Length': bodies[i].length },
+      }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
+      req.on('error', reject);
+      req.end(bodies[i]);
+    });
+    let next = 0;
+    let most = 0;
+    const worker = async () => {
+      while (next < count) {
+        const i = next++;
+        assert.equal(await post(i), 200, `file ${i}`);
+        most = Math.max(most, t.s.status().uploads);
+      }
+    };
+    await Promise.all([1, 2, 3, 4].map(worker));
+    assert.equal(t.files.length, count);
+    for (let i = 0; i < count; i++) assert.ok(fs.readFileSync(path.join(t.dir, `p-${i}.jpg`)).equals(bodies[i]), `p-${i}`);
+    assert.ok(t.files.every((f) => f.quiet && f.batch.id === 'par4' && f.batch.count === count));
+    assert.deepEqual(t.files.map((f) => f.batch.index).sort((a, b) => a - b), bodies.map((_, i) => i + 1));
+    assert.ok(connections <= 4, `24 files used ${connections} connections`);
+    assert.deepEqual(parts(t.dir), []);
+    assert.equal(t.s.status().uploads, 0);
+  } finally { agent.destroy(); t.close(); }
+});
+
+test('more uploads at once than the PC allows are turned away, and the rest carry on', async () => {
+  const t = await boot();
+  const open = [];
+  try {
+    // Twelve uploads that have begun and are holding their place.
+    for (let i = 0; i < 12; i++) {
+      const req = http.request(`${t.base}/send?id=hold${i}`, {
+        method: 'POST', agent: false,
+        headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': `held-${i}.bin`, 'Content-Length': 2000 },
+      });
+      req.on('error', () => {});
+      req.write(Buffer.alloc(1000, i));
+      open.push(req);
+    }
+    for (let i = 0; i < 100 && t.s.status().uploads < 12; i++) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(t.s.status().uploads, 12);
+    const refused = await t.send('one-too-many.jpg', Buffer.from('x'));
+    assert.equal(refused.status, 429);
+    assert.match((await refused.json()).error, /busy/i);
+    // The ones already going are not disturbed by the refusal.
+    const answers = open.map((req) => new Promise((resolve) => req.on('response', (res) => { res.resume(); resolve(res.statusCode); })));
+    for (const [i, req] of open.entries()) req.end(Buffer.alloc(1000, i));
+    assert.deepEqual(await Promise.all(answers), Array(12).fill(200));
+    assert.equal(fs.readFileSync(path.join(t.dir, 'held-3.bin')).length, 2000);
+    assert.equal((await t.send('after.jpg', Buffer.from('x'))).status, 200);
+  } finally { for (const req of open) req.destroy(); t.close(); }
+});
+
 test('stale partial files are cleaned up', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flingo-test-'));
   fs.writeFileSync(path.join(dir, '.flingo-0123456789ab.part'), 'x');
