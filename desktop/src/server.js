@@ -105,6 +105,31 @@ function refuse(req, res, status, error, extra = {}) {
   setTimeout(() => req.destroy(), 1500).unref();
 }
 
+/**
+ * Streams one outbox file to the phone that asked for it. "Range: bytes=N-" carries on from
+ * byte N after a dropped connection. The checksum of the whole file travels in a header, so
+ * the phone can check what it ends up with.
+ */
+function sendOut(req, res, outbox, item) {
+  const header = String(req.headers.range || '');
+  const range = /^bytes=(\d{1,15})-$/.exec(header);
+  if (header && !range) return json(res, 416, { error: 'Bad range', size: item.size });
+  const offset = range ? Number(range[1]) : 0;
+  if (offset > item.size) return json(res, 416, { error: 'Bad range', size: item.size });
+  let stream;
+  try { stream = outbox.open(item, offset); } catch { return json(res, 409, { error: 'The file changed on the PC before it was sent.' }); }
+  res.writeHead(offset ? 206 : 200, {
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': item.size - offset,
+    ...(offset ? { 'Content-Range': `bytes ${offset}-${Math.max(offset, item.size - 1)}/${item.size}` } : {}),
+    'X-Sha256': item.sha256,
+    'Cache-Control': 'no-store',
+  });
+  stream.on('error', () => res.destroy());
+  res.on('close', () => stream.destroy());
+  stream.pipe(res);
+}
+
 function readSmallBody(req, limit = 4096) {
   return new Promise((resolve, reject) => {
     const chunks = [];
