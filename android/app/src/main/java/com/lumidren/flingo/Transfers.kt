@@ -193,7 +193,7 @@ object Transfers {
     }
 
     /** Turns byte counts into a steady bytes-per-second figure. */
-    private class Meter {
+    class Meter {
         private var markAt = SystemClock.elapsedRealtime()
         private var markBytes = 0L
         private var smooth = 0.0
