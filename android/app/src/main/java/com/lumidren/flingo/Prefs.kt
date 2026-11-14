@@ -43,6 +43,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("keepAwake", true)
         set(v) = sp.edit().putBoolean("keepAwake", v).apply()
 
+    /** Flingo's own "Reduce motion": arrivals fade in instead of dropping in. The phone's setting is honoured as well. */
+    var reduceMotion: Boolean
+        get() = sp.getBoolean("reduceMotion", false)
+        set(v) = sp.edit().putBoolean("reduceMotion", v).apply()
+
     /** Whether the notification permission has been asked for once. It is never asked twice. */
     var askedNotifications: Boolean
         get() = sp.getBoolean("askedNotifications", false)
