@@ -41,3 +41,36 @@ function hashFile(file) {
  *   maxBytes()       the largest file that may be sent
  *   onChange(item)   called whenever a file's state or progress changes
  */
+function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChange = () => {} } = {}) {
+  const items = new Map(); // id -> item
+  const waiters = new Map(); // phone id -> callbacks of phones waiting for something to arrive
+  const streams = new Map(); // id -> the read stream of a download in progress
+
+  const view = (item) => ({ id: item.id, name: item.name, size: item.size, mime: item.mime, sha256: item.sha256 });
+  const changed = (item) => { try { onChange(item); } catch { /* the window is not our problem */ } };
+
+  function set(item, state, error = '') {
+    item.state = state;
+    item.error = error;
+    if (!OPEN.has(state)) {
+      item.endedAt = Date.now();
+      setTimeout(() => items.delete(item.id), KEEP_FINISHED_MS).unref();
+    }
+    changed(item);
+  }
+
+  function wake(deviceId) {
+    const waiting = waiters.get(deviceId);
+    if (!waiting) return;
+    waiters.delete(deviceId);
+    for (const fn of waiting) fn();
+  }
+
+  /** What is ready for this phone. With `all`, also what it had started: it is asking after a restart. */
+  function pending(deviceId, all = false) {
+    return [...items.values()]
+      .filter((i) => i.deviceId === deviceId && (i.state === 'queued' || (all && i.state === 'sending')))
+      .map(view);
+  }
+
+  /**
