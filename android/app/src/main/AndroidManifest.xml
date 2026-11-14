@@ -58,10 +58,8 @@
         <activity
             android:name=".ScanActivity"
             android:exported="false"
-            android:screenOrientation="fullSensor"
-            android:stateNotNeeded="true"
-            android:theme="@style/zxing_CaptureTheme"
-            android:windowSoftInputMode="stateAlwaysHidden" />
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
+            android:theme="@style/AppTheme" />
 
         <service
             android:name=".TransferService"

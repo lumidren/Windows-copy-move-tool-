@@ -30,6 +30,10 @@ android {
         versionName = (findProperty("flingoVersionName") as String?) ?: "0.4.0"
         buildConfigField("String", "UPDATE_FEED", "\"$updateFeed\"")
         buildConfigField("String", "UPDATE_DOWNLOADS", "\"$updateDownloads\"")
+        // Off in every build that is handed to anyone. With -PflingoTestHooks=true the app accepts
+        // an intent that makes the scanner behave as if it had read a given code, so that what
+        // happens after a scan can be tested on an emulator, whose camera cannot be aimed.
+        buildConfigField("boolean", "TEST_HOOKS", ((findProperty("flingoTestHooks") as String?) == "true").toString())
         manifestPlaceholders["networkConfig"] =
             if (updateFeed.startsWith("http://")) "@xml/network_security_config_test" else "@xml/network_security_config"
     }

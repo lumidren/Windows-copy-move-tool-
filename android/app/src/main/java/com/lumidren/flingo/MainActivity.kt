@@ -49,7 +49,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.zxing.integration.android.IntentIntegrator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -58,10 +57,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.IOException
 
 class MainActivity : Activity() {
-    private companion object { const val PICK_FILES = 7 }
+    private companion object {
+        const val PICK_FILES = 7
+        const val SCAN = 8
+        /** For automated tests only (see BuildConfig.TEST_HOOKS): opens the scanner as if it had read the given text. */
+        const val TEST_SCAN = "com.lumidren.flingo.TEST_SCAN"
+    }
 
     private val scope = MainScope()
     private lateinit var prefs: Prefs
@@ -1120,6 +1123,10 @@ class MainActivity : Activity() {
 
     private fun handleIntent(intent: Intent?) {
         intent ?: return
+        if (BuildConfig.TEST_HOOKS && intent.action == TEST_SCAN) {
+            scanQr(simulate = intent.getStringExtra("text") ?: "")
+            return
+        }
         if (intent.action == Intent.ACTION_VIEW) {
             val data = intent.data
             intent.action = Intent.ACTION_MAIN // don't act on it again after rotation
@@ -1363,14 +1370,12 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun scanQr() {
-        IntentIntegrator(this)
-            .setCaptureActivity(ScanActivity::class.java)
-            .setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
-            .setPrompt("Point at the QR code in Flingo on your PC")
-            .setBeepEnabled(false)
-            .setOrientationLocked(false) // the scanner turns with the phone, like the rest of Flingo
-            .initiateScan()
+    /** Opens Flingo's scanner. It reads the code, pairs, and says so itself; this screen hears only how it ended. */
+    private fun scanQr(simulate: String? = null) {
+        val scan = Intent(this, ScanActivity::class.java)
+        if (simulate != null) scan.putExtra(ScanActivity.SIMULATE, simulate)
+        @Suppress("DEPRECATION")
+        startActivityForResult(scan, SCAN)
     }
 
     @Deprecated("The scanner library still delivers its result this way.")
@@ -1382,14 +1387,15 @@ class MainActivity : Activity() {
             else { pendingShare = uris; showPairDialog() }
             return
         }
-        val scan = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
-        if (scan == null) {
-            @Suppress("DEPRECATION")
-            super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SCAN) {
+            // The scanner has already paired and saved it. Closed without pairing, there is nothing to do,
+            // unless the person asked to type the code in instead.
+            if (resultCode == RESULT_OK && prefs.paired) afterPairing()
+            else if (data?.getBooleanExtra(ScanActivity.TYPE_IT, false) == true) showManualDialog()
             return
         }
-        val text = scan.contents ?: return // closed without scanning
-        handleLink(Uri.parse(text), scannedHere = true)
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     /** A pairing link, from the in-app scanner or from another app such as the phone's camera. */
@@ -1416,11 +1422,16 @@ class MainActivity : Activity() {
 
     private fun onPaired(p: Paired) {
         prefs.savePairing(p)
+        buzz(hapticYes)
+        afterPairing()
+    }
+
+    /** A pairing has just been saved, here or by the scanner: show it, and do what was waiting for it. */
+    private fun afterPairing() {
         online = true
         updateChip()
         startHealthChecks()
-        buzz(hapticYes)
-        showStatus("Paired with ${p.pc.name} ✓")
+        showStatus("Paired with ${prefs.pcName} ✓")
         Inbox.start(this)
         if (pendingShare.isNotEmpty()) {
             val uris = pendingShare
