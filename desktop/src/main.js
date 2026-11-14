@@ -12,6 +12,7 @@ const { startServer, cleanStaleParts, sanitizeName, HTTP_PORT } = require('./ser
 const { createOutbox } = require('./outbox');
 const { filesFromArgv, filesFromHandover, toHandover, SEND_FLAG } = require('./sendargs');
 const addresses = require('./addresses');
+const phones = require('./phones');
 const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
 const { runPreflight } = require('./preflight');
 const updates = require('./update');
@@ -65,7 +66,7 @@ let receiver = null;
 let sleepBlocker = null;
 let selfToken = null;
 let selfResult = null; // filled in while a pre-flight transfer is running
-const lastSeen = new Map(); // device id -> { at, ip }
+const lastSeen = new Map(); // device id -> when and where it was last heard, and what it can do (phones.note)
 const outRuns = new Map(); // phone id -> the files being sent to it in one go
 const transfers = new Map(); // transfer key -> one file on its way that is not part of a batch
 const batches = new Map(); // phone + batch id -> a group of files sent together
@@ -178,7 +179,11 @@ function targetDisplay() {
 }
 
 function devicesState() {
-  return settings.devices.map(({ id, name, added }) => ({ id, name, added, lastSeen: lastSeen.get(id)?.at || 0 }));
+  return settings.devices.map(({ id, name, added }) => {
+    const known = lastSeen.get(id);
+    // `app` is the Flingo the phone says it runs; `receives` is 'no' for one too old to be sent files.
+    return { id, name, added, lastSeen: known?.at || 0, app: known?.app || '', receives: phones.receives(known, Date.now()) };
+  });
 }
 
 function publicState() {
@@ -1117,9 +1122,15 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
         const d = settings.devices.find((x) => x.hash === h);
         return d ? { id: d.id, name: d.name } : null;
       },
-      seen: (device, ip) => {
+      seen: (device, ip, said) => {
         if (device.id === 'self') return;
-        lastSeen.set(device.id, { at: Date.now(), ip });
+        const known = phones.note(lastSeen.get(device.id), { at: Date.now(), ip, ...said });
+        lastSeen.set(device.id, known);
+        // Whether a phone that says nothing about itself can receive is only clear a few seconds
+        // after its first word. Show the list again then, without waiting for its next one.
+        if (known.since === known.at && phones.receives(known, known.at) === 'unknown') {
+          setTimeout(() => sendMain('devices', devicesState()), phones.GRACE_MS + 100).unref();
+        }
         sendMain('devices', devicesState());
       },
       saveDir: () => settings.saveDir,
