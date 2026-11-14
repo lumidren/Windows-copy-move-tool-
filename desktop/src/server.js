@@ -389,6 +389,45 @@ function startServer(hooks, options = {}) {
         return await receive(req, res, url, device);
       }
 
+      // ---------- PC to phone ----------
+      // The phone collects what this PC has put aside for it (see outbox.js). It asks what
+      // is waiting, fetches each file by its id, and says how it went.
+      const outbox = hooks.outbox;
+      if (outbox && req.method === 'GET' && url.pathname === '/outbox') {
+        if (!device) return json(res, 401, { error: 'Not paired' });
+        // After a restart the phone asks for everything, including what it had begun.
+        if (url.searchParams.get('all') === '1') return json(res, 200, { items: outbox.pending(device.id, true) });
+        // Otherwise it waits here, so a file put in the outbox reaches it within a moment.
+        const seconds = wholeNumber(url.searchParams.get('wait') || '0', 0, 50) ?? 0;
+        const gone = new AbortController();
+        res.on('close', () => gone.abort());
+        const ready = await outbox.wait(device.id, seconds * 1000, gone.signal);
+        if (!res.destroyed && !res.writableEnded) json(res, 200, { items: ready });
+        return;
+      }
+      const out = outbox ? /^\/outbox\/([0-9a-f]{32})(\/done|\/cancel)?$/.exec(url.pathname) : null;
+      if (out) {
+        if (req.method === 'POST' && out[2] !== '/done') req.resume();
+        if (!device) return json(res, 401, { error: 'Not paired' });
+        // Another phone's file looks exactly like one that does not exist.
+        const item = outbox.find(out[1], device.id);
+        if (!item || (item.state !== 'queued' && item.state !== 'sending')) {
+          if (req.method === 'POST' && out[2] === '/done') req.resume();
+          return json(res, item && item.state === 'cancelled' ? 410 : 404, { error: 'Not in the outbox' });
+        }
+        if (req.method === 'GET' && !out[2]) return sendOut(req, res, outbox, item);
+        if (req.method === 'POST' && out[2] === '/done') {
+          let verdict = {};
+          try { verdict = JSON.parse(await readSmallBody(req)) || {}; } catch { /* treated as a failure */ }
+          outbox.finish(item, verdict.ok === true, String(verdict.error || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 200));
+          return json(res, 200, { ok: true });
+        }
+        if (req.method === 'POST' && out[2] === '/cancel') {
+          outbox.cancel(item.id);
+          return json(res, 200, { ok: true });
+        }
+      }
+
       req.resume();
       json(res, 404, { error: 'Not found' });
     } catch (err) {
