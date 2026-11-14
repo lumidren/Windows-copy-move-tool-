@@ -71,7 +71,9 @@ class MainActivity : Activity() {
     private lateinit var grid: RecyclerView
     private lateinit var adapter: GalleryAdapter
     private lateinit var chip: TextView
-    private lateinit var zone: TextView
+    private lateinit var zone: FrameLayout
+    private lateinit var zoneLabel: TextView
+    private lateinit var sendButton: TextView
     private lateinit var status: LinearLayout
     private lateinit var statusText: TextView
     private lateinit var statusBar: ProgressBar
@@ -261,7 +263,7 @@ class MainActivity : Activity() {
 
     // ---------- UI ----------
     private fun buildUi() {
-        root = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#0E1016")) }
+        root = FrameLayout(this).apply { setBackgroundColor(Palette.BG) }
 
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val header = LinearLayout(this).apply {
@@ -274,38 +276,47 @@ class MainActivity : Activity() {
             textSize = 22f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
+            // One line, and smaller if it has to be: with the largest text and a long PC name
+            // beside it, it would otherwise wrap a letter to a line or lose its last letter.
+            maxLines = 1
+            setAutoSizeTextTypeUniformWithConfiguration(13, 22, 1, TypedValue.COMPLEX_UNIT_SP)
+            isAccessibilityHeading = true
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         chip = TextView(this).apply {
             textSize = 13f
             setTextColor(Color.WHITE)
             maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            maxWidth = dpi(210f)
             setPadding(dpi(14f), dpi(8f), dpi(14f), dpi(8f))
-            minHeight = dpi(40f)
+            minHeight = dpi(48f)
             gravity = Gravity.CENTER
             compoundDrawablePadding = dpi(8f)
             setOnClickListener { if (prefs.paired) showPcDialog() else showPairDialog() }
-        }
+        }.asButton(24f)
         header.addView(chip)
         header.addView(TextView(this).apply {
             text = "⚙"
-            textSize = 22f
-            setTextColor(Color.parseColor("#C5CAD8"))
+            glyph(22f)
+            setTextColor(Palette.SOFT)
             gravity = Gravity.CENTER
             contentDescription = "Settings"
             setOnClickListener { showSettings() }
-        }, LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
+        }.asButton(24f), LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
         column.addView(header)
 
+        // Side by side normally. With large text the hint would be squeezed into a column a few
+        // words wide, so then the button goes underneath it.
         val hintRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            orientation = if (bigText) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            gravity = if (bigText) Gravity.START else Gravity.CENTER_VERTICAL
             setPadding(dpi(18f), 0, dpi(12f), dpi(10f))
         }
         hintRow.addView(TextView(this).apply {
             text = "Hold a photo and flick it up. Tap to select several."
             textSize = 13f
-            setTextColor(Color.parseColor("#9097AA"))
-        }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            setTextColor(Palette.MUTED)
+        }, if (bigText) LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT) else LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         hintRow.addView(TextView(this).apply {
             // Opens the phone's own file browser: the way to send a large video, a document or
             // anything else that is not a photo in the grid. Outlined so it reads as a button.
@@ -315,12 +326,13 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             maxLines = 1
-            background = pill(Color.parseColor("#1F2330"), 20f).apply { setStroke(dpi(1.5f), accent) }
+            background = pill(Palette.PANEL_2, 24f).apply { setStroke(dpi(1.5f), accent) }
             setPadding(dpi(16f), 0, dpi(16f), 0)
-            minHeight = dpi(40f)
-            contentDescription = "Browse the phone's files to send any file, such as a large video or a document"
+            minHeight = dpi(48f)
+            // Begins with the words on the button, so "tap Browse files" works by voice.
+            contentDescription = "Browse files. Send any file, such as a large video or a document"
             setOnClickListener { pickFiles() }
-        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { leftMargin = dpi(10f) })
+        }.asButton(24f), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { if (bigText) topMargin = dpi(8f) else leftMargin = dpi(10f) })
         column.addView(hintRow)
 
         // Shown when a newer Flingo has been released: what it is, a button to get it, and a way to close the offer.
@@ -332,28 +344,28 @@ class MainActivity : Activity() {
             text = "Update"
             textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(Palette.ON_ACCENT)
             gravity = Gravity.CENTER
-            background = pill(accent, 18f)
+            background = pill(accent, 24f)
             setPadding(dpi(18f), 0, dpi(18f), 0)
-            minHeight = dpi(36f)
-        }
+            minHeight = dpi(48f)
+        }.asButton(24f)
         updateClose = TextView(this).apply {
             text = "✕"
-            textSize = 16f
-            setTextColor(Color.parseColor("#C5CAD8"))
+            glyph(16f)
+            setTextColor(Palette.SOFT)
             gravity = Gravity.CENTER
-            contentDescription = "Not now"
-        }
+            contentDescription = "Dismiss the update offer"
+        }.asButton(24f)
         updateBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = pill(Color.parseColor("#1F2330"), 14f)
+            background = pill(Palette.PANEL_2, 14f)
             setPadding(dpi(14f), dpi(6f), dpi(4f), dpi(6f))
             visibility = View.GONE
             addView(updateText, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(updateGo)
-            addView(updateClose, LinearLayout.LayoutParams(dpi(44f), dpi(44f)))
+            addView(updateClose, LinearLayout.LayoutParams(dpi(48f), dpi(48f)).apply { leftMargin = dpi(4f) })
         }
         column.addView(updateBar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
             leftMargin = dpi(12f)
@@ -367,70 +379,90 @@ class MainActivity : Activity() {
             onSelection = ::updateSelectBar,
         )
         grid = RecyclerView(this).apply {
-            layoutManager = GridLayoutManager(this@MainActivity, 3)
+            id = View.generateViewId()
+            layoutManager = GridLayoutManager(this@MainActivity, columns())
             adapter = this@MainActivity.adapter
             setHasFixedSize(true)
         }
         column.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
 
         // Shown while photos are selected: how many, a way to select more at once, and Send.
+        // This is the way to send without the flick. On screen it is at the foot, under the
+        // thumb; a screen reader reaches it before the grid, not after three thousand photos.
+        val clear = TextView(this).apply {
+            id = View.generateViewId()
+            text = "✕"
+            glyph(18f)
+            setTextColor(Palette.SOFT)
+            gravity = Gravity.CENTER
+            contentDescription = "Clear selection"
+            accessibilityTraversalBefore = grid.id
+            setOnClickListener { adapter.clearSelection() }
+        }.asButton(24f)
         selectCount = TextView(this).apply {
+            id = View.generateViewId()
             textSize = 15f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER_VERTICAL
             minHeight = dpi(48f)
             setPadding(dpi(6f), 0, dpi(6f), 0)
+            // Selecting, clearing and "select the last 7 days" are said as they happen.
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            accessibilityTraversalAfter = clear.id
             setOnClickListener { showSelectMenu() }
-        }
+        }.asButton(12f, action = "select more at once")
+        sendButton = TextView(this).apply {
+            text = "Send"
+            textSize = 15f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Palette.ON_ACCENT)
+            gravity = Gravity.CENTER
+            background = pill(accent, 24f)
+            setPadding(dpi(26f), 0, dpi(26f), 0)
+            minHeight = dpi(48f)
+            accessibilityTraversalAfter = selectCount.id
+            setOnClickListener { sendSelection() }
+        }.asButton(24f)
         selectBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#171A23"))
+            setBackgroundColor(Palette.PANEL)
             setPadding(dpi(8f), dpi(8f), dpi(12f), dpi(8f))
             visibility = View.GONE
-            addView(TextView(this@MainActivity).apply {
-                text = "✕"
-                textSize = 18f
-                setTextColor(Color.parseColor("#C5CAD8"))
-                gravity = Gravity.CENTER
-                contentDescription = "Clear selection"
-                setOnClickListener { adapter.clearSelection() }
-            }, LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
+            addView(clear, LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
             addView(selectCount, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            addView(TextView(this@MainActivity).apply {
-                text = "Send"
-                textSize = 15f
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                background = pill(accent, 24f)
-                setPadding(dpi(26f), 0, dpi(26f), 0)
-                minHeight = dpi(48f)
-                contentDescription = "Send the selected photos without the arrival animation"
-                setOnClickListener { sendSelection() }
-            })
+            addView(sendButton)
         }
         column.addView(selectBar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         root.addView(column, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
+        // Tappable only while it is asking for permission (see onRequestPermissionsResult).
         empty = TextView(this).apply {
             textSize = 15f
             gravity = Gravity.CENTER
-            setTextColor(Color.parseColor("#C5CAD8"))
+            setTextColor(Palette.SOFT)
             setPadding(dpi(32f), dpi(32f), dpi(32f), dpi(32f))
             visibility = View.GONE
-            setOnClickListener { requestMediaPermission() }
         }
         root.addView(empty, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.CENTER))
 
-        zone = TextView(this).apply {
+        // The send zone is see-through, with the header showing behind it. Its words sit on
+        // their own dark patch so they read whatever is underneath.
+        zoneLabel = TextView(this).apply {
             textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
-            // Keep the label at the top edge so the dragged photo and the finger don't cover it.
-            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+            gravity = Gravity.CENTER
+            background = pill(Palette.SCRIM, 20f)
+            setPadding(dpi(16f), dpi(8f), dpi(16f), dpi(8f))
+        }
+        zone = FrameLayout(this).apply {
             alpha = 0f
             visibility = View.GONE
+            // What it says is spoken as the photo crosses into and out of it.
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            // Keep the label at the top edge so the dragged photo and the finger don't cover it.
+            addView(zoneLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
         }
         root.addView(zone, FrameLayout.LayoutParams(MATCH_PARENT, dpi(160f), Gravity.TOP))
 
@@ -443,7 +475,9 @@ class MainActivity : Activity() {
         statusBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 1000
             progressTintList = ColorStateList.valueOf(accent)
-            progressBackgroundTintList = ColorStateList.valueOf(Color.parseColor("#3A4053"))
+            progressBackgroundTintList = ColorStateList.valueOf(Palette.TRACK)
+            // The words beside it say how far it has got; read out as well, it would repeat them.
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             visibility = View.GONE
         }
         statusCancel = TextView(this).apply {
@@ -452,11 +486,13 @@ class MainActivity : Activity() {
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(accent)
             gravity = Gravity.CENTER
-            minHeight = dpi(32f)
+            minHeight = dpi(48f)
+            minWidth = dpi(48f)
             setPadding(dpi(14f), 0, dpi(2f), 0)
+            contentDescription = "Cancel the transfer"
             visibility = View.GONE
             setOnClickListener { cancelAction() }
-        }
+        }.asButton(12f)
         val statusLine = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -465,12 +501,13 @@ class MainActivity : Activity() {
         }
         status = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = pill(Color.parseColor("#F01F2330"), 22f)
+            background = pill(Palette.STATUS, 22f)
             setPadding(dpi(18f), dpi(11f), dpi(18f), dpi(11f))
             elevation = dp(8f)
             visibility = View.GONE
             addView(statusLine, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
-            addView(statusBar, LinearLayout.LayoutParams(dpi(220f), dpi(4f)).apply { topMargin = dpi(8f); gravity = Gravity.CENTER_HORIZONTAL })
+            // As wide as the words above it, so it fits a narrow screen and a large display size.
+            addView(statusBar, LinearLayout.LayoutParams(MATCH_PARENT, dpi(4f)).apply { topMargin = dpi(8f) })
         }
         root.addView(status, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
             bottomMargin = dpi(40f)
@@ -482,29 +519,44 @@ class MainActivity : Activity() {
             @Suppress("DEPRECATION")
             column.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom)
             zone.setPadding(0, insets.systemWindowInsetTop + dpi(10f), 0, 0)
+            @Suppress("DEPRECATION")
+            bottomInset = insets.systemWindowInsetBottom
+            placeStatus()
             insets
         }
         setContentView(root)
     }
 
-    private fun dot(color: Int) = GradientDrawable().apply {
+    /** Keeps the status pill clear of the selection bar and of the phone's own navigation bar, however tall they are. */
+    private fun placeStatus() {
+        val bar = if (selectBar.visibility == View.VISIBLE) maxOf(selectBar.height, dpi(64f)) else 0
+        (status.layoutParams as FrameLayout.LayoutParams).bottomMargin = bottomInset + bar + dpi(if (bar > 0) 16f else 40f)
+        status.requestLayout()
+    }
+
+    /** [hollow] draws a ring instead of a full dot, so a state is a shape as well as a colour. */
+    private fun dot(color: Int, hollow: Boolean = false) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
-        setColor(color)
-        setSize(dpi(9f), dpi(9f))
+        if (hollow) { setColor(Color.TRANSPARENT); setStroke(dpi(2f), color) } else setColor(color)
+        setSize(dpi(10f), dpi(10f))
     }
 
     private fun updateChip() {
         if (!prefs.paired) {
             chip.text = "Pair with PC"
-            chip.background = pill(accent, 20f)
+            chip.setTextColor(Palette.ON_ACCENT)
+            chip.background = pill(accent, 24f)
             chip.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null)
             chip.contentDescription = "Pair with PC"
             return
         }
         chip.text = prefs.pcName
-        chip.background = pill(Color.parseColor("#1F2330"), 20f)
-        val color = when (online) { true -> good; false -> warn; null -> Color.parseColor("#6B7285") }
-        chip.setCompoundDrawablesRelativeWithIntrinsicBounds(dot(color), null, null, null)
+        chip.setTextColor(Color.WHITE)
+        chip.background = pill(Palette.PANEL_2, 24f)
+        // Green and amber are almost equally bright, so they are also different shapes:
+        // a full dot when connected, a ring when the PC cannot be reached.
+        val mark = when (online) { true -> dot(good); false -> dot(warn, hollow = true); null -> dot(Palette.EDGE) }
+        chip.setCompoundDrawablesRelativeWithIntrinsicBounds(mark, null, null, null)
         chip.contentDescription = when (online) {
             true -> "${prefs.pcName}, connected"
             false -> "${prefs.pcName}, not reachable"
@@ -515,7 +567,7 @@ class MainActivity : Activity() {
     private fun setZoneActive(active: Boolean) {
         val target = if (prefs.paired) prefs.pcName else "your PC"
         val many = dragUris.size
-        zone.text = when {
+        zoneLabel.text = when {
             active && many > 1 -> "Release to send $many to $target"
             active -> "Release to send to $target"
             many > 1 -> "↑  Flick up to send $many"
@@ -738,6 +790,8 @@ class MainActivity : Activity() {
         } else {
             empty.text = "Flingo needs access to your photos to show them here.\n\nTap to allow."
             empty.visibility = View.VISIBLE
+            empty.setOnClickListener { requestMediaPermission() }
+            empty.asButton(18f)
         }
     }
 
@@ -745,6 +799,11 @@ class MainActivity : Activity() {
         scope.launch {
             val items = withContext(Dispatchers.IO) { Gallery.load(this@MainActivity) }
             adapter.submit(items)
+            // Plain words now, not a button: there is nothing to tap.
+            empty.setOnClickListener(null)
+            empty.isClickable = false
+            empty.isFocusable = false
+            empty.accessibilityDelegate = null
             empty.text = "No photos or videos on this phone yet."
             empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
         }
@@ -778,6 +837,7 @@ class MainActivity : Activity() {
             scaleType = ImageView.ScaleType.CENTER_CROP
             elevation = dp(16f)
             clipToOutline = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(v: View, outline: Outline) = outline.setRoundRect(0, 0, v.width, v.height, dp(14f))
             }
@@ -1031,18 +1091,27 @@ class MainActivity : Activity() {
     // ---------- selecting several ----------
     private fun updateSelectBar(count: Int) {
         selectBar.visibility = if (count > 0) View.VISIBLE else View.GONE
-        selectCount.text = "$count selected  ▾"
-        selectCount.contentDescription = "$count selected. Tap to select more at once."
-        // Keep the status pill clear of the bar.
-        (status.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpi(if (count > 0) 104f else 40f)
-        status.requestLayout()
+        selectCount.text = if (bigText) "$count selected" else "$count selected  ▾" // the arrow alone on a second line helps nobody
+        selectCount.contentDescription = "$count selected"
+        sendButton.contentDescription = when {
+            !prefs.paired -> "Send $count. You will be asked to pair with your PC first."
+            count == 1 -> "Send to ${prefs.pcName}"
+            else -> "Send $count to ${prefs.pcName}"
+        }
+        // Keep the status pill clear of the bar, now and once the bar has been measured.
+        placeStatus()
+        selectBar.post { placeStatus() }
     }
 
+    /**
+     * The Send button: the way to send without the flick. One photo is sent as a flick would
+     * send it, so it flies in on the PC. Several arrive quietly, as a batch.
+     */
     private fun sendSelection() {
         val uris = adapter.selection()
         if (uris.isEmpty()) return
         if (!prefs.paired) { pendingShare = uris; showPairDialog(); return }
-        send(uris, 0.5f, animateFirst = false)
+        send(uris, 0.5f, animateFirst = uris.size == 1)
         adapter.clearSelection()
     }
 
@@ -1116,13 +1185,14 @@ class MainActivity : Activity() {
     // ---------- sheets ----------
     // The pairing choice and the About screen are drawn in Flingo's own look, not the system's.
 
-    /** A rounded dark panel in the middle of the screen. [fill] adds its contents. */
-    private fun sheet(fill: LinearLayout.(Dialog) -> Unit): Dialog {
+    /** A rounded dark panel in the middle of the screen. [fill] adds its contents. [title] is what a screen reader says as it opens. */
+    private fun sheet(title: String, fill: LinearLayout.(Dialog) -> Unit): Dialog {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setTitle(title) // not drawn, but it names the window for a screen reader
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = pill(Color.parseColor("#171A23"), 26f).apply { setStroke(dpi(1f), Color.parseColor("#2A2F3F")) }
+            background = pill(Palette.PANEL, 26f).apply { setStroke(dpi(1f), Palette.LINE) }
             setPadding(dpi(20f), dpi(22f), dpi(20f), dpi(10f))
         }
         panel.fill(dialog)
@@ -1141,12 +1211,13 @@ class MainActivity : Activity() {
         textSize = 21f
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(Color.WHITE)
+        isAccessibilityHeading = true
     }
 
     private fun sheetNote(words: String) = TextView(this).apply {
         text = words
         textSize = 14f
-        setTextColor(Color.parseColor("#9097AA"))
+        setTextColor(Palette.MUTED)
         setPadding(0, dpi(4f), 0, dpi(16f))
     }
 
@@ -1157,14 +1228,18 @@ class MainActivity : Activity() {
         setTextColor(accent)
         gravity = Gravity.CENTER
         minHeight = dpi(48f)
+        minWidth = dpi(48f)
         setPadding(dpi(18f), 0, dpi(10f), 0)
         setOnClickListener { dialog.dismiss() }
-    }
+    }.asButton(12f)
 
-    /** A rounded surface that shows a ripple when pressed. */
+    /**
+     * A rounded surface that shows a ripple when pressed. It always has an outline: the surface
+     * is barely lighter than the sheet behind it, and without one only the words showed it was a button.
+     */
     private fun pressable(color: Int, radius: Float, outline: Boolean) = RippleDrawable(
         ColorStateList.valueOf(Color.parseColor("#33FFFFFF")),
-        pill(color, radius).apply { if (outline) setStroke(dpi(1.5f), accent) },
+        pill(color, radius).apply { if (outline) setStroke(dpi(1.5f), accent) else setStroke(dpi(1f), Palette.EDGE) },
         pill(Color.WHITE, radius),
     )
 
@@ -1172,9 +1247,10 @@ class MainActivity : Activity() {
     private fun choice(badge: String, title: String, detail: String, recommended: Boolean, onPick: () -> Unit): View {
         val words = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            // With large text the marker goes under the title instead of being pushed off the row.
             val heading = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
+                orientation = if (bigText) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+                gravity = if (bigText) Gravity.START else Gravity.CENTER_VERTICAL
                 addView(TextView(this@MainActivity).apply {
                     text = title
                     textSize = 16f
@@ -1186,16 +1262,16 @@ class MainActivity : Activity() {
                     textSize = 10f
                     letterSpacing = 0.08f
                     setTypeface(typeface, Typeface.BOLD)
-                    setTextColor(Color.parseColor("#0E1016"))
+                    setTextColor(Palette.ON_ACCENT)
                     background = pill(good, 8f)
                     setPadding(dpi(7f), dpi(2f), dpi(7f), dpi(2f))
-                }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { leftMargin = dpi(8f) })
+                }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { if (bigText) topMargin = dpi(4f) else leftMargin = dpi(8f) })
             }
             addView(heading)
             addView(TextView(this@MainActivity).apply {
                 text = detail
                 textSize = 13f
-                setTextColor(Color.parseColor("#A6ADC0"))
+                setTextColor(Palette.DETAIL)
                 setPadding(0, dpi(3f), 0, 0)
             })
         }
@@ -1206,31 +1282,32 @@ class MainActivity : Activity() {
             setPadding(dpi(14f), dpi(14f), dpi(12f), dpi(14f))
             isClickable = true
             isFocusable = true
-            contentDescription = "$title. $detail"
+            // One item for a screen reader, and "Recommended" is not left to a coloured marker.
+            contentDescription = (if (recommended) "Recommended. " else "") + "$title. $detail"
             addView(TextView(this@MainActivity).apply {
                 text = badge
-                textSize = 12f
+                glyph(12f)
                 setTypeface(typeface, Typeface.BOLD)
-                setTextColor(if (recommended) Color.WHITE else Color.parseColor("#C5CAD8"))
+                setTextColor(if (recommended) Palette.ON_ACCENT else Palette.SOFT)
                 gravity = Gravity.CENTER
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(if (recommended) accent else Color.parseColor("#2A2F3F"))
+                    setColor(if (recommended) accent else Palette.LINE)
                 }
             }, LinearLayout.LayoutParams(dpi(46f), dpi(46f)))
             addView(words, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { leftMargin = dpi(14f) })
             addView(TextView(this@MainActivity).apply {
                 text = "›"
                 textSize = 24f
-                setTextColor(Color.parseColor("#6B7285"))
+                setTextColor(Palette.EDGE)
                 setPadding(dpi(8f), 0, 0, dpi(4f))
             })
             setOnClickListener { onPick() }
-        }
+        }.asButton(18f)
     }
 
     private fun showPairDialog() {
-        sheet { dialog ->
+        sheet("Pair with your PC") { dialog ->
             fun then(action: () -> Unit): () -> Unit = { dialog.dismiss(); action() }
             val gap = { LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dpi(10f) } }
             addView(sheetTitle("Pair with your PC"))
@@ -1254,11 +1331,11 @@ class MainActivity : Activity() {
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(Color.WHITE)
         gravity = Gravity.CENTER
-        minHeight = dpi(46f)
-        background = pressable(Color.parseColor("#1F2330"), 16f, outline = false)
-        contentDescription = "Open $label in the browser"
+        minHeight = dpi(48f)
+        background = pressable(Palette.PANEL_2, 16f, outline = false)
+        contentDescription = "$label. Opens in the browser."
         setOnClickListener { openLink(url) }
-    }
+    }.asButton(16f)
 
     private fun linkRow(first: View, second: View) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -1268,7 +1345,7 @@ class MainActivity : Activity() {
 
     /** What Flingo is, who made it, and where to find both. */
     private fun showAbout() {
-        sheet { dialog ->
+        sheet("About Flingo") { dialog ->
             fun centred(words: String, size: Float, color: Int, bold: Boolean = false) = TextView(this@MainActivity).apply {
                 text = words
                 textSize = size
@@ -1277,21 +1354,23 @@ class MainActivity : Activity() {
                 if (bold) setTypeface(typeface, Typeface.BOLD)
             }
             fun below(dp: Float) = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dpi(dp) }
-            addView(ImageView(this@MainActivity).apply { setImageResource(R.mipmap.ic_launcher) },
-                LinearLayout.LayoutParams(dpi(76f), dpi(76f)).apply { gravity = Gravity.CENTER_HORIZONTAL })
-            addView(centred("Flingo", 24f, Color.WHITE, bold = true), below(10f))
-            addView(centred("Version ${BuildConfig.VERSION_NAME}", 13f, Color.parseColor("#9097AA")), below(2f))
-            addView(centred(About.PITCH, 15f, Color.parseColor("#C5CAD8")), below(12f))
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(R.mipmap.ic_launcher)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO // the name is right below it
+            }, LinearLayout.LayoutParams(dpi(76f), dpi(76f)).apply { gravity = Gravity.CENTER_HORIZONTAL })
+            addView(centred("Flingo", 24f, Color.WHITE, bold = true).apply { isAccessibilityHeading = true }, below(10f))
+            addView(centred("Version ${BuildConfig.VERSION_NAME}", 13f, Palette.MUTED), below(2f))
+            addView(centred(About.PITCH, 15f, Palette.SOFT), below(12f))
 
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                background = pill(Color.parseColor("#222A48"), 18f).apply { setStroke(dpi(1.5f), accent) }
+                background = pill(Palette.PANEL_BEST, 18f).apply { setStroke(dpi(1.5f), accent) }
                 setPadding(dpi(18f), dpi(16f), dpi(18f), dpi(16f))
                 addView(TextView(this@MainActivity).apply {
                     text = "MADE BY"
                     textSize = 11f
                     letterSpacing = 0.12f
-                    setTextColor(Color.parseColor("#9097AA"))
+                    setTextColor(Palette.MUTED)
                 })
                 addView(TextView(this@MainActivity).apply {
                     text = About.MAKER
@@ -1303,13 +1382,13 @@ class MainActivity : Activity() {
                 addView(TextView(this@MainActivity).apply {
                     text = About.TAGLINE
                     textSize = 14f
-                    setTextColor(Color.parseColor("#C5CAD8"))
+                    setTextColor(Palette.SOFT)
                 })
             }, below(18f))
 
             addView(linkRow(linkButton("Website", About.WEBSITE), linkButton("GitHub", About.GITHUB)), below(12f))
             addView(linkRow(linkButton("LinkedIn", About.LINKEDIN), linkButton("Source code", About.SOURCE)), below(10f))
-            addView(centred(About.PROMISE, 12f, Color.parseColor("#9097AA")), below(16f))
+            addView(centred(About.PROMISE, 12f, Palette.MUTED), below(16f))
             addView(sheetClose(dialog, "Close"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.END; topMargin = dpi(4f) })
         }
     }
@@ -1594,12 +1673,19 @@ class MainActivity : Activity() {
             alpha = 0.7f
         }
         val bar = SeekBar(this).apply {
+            id = View.generateViewId()
             min = 10
             max = 50
             progress = prefs.zonePercent
             setPadding(dpi(8f), dpi(16f), dpi(8f), dpi(16f))
+            contentDescription = "Height of the send zone"
         }
-        fun refresh() { label.text = "Send zone: top ${bar.progress}% of the screen" }
+        label.labelFor = bar.id
+        fun refresh() {
+            label.text = "Send zone: top ${bar.progress}% of the screen"
+            // Otherwise a screen reader says how far along the slider is, which is a different number.
+            if (Build.VERSION.SDK_INT >= 30) bar.stateDescription = "top ${bar.progress} percent of the screen"
+        }
         bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) { prefs.zonePercent = p; refresh() }
             override fun onStartTrackingTouch(s: SeekBar) {}
@@ -1609,6 +1695,7 @@ class MainActivity : Activity() {
         val awake = CheckBox(this).apply {
             text = "Keep the screen on while Flingo is open"
             textSize = 15f
+            minHeight = dpi(48f)
             isChecked = prefs.keepAwake
             setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
             setOnCheckedChangeListener { _, on ->
@@ -1674,11 +1761,13 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             minHeight = dpi(48f)
             setPadding(dpi(6f), dpi(6f), 0, 0)
-        }
+            contentDescription = "About Flingo"
+        }.asButton(12f)
         box.addView(versionRow)
         box.addView(about)
 
-        val dialog = AlertDialog.Builder(this).setTitle("Settings").setView(box).setPositiveButton("Done", null).show()
+        // Able to scroll: with large text the list is taller than the screen, and a dialog does not scroll by itself.
+        val dialog = AlertDialog.Builder(this).setTitle("Settings").setView(ScrollView(this).apply { addView(box) }).setPositiveButton("Done", null).show()
         about.setOnClickListener {
             dialog.dismiss()
             showAbout()
