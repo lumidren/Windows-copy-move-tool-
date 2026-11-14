@@ -144,7 +144,9 @@ class MainActivity : Activity() {
         buildUi()
         updateChip()
         if (hasMediaPermission()) loadGallery() else requestMediaPermission()
-        handleIntent(intent)
+        // When Android brings the app back after closing it, it hands over the same intent as
+        // the first time. A pairing link or a share in it was dealt with then, and must not be again.
+        if (savedInstanceState == null) handleIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
