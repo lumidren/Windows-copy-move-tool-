@@ -41,10 +41,11 @@ class TransferService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL) {
             Transfers.cancel(this)
+            Inbox.cancel()
             return START_NOT_STICKY
         }
-        val state = Transfers.state
-        if (state == null && !Transfers.busy) {
+        val state = Transfers.state ?: Inbox.state
+        if (state == null && !Transfers.busy && !Inbox.busy) {
             // Started with nothing to do (the transfer ended first): show the required notification and leave.
             foreground(sending(this, null))
             stopSelf()
@@ -102,8 +103,8 @@ class TransferService : Service() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
             val b = Notification.Builder(ctx, CHANNEL_PROGRESS)
-                .setSmallIcon(android.R.drawable.stat_sys_upload)
-                .setContentTitle("Sending to ${Prefs(ctx).pcName.ifEmpty { "your PC" }}")
+                .setSmallIcon(if (s?.incoming == true) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_upload)
+                .setContentTitle("${if (s?.incoming == true) "Receiving from" else "Sending to"} ${Prefs(ctx).pcName.ifEmpty { "your PC" }}")
                 .setContentText(if (s == null) "Getting ready…" else Words.progress(s))
                 .setContentIntent(openApp(ctx))
                 .setOngoing(true)
@@ -134,8 +135,11 @@ class TransferService : Service() {
         /** Ends the service. If no screen is showing the outcome, leaves a notification that says it. */
         fun finish(ctx: Context, result: SendResult, visible: Boolean) {
             val wasLive = live
-            live = false
-            runCatching { ctx.stopService(Intent(ctx, TransferService::class.java)) }
+            // A download from the PC may still need the service this upload shared with it.
+            if (!Inbox.busy) {
+                live = false
+                runCatching { ctx.stopService(Intent(ctx, TransferService::class.java)) }
+            }
             if (visible || !wasLive || result is SendResult.Cancelled) return
             val pc = Prefs(ctx).pcName.ifEmpty { "your PC" }
             val (title, text) = when (result) {
