@@ -1,10 +1,19 @@
 <resources>
     <color name="bg">#0E1016</color>
     <color name="accent">#6C8CFF</color>
+    <color name="panel">#171A23</color>
     <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:alertDialogTheme">@style/FlingoDialog</item>
+    </style>
+    <!-- Android's own dialogs, on Flingo's dark panel. On the stock grey the accent-coloured
+         buttons reach only 3.3:1; on this they reach 5.6:1. -->
+    <style name="FlingoDialog" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorBackground">@color/panel</item>
+        <item name="android:colorBackgroundFloating">@color/panel</item>
+        <item name="android:colorAccent">@color/accent</item>
     </style>
 </resources>
