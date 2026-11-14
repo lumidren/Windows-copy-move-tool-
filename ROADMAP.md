@@ -5,7 +5,7 @@ Thirty-six features, grouped by what they improve. Size is a rough guess: **S** 
 **Shipped in 0.2.0:** encrypted transfers (1), QR-code pairing (2), progress (9), and sound and haptics (14).
 **Shipped in 0.3.0:** multi-select (7) and resumable large transfers (8), plus two things that were not on the list: a file picker for any kind of file, and transfers that keep going in the background.
 
-**Done on `main` for 0.4.0:** PC to phone (6), with resume and a checksum on every file; batches that travel three files at a time, in both directions; a "Phone (Flingo)" entry in Explorer's Send to menu (35); both apps find and install their own updates (the second half of 20), and the build signs the APK with the project's own key (the Android half of 4; see [RELEASING.md](RELEASING.md)).
+**Done on `main` for 0.4.0:** PC to phone (6), with resume and a checksum on every file; batches that travel three files at a time, in both directions; a "Phone (Flingo)" entry in Explorer's Send to menu (35); accessibility to WCAG 2.2 level AA in both apps (31); both apps find and install their own updates (the second half of 20), and the build signs the APK with the project's own key (the Android half of 4; see [RELEASING.md](RELEASING.md)).
 
 Finished items stay in the tables below, marked ✅, so the numbering other documents refer to does not move.
 
@@ -73,7 +73,7 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 |:-:|---|---|:-:|
 | 29 | **Unsend** | A few seconds to take back a flick sent by mistake: the PC moves it to the bin and the card flies back out. | S |
 | 30 | **History and search** | A searchable list of everything sent and received, on both devices. | M |
-| 31 | **Accessibility** | A plain Send button for anyone who can't do the gesture, screen-reader labels everywhere, and a reduced-motion setting that the effects respect. | M |
+| 31 | ✅ **Accessibility** | A plain Send for anyone who can't do the gesture, screen-reader labels and spoken progress everywhere, AA contrast, 48 dp targets, large text, rotation, keyboard use of the whole PC window, and a reduced-motion setting that the effects respect. Checked by tests, a keyboard-only walk and TalkBack on an emulator; not yet by a person who relies on them ([details](docs/accessibility.md)). | M |
 | 32 | **Translations** | Move every string into translation files, including right-to-left layouts. | M |
 | 33 | **Browser receiver** | A guest PC opens a web page and receives files with nothing installed. The phone has to act as the server, and a browser tab cannot draw over the whole screen, so the arrival is plainer. | L |
 | 34 | **Phone to phone and tablets** | A tablet layout is quick. Receiving on a phone means running a server there in the background. | M |
