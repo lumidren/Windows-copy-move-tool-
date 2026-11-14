@@ -90,6 +90,7 @@
   - A dropped connection carries on from where it stopped, in either direction, and every file is checked against its SHA-256 before the phone shows it.
   - Files arrive at once while Flingo is open on the phone, and otherwise the next time it is opened.
 - **Usable without the gesture, a mouse or sight of the screen.** Built to WCAG 2.2 level AA in both apps: a plain **Send** for anyone who cannot flick, every control named for a screen reader, progress spoken in a few sentences instead of ten a second, text and outlines at AA contrast, 48 dp targets, large text, rotation, and a reduced-motion setting where an arriving photo fades in instead of flying. What was checked, how, and what was not is in [docs/accessibility.md](docs/accessibility.md).
+- **Pairing that says what is happening, and is quicker.** The phone's scanner is Flingo's own screen now: it tells you what to point at, says **Scanned** the moment it reads the code, pairs while you watch, and says **Paired**. If the code cannot be used it says why and keeps looking. The phone tries every address in the code at the same moment, so a dead one no longer costs two seconds: on the test emulator, pairing with a dead address in the code went from 2.8 s to 0.4 s. The scanner has not yet read a code through a real camera; an emulator's cannot be aimed.
 - **Send from Explorer.** On Windows, select files, right-click, and choose **Send to**, then **Phone (Flingo)**. Everything selected goes as one batch, whether Flingo was already open or not. On Windows 11 the Send to menu is under **Show more options**. The entry is a single shortcut that the installer adds and the uninstaller removes, and a switch in Settings turns it off.
 - **Faster batches.** Three files of a batch travel at once, in both directions, over connections that stay open. On the test bench 500 photos go 2.4 times faster to the PC and 2.2 times faster to the phone; on a real phone the gain depends on the Wi-Fi. The numbers, and what they do not show, are in [docs/benchmarks.md](docs/benchmarks.md).
 - **Updates itself.** Both apps ask GitHub which release is the newest, and offer it when it is not the one you have.
@@ -273,7 +274,9 @@ android/
     UpdateReceiver.kt   opens Android's install prompt and reports how it went
     Gallery.kt      MediaStore query, thumbnail cache, grid adapter with selection
     MainActivity.kt hold-and-flick gesture, selection, pairing, connection status, share target
-    ScanActivity.kt the QR scanner screen
+    ScanActivity.kt the QR scanner: reads the code, pairs, and says what happened
+    Pairing.kt      reading a pairing code, and pairing with every address tried at once
+    Race.kt         try several addresses together, take the first that answers
     Prefs.kt        stored pairing and settings
 ```
 
