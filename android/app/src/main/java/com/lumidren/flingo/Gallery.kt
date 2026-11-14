@@ -5,16 +5,21 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.text.format.DateUtils
 import android.util.LruCache
 import android.util.Size
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
@@ -53,6 +58,10 @@ private class SquareFrame(ctx: Context) : FrameLayout(ctx) {
 /**
  * The photo grid. A tap selects or deselects a photo; holding one picks it up to flick.
  * [onSelection] is told how many are selected whenever that changes.
+ *
+ * For a screen reader, a switch or a keyboard each tile is one item that says which photo
+ * it is, whether it is selected, and offers two actions: select, and send to the PC. The
+ * second is the long-press, which those tools perform without a finger on the screen.
  */
 class GalleryAdapter(
     private val ctx: Context,
@@ -71,6 +80,11 @@ class GalleryAdapter(
     class Holder(view: View, val image: ImageView, val badge: TextView, val check: TextView) : RecyclerView.ViewHolder(view) {
         var key: String? = null
     }
+
+    // Each photo keeps its identity when the grid is reloaded, so a screen reader's place in it is not thrown away.
+    init { setHasStableIds(true) }
+
+    override fun getItemId(position: Int): Long = items[position].let { if (it.isVideo) -it.id else it.id }
 
     fun submit(list: List<MediaItem>) {
         items = list
@@ -114,9 +128,8 @@ class GalleryAdapter(
         val on = item.uri in selected
         holder.check.visibility = if (on) View.VISIBLE else View.GONE
         holder.image.alpha = if (on) 0.55f else 1f
+        // The selected state is real, so a screen reader says "selected" itself.
         holder.itemView.isSelected = on
-        val what = if (item.isVideo) "Video" else "Photo"
-        holder.image.contentDescription = if (on) "$what, selected" else what
     }
 
     override fun getItemCount() = items.size
@@ -126,32 +139,56 @@ class GalleryAdapter(
         val frame = SquareFrame(ctx).apply {
             layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setPadding((1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt(), (1.5f * d).toInt())
+            isFocusable = true
+            // A white outline while a keyboard or a switch has its focus on this tile.
+            foreground = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply {
+                    setColor(Color.TRANSPARENT)
+                    setStroke((3 * d).toInt(), Color.WHITE)
+                })
+                addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
+            }
+            accessibilityDelegate = object : View.AccessibilityDelegate() {
+                override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    // "Double-tap to select", and in the actions menu: "send to your PC".
+                    info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK, if (host.isSelected) "deselect" else "select"))
+                    info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, "send to your PC"))
+                }
+            }
         }
+        // The pieces of a tile are drawn for the eye; the tile itself carries the words.
         val image = ImageView(ctx).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            setBackgroundColor(Color.parseColor("#171A23"))
+            setBackgroundColor(Palette.PANEL)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
         frame.addView(image, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         val badge = TextView(ctx).apply {
             text = "▶"
             setTextColor(Color.WHITE)
-            textSize = 12f
-            setShadowLayer(4f, 0f, 1f, Color.BLACK)
+            // A mark, not words: it keeps its size when the phone's text is made larger, like the box it sits in.
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11f)
+            gravity = Gravity.CENTER
+            // On its own dark patch, so it shows on a bright video as well as a dark one.
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Palette.SCRIM) }
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        frame.addView(badge, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.END).apply {
-            marginEnd = (8 * d).toInt(); bottomMargin = (6 * d).toInt()
+        frame.addView(badge, FrameLayout.LayoutParams((24 * d).toInt(), (24 * d).toInt(), Gravity.BOTTOM or Gravity.END).apply {
+            marginEnd = (6 * d).toInt(); bottomMargin = (6 * d).toInt()
         })
         val check = TextView(ctx).apply {
             text = "✓"
             setTextColor(Color.WHITE)
-            textSize = 14f
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#6C8CFF"))
+                setColor(Palette.ACCENT)
                 setStroke((1.5f * d).toInt(), Color.WHITE)
             }
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             visibility = View.GONE
         }
         frame.addView(check, FrameLayout.LayoutParams((26 * d).toInt(), (26 * d).toInt(), Gravity.TOP or Gravity.END).apply {
@@ -172,12 +209,20 @@ class GalleryAdapter(
         holder.key = key
         holder.badge.visibility = if (item.isVideo) View.VISIBLE else View.GONE
         mark(holder, item)
+        // Which photo this is: every tile used to say only "Photo".
+        val taken = DateUtils.formatDateTime(
+            ctx, item.date * 1000,
+            DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
+        )
+        holder.itemView.contentDescription = Speech.tile(item.isVideo, position, items.size, taken)
         holder.itemView.setOnClickListener {
             val at = holder.bindingAdapterPosition
             if (at != RecyclerView.NO_POSITION) toggle(items[at], at)
         }
+        // Whoever handles this decides what a hold means: a finger picks the photo up, and a
+        // hold with no finger (a screen reader, a switch, the Enter key) sends it.
         holder.itemView.setOnLongClickListener {
-            if (holder.image.drawable != null) onPickUp(item, holder.image)
+            onPickUp(item, holder.image)
             true
         }
         val cached = cache.get(key)

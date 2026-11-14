@@ -738,8 +738,24 @@ class MainActivity : Activity() {
     // ---------- drag + flick ----------
     private fun rootOnScreen(): IntArray = IntArray(2).also { root.getLocationOnScreen(it) }
 
+    /**
+     * Sends a photo, and anything selected with it, the way a flick does: the first one
+     * flies in on the PC. This is the flick for anyone who cannot make the gesture.
+     */
+    private fun sendNow(item: MediaItem) {
+        val uris = listOf(item.uri) + adapter.selection().filter { it != item.uri }
+        if (!prefs.paired) { pendingShare = uris; showPairDialog(); return }
+        send(uris, 0.5f, animateFirst = true)
+        adapter.clearSelection()
+    }
+
     private fun startDrag(item: MediaItem, source: ImageView) {
         if (dragging) return
+        // A hold with no finger on the glass comes from a screen reader, a switch or a keyboard.
+        // There is nothing to drag with, and a drag begun this way could never be let go of.
+        // So it means "send this one".
+        if (!fingerDown) { sendNow(item); return }
+        if (source.drawable == null) return // its picture has not loaded yet, so there is nothing to pick up
         val loc = IntArray(2).also { source.getLocationOnScreen(it) }
         val base = rootOnScreen()
         val view = ImageView(this).apply {
@@ -785,6 +801,10 @@ class MainActivity : Activity() {
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         lastX = ev.rawX
         lastY = ev.rawY
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> fingerDown = true
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> fingerDown = false
+        }
         if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
             tracker?.recycle()
             tracker = VelocityTracker.obtain()
