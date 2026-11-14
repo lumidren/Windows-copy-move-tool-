@@ -117,6 +117,9 @@ function render(s) {
   $('sound').checked = s.sound;
   $('launch').checked = s.launchAtLogin;
   $('launch-label').textContent = s.platform === 'win32' ? 'Start with Windows' : 'Start when I log in';
+  $('send-to-menu-row').hidden = s.platform !== 'win32';
+  $('send-to-menu').checked = s.sendToMenu;
+  $('send-to-menu-hint').textContent = `Right-click files, choose Send to, then ${s.sendToMenuName}. On Windows 11, "Send to" is under "Show more options".`;
   $('auto-update').checked = s.update.auto;
   $('about-version').textContent = `version ${s.version}`;
   renderUpdate(s.update);
@@ -382,6 +385,7 @@ $('clear').onclick = async () => render(await api.clearHistory());
 $('show-overlay').onchange = async (e) => render(await api.set({ showOverlay: e.target.checked }));
 $('sound').onchange = async (e) => render(await api.set({ sound: e.target.checked }));
 $('launch').onchange = async (e) => render(await api.set({ launchAtLogin: e.target.checked }));
+$('send-to-menu').onchange = async (e) => render(await api.set({ sendToMenu: e.target.checked }));
 $('name').onchange = async (e) => render(await api.set({ name: e.target.value }));
 $('screen').onchange = async (e) => render(await api.set({ overlayDisplay: e.target.value }));
 $('identify').onclick = () => api.identifyScreens();
