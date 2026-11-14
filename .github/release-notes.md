@@ -1,73 +1,23 @@
-## Flingo 0.4.0
+## Flingo 0.4.1
 
-Flick a photo off your phone and watch it land on your PC. This release teaches both apps to update themselves, so this is the last version you have to install by hand.
+Flick a photo off your phone and watch it land on your PC, or send files the other way. This release fixes sending from the PC to a phone that was paired a second time, and tidies the PC window.
 
 > [!NOTE]
-> 0.4.0 works with 0.3.0 and 0.2.0 on the other side. Getting to 0.4.0 is still a manual install, because older versions have no updater: run the new installer on the PC, and on the phone uninstall Flingo, install this APK and pair again.
+> From 0.4.0, both apps update themselves: **Update** on the phone, **Update now** on Windows. Coming from 0.3.0 or older is still a manual install: run the new installer on the PC, and on the phone uninstall Flingo, install this APK and pair again.
 
-### New
+### Fixed
 
-- **PC to phone.** Flingo is two-way now. Drag files onto the Flingo window, or press **Send to phone**. Photos and videos land in the phone's Pictures/Flingo, everything else in Download/Flingo, and a notification opens what arrived. With several phones paired, pick which one gets the files.
-- **It needs 0.4.0 on the phone, and says so.** A phone still on 0.3.0 can only send. If you send it a file, the PC says "needs a newer Flingo" instead of waiting, and the file goes by itself once the phone is updated. The Phones tab shows which Flingo each phone runs.
-- **Send from Explorer.** Select files in Explorer, right-click, and choose **Send to**, then **Phone (Flingo)**. They go as one batch, and Flingo starts by itself if it was not running. On Windows 11, Send to is under **Show more options**. Settings has a switch to remove the entry.
-- **Nothing is lost on the way back either.** A dropped connection carries on from where it stopped, and the phone checks every file against its SHA-256 before showing it.
-- **Update offers.** Each app asks GitHub which release is the newest and tells you when it is not the one you have.
-- **Windows updates in place.** *Update now* downloads the installer, checks it against the release's SHA-256, and *Restart and install* swaps the app and opens it again. Paired phones and settings are kept.
-- **Android updates in place.** *Update* downloads the APK, checks it the same way, and hands it to Android, which asks you to confirm. The first time, Android also asks you to allow Flingo to install apps.
-- **Linux is told, not changed.** The offer opens the download page, because installing a package needs your password.
-- **Yours to control.** Nothing installs without a click. *Check for updates* can be switched off in both apps, *Later* hides an offer, and *Check now* asks straight away.
+- **Files sent to a phone that never came for them.** Installing Flingo again on a phone and pairing it again left the phone's old entry on the PC, under the same name. If files had been sent to that old entry before, the PC kept sending there and waited for a phone that no longer existed. Files now go to the pairing the phone uses now, the phone you have just paired is the one files go to, and a pairing that was replaced is labelled as one, with a button to remove it.
 
-### For everyone: accessibility
+### Changed on the PC
 
-Both apps were taken through WCAG 2.2 level AA. What was checked, and what was not, is in [docs/accessibility.md](https://github.com/lumidren/Windows-copy-move-tool-/blob/main/docs/accessibility.md).
+- **The pairing code is always on Home.** Once a phone was paired, the QR code moved to the Phones tab, where a second phone or a reinstalled one had to go looking for it. It is now a smaller card beside what has arrived; click it to fill the window.
+- **A cleaner sidebar.** Drawn icons instead of text symbols, and the section in view is a filled row.
+- **Clearer headings,** and an empty list that says files can be dropped on the window to send them to the phone.
 
-- **Send without the flick.** Tap a photo and press **Send**, and it flies in on the PC as a flick would. With TalkBack, double-tap and hold a photo; with a keyboard, hold Enter on it.
-- **Screen readers.** Every control has a name and a role, every photo says which one it is, and progress is spoken in a few sentences instead of ten times a second. On the PC, a lost connection or a failure interrupts; the rest waits its turn.
-- **Easier to see.** Text and control outlines meet AA contrast in both apps, and states are a shape as well as a colour. Windows high-contrast themes are respected.
-- **Easier to hit.** Every button on the phone is at least 48 dp. The whole PC window works from the keyboard, with a clear focus ring.
-- **Large text, zoom and rotation.** The phone follows its text size and turns with the screen; the PC window reflows at 200% zoom.
-- **Reduced motion.** *Movement* on the PC (under Arrivals) and *Reduce motion* on the phone, and both follow the system setting: an arriving photo fades in where it lands, and nothing flies, spins or bursts.
+### Known
 
-### A tidier look
+- If the phone's Flingo is open while the PC still runs 0.3.0, and the PC is then updated, the phone starts collecting files the next time Flingo is opened on it.
+- Not yet run on a wide range of phones. If something does not work on yours, please open an issue.
 
-- **The PC window has a bar of tabs down the left:** Home, Phones, Arrivals (the effects), Settings and About.
-- **Home is one thing at a time.** Before a phone is paired it shows only how to pair one, with the typed code and other details folded away under "Other ways to pair". After that it shows only what has arrived, and pairing moves to the Phones tab. Stage mode hides the tabs and shows pairing and arrivals side by side.
-- **A scanner that talks to you.** It says what to point at, shows **Scanned** the moment it reads the PC's code, pairs on the spot and shows **Paired**. A code that cannot be used is explained, and it keeps looking without another tap. There is a light for dark rooms and a way straight to typing the code.
-- **Pairing on the phone starts from a clearer choice:** scan the QR code, find the PC on the Wi-Fi, or type it in, each with a line saying when to pick it.
-- **About** in both apps: the version, who made Flingo, and links to the website, GitHub, LinkedIn and the source code.
-
-### Faster
-
-- **Batches travel three files at a time,** in both directions, over connections that stay open between files. On the test bench 500 photos go 2.4 times faster to the PC and 2.2 times faster to the phone. How much of that you see depends on your Wi-Fi; it has not been measured on a real phone.
-- **A single large file reaches the PC's disk about 1.3 times faster** on the test bench, because the PC now writes a megabyte at a time.
-- **Connecting is quicker.** The phone tries every address a PC has at the same moment instead of one after another, so a dead address no longer costs two seconds (2.8 s down to 0.4 s on the test emulator). The PC also puts the address it really uses first in its code.
-- **The PC window stays responsive during a large batch.** A new arrival adds one tile instead of redrawing the whole list, and the list is written to disk once a second instead of once per file.
-- **The phone sets up its secure connection to the PC once** and reuses it for the next file and for its regular "is the PC there" check, instead of starting from nothing every time. It also looks each file up once instead of twice.
-
-### Changed
-
-- **Send** with one photo selected now sends it the way a flick does, so it flies in on the PC. Several photos still arrive quietly as a batch.
-- The phone app is no longer locked upright.
-- A card about a transfer that went wrong stays in the PC window until you dismiss it.
-- The **Files** button on the phone is now **Browse files**, and outlined so it is easier to find. It opens the phone's file browser, for a large video, a document or anything else that is not in the photo grid.
-
-### Good to know
-
-- Files from the PC arrive at once while Flingo is open on the phone. If it is closed, they wait on the PC and arrive when you next open it. They are lost if Flingo on the PC is closed before the phone collects them.
-- **Send to** takes files, not folders, and a few hundred at a time. Appearing in the Windows Share menu and at the top of Windows 11's right-click menu needs a signed app package, which Flingo does not have yet.
-- The update check is the only time Flingo uses the internet. It reads a public page and sends nothing about your devices or files. Everything else still works with no internet at all.
-- In stage mode the PC does not check and shows no offer.
-- From this release on the APK is signed with the project's own key, which is what lets one version install over another. Older APKs were signed with throwaway keys, so this one cannot install over them: uninstall the old app first.
-- Android may show a Google Play Protect prompt the first time, because the app does not come from the Play Store.
-- The Windows installer is not code-signed, so Windows shows a "Windows protected your PC" box when you run it by hand. Choose **More info**, then **Run anyway**.
-- A copy of the PC app that was not installed with the installer (an unpacked folder) is offered the download page instead of updating itself.
-- Tested on an Android emulator and a Windows PC against a stand-in release list. Updating through a real release is first possible with the release after this one.
-
-### Downloads
-
-| Platform | File |
-|---|---|
-| Android 10+ | `flingo.apk` |
-| Windows 10 / 11 | `Flingo-Setup.exe` |
-| Linux (Kali, Debian, Ubuntu) | `flingo-linux.deb` |
-| Linux (any 64-bit distro) | `flingo-linux.tar.gz` |
+Everything that arrived in 0.4.0 (PC to phone, Send from Explorer, the new scanner, accessibility, faster batches, updates in place) is described in the [0.4.0 notes](https://github.com/lumidren/Windows-copy-move-tool-/releases/tag/v0.4.0).
