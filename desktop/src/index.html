@@ -100,6 +100,8 @@
       <div class="row spread">
         <h2>Received</h2>
         <div class="row">
+          <select id="send-target" aria-label="Phone to send to" hidden></select>
+          <button id="send-to-phone" hidden>Send to phone</button>
           <button id="open-folder" class="ghost">Open folder</button>
           <button id="clear" class="ghost">Clear list</button>
         </div>
@@ -204,6 +206,12 @@
   </section>
   </div>
 </main>
+</div>
+<div class="drop" id="drop" hidden>
+  <div class="drop-box">
+    <b id="drop-title"></b>
+    <span id="drop-note"></span>
+  </div>
 </div>
 <script src="index.js"></script>
 </body>
