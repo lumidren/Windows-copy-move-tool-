@@ -60,11 +60,11 @@ The first release signed with this key cannot install over an older, debug-signe
 3. Push `main`, wait for the build to pass, then tag it:
 
    ```bash
-   git tag -a v0.4.0 -m "Flingo 0.4.0"
+   git tag -a v0.4.1 -m "Flingo 0.4.1"
    ```
 
    ```bash
-   git push origin v0.4.0
+   git push origin v0.4.1
    ```
 
 4. When the tag's build has finished, check the release has all four files and that the Android key fingerprint matches the last release.

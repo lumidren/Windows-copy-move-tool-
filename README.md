@@ -192,7 +192,7 @@ sequenceDiagram
 Every download is built by GitHub Actions from this repository and attached to the [latest release](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest).
 
 > [!NOTE]
-> The latest release is **0.4.0**. It works with 0.3.0 and 0.2.0 on the other side, but sending from the PC to the phone needs 0.4.0 on both, and the PC says so when the phone is older. Coming from 0.3.0 on Android, uninstall Flingo once, install 0.4.0 and pair again: from 0.4.0 on, the app updates itself. 0.1.0 cannot talk to anything newer, because every connection has been encrypted since 0.2.0.
+> The latest release is **0.4.1**. It works with 0.3.0 and 0.2.0 on the other side, but sending from the PC to the phone needs 0.4.0 on both, and the PC says so when the phone is older. Coming from 0.3.0 on Android, uninstall Flingo once, install the new one and pair again: from 0.4.0 on, the app updates itself. 0.1.0 cannot talk to anything newer, because every connection has been encrypted since 0.2.0.
 
 | Platform | Download | Notes |
 |---|---|---|
@@ -298,7 +298,7 @@ android/
 | **Updating without an app store** | Each app reads GitHub's public release list, and only trusts a download that comes from this project's releases and matches the SHA-256 the release declares. The phone also compares who signed the APK before asking Android to install it, so a mismatch is explained instead of failing oddly. The PC never checks while in stage mode. |
 | **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
 
-**Tested how.** `npm test` runs 106 tests on the receiver, the outbox, telling an older phone from a newer one, the certificate, the pre-flight logic, the command line, colour contrast and screen-reader markup, and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
+**Tested how.** `npm test` runs 113 tests on the receiver, the outbox, telling an older phone from a newer one and a phone that was paired again from a second phone, the certificate, the pre-flight logic, the command line, colour contrast and screen-reader markup, and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
