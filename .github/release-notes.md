@@ -31,6 +31,7 @@ Both apps were taken through WCAG 2.2 level AA. What was checked, and what was n
 
 - **The PC window has a bar of tabs down the left:** Home, Phones, Arrivals (the effects), Settings and About.
 - **Home is one thing at a time.** Before a phone is paired it shows only how to pair one, with the typed code and other details folded away under "Other ways to pair". After that it shows only what has arrived, and pairing moves to the Phones tab. Stage mode hides the tabs and shows pairing and arrivals side by side.
+- **A scanner that talks to you.** It says what to point at, shows **Scanned** the moment it reads the PC's code, pairs on the spot and shows **Paired**. A code that cannot be used is explained, and it keeps looking without another tap. There is a light for dark rooms and a way straight to typing the code.
 - **Pairing on the phone starts from a clearer choice:** scan the QR code, find the PC on the Wi-Fi, or type it in, each with a line saying when to pick it.
 - **About** in both apps: the version, who made Flingo, and links to the website, GitHub, LinkedIn and the source code.
 
@@ -38,6 +39,7 @@ Both apps were taken through WCAG 2.2 level AA. What was checked, and what was n
 
 - **Batches travel three files at a time,** in both directions, over connections that stay open between files. On the test bench 500 photos go 2.4 times faster to the PC and 2.2 times faster to the phone. How much of that you see depends on your Wi-Fi; it has not been measured on a real phone.
 - **A single large file reaches the PC's disk about 1.3 times faster** on the test bench, because the PC now writes a megabyte at a time.
+- **Connecting is quicker.** The phone tries every address a PC has at the same moment instead of one after another, so a dead address no longer costs two seconds (2.8 s down to 0.4 s on the test emulator). The PC also puts the address it really uses first in its code.
 - **The PC window stays responsive during a large batch.** A new arrival adds one tile instead of redrawing the whole list, and the list is written to disk once a second instead of once per file.
 - **The phone sets up its secure connection to the PC once** and reuses it for the next file and for its regular "is the PC there" check, instead of starting from nothing every time. It also looks each file up once instead of twice.
 
