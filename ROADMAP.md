@@ -58,6 +58,15 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 | 23 | **Throw physics** | A harder flick flies in faster, a sideways flick spins. The phone already measures the flick; it only needs to send the speed along with the position. | S |
 | 24 | **Pull from the PC** | Swipe down on the phone to grab a screenshot of the PC screen. Builds on PC to phone (6). | M |
 
+## Smart features
+
+| # | Feature | Why it matters | Size |
+|:-:|---|---|:-:|
+| 25 | **Text from photos** | Photograph a whiteboard or a page and its text lands on the PC clipboard. On-device text recognition, so nothing leaves the network. | M |
+| 26 | **Scan mode** | Crop and straighten a document photo automatically and save it on the PC as a PDF. | M |
+| 27 | **Auto-convert** | Turn HEIC into JPG, shrink huge photos, and optionally strip the GPS location before sending. | S |
+| 28 | **Auto-sort** | Save arrivals into folders by date or by phone, with clean file names. | S |
+
 ## Suggested order
 
 1. **Signed releases (4)**: the last trust gap. The Android half is built and waits for the key to be added to the repository's secrets. The Windows half needs a code-signing certificate.
