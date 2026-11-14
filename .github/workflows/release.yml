@@ -70,6 +70,27 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
       - run: npm run dist:win
+      # The installer is run for real: it has to put "Phone (Flingo)" in Explorer's Send to
+      # menu, pointing at the installed program, and the uninstaller has to take it out again.
+      - name: Install, check the Send to entry, uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $link = Join-Path $env:APPDATA 'Microsoft\Windows\SendTo\Phone (Flingo).lnk'
+          if (Test-Path -LiteralPath $link) { throw "Already there before installing: $link" }
+          Start-Process -FilePath 'release\Flingo-Setup.exe' -ArgumentList '/S' -Wait
+          # Flingo makes the same shortcut when it starts, so it must not be what made this one.
+          if (Get-Process -Name Flingo -ErrorAction SilentlyContinue) { throw 'The silent install started Flingo, so this check proves nothing.' }
+          if (-not (Test-Path -LiteralPath $link)) { throw "The installer did not add $link" }
+          $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
+          "Send to entry: `"$($shortcut.TargetPath)`" $($shortcut.Arguments)"
+          if ($shortcut.Arguments -ne '--send') { throw "Wrong arguments: $($shortcut.Arguments)" }
+          if ((Split-Path $shortcut.TargetPath -Leaf) -ne 'Flingo.exe') { throw "Wrong program: $($shortcut.TargetPath)" }
+          if (-not (Test-Path -LiteralPath $shortcut.TargetPath)) { throw "It points at a program that is not there: $($shortcut.TargetPath)" }
+          $dir = Split-Path $shortcut.TargetPath
+          Start-Process -FilePath (Join-Path $dir 'Uninstall Flingo.exe') -ArgumentList '/S', "_?=$dir" -Wait
+          if (Test-Path -LiteralPath $link) { throw "The uninstaller left $link behind" }
+          'The uninstaller removed it again.'
       - uses: actions/upload-artifact@v4
         with:
           name: windows
