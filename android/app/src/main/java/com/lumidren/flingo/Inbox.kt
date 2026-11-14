@@ -276,3 +276,74 @@ object Inbox {
         }
         // Any other IOException leaves the partial file in place: the next run carries on from it.
     }
+
+    private fun discard(resolver: ContentResolver, prefs: Prefs, item: Incoming, uri: Uri) {
+        runCatching { resolver.delete(uri, null, null) }
+        prefs.setInboxPart(item.id, null)
+    }
+
+    /** The phone's own idea of the file's type, from its name; it decides which folder the file goes to. */
+    private fun typeOf(item: Incoming): String {
+        val ext = item.name.substringAfterLast('.', "").lowercase()
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+            ?: item.mime.takeIf { it.matches(Regex("[a-z0-9.+-]{1,60}/[a-z0-9.+-]{1,60}")) }
+            ?: "application/octet-stream"
+    }
+
+    /**
+     * Makes the file in shared storage, hidden until it is complete: Pictures/Flingo for photos
+     * and videos, Download/Flingo for everything else. Only the name is used, never a path, and
+     * Android picks a free name if that one is taken.
+     */
+    private fun create(resolver: ContentResolver, item: Incoming, mime: String): Uri {
+        val name = item.name.replace(Regex("""[\\/:*?"<>|\u0000-\u001f\u007f]"""), "_").trim().trimStart('.').take(180).ifEmpty { "file" }
+        fun insert(collection: Uri, folder: String, type: String): Uri? = runCatching {
+            resolver.insert(collection, ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(MediaStore.MediaColumns.MIME_TYPE, type)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, folder)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            })
+        }.getOrNull()
+        val volume = MediaStore.VOLUME_EXTERNAL_PRIMARY
+        val made = when {
+            mime.startsWith("image/") -> insert(MediaStore.Images.Media.getContentUri(volume), "Pictures/Flingo", mime)
+            mime.startsWith("video/") -> insert(MediaStore.Video.Media.getContentUri(volume), "Pictures/Flingo", mime)
+            else -> null
+        }
+        return made
+            ?: insert(MediaStore.Downloads.getContentUri(volume), "Download/Flingo", mime)
+            ?: insert(MediaStore.Downloads.getContentUri(volume), "Download/Flingo", "application/octet-stream")
+            ?: throw StorageException()
+    }
+
+    /** Bytes written so far, or -1 if the file is gone. */
+    private fun sizeOf(resolver: ContentResolver, uri: Uri): Long =
+        runCatching { resolver.openFileDescriptor(uri, "r")?.use { it.statSize } }.getOrNull() ?: -1
+
+    /** Opens the file to write on from byte [from], dropping anything after it. */
+    private fun append(resolver: ContentResolver, uri: Uri, from: Long, write: (java.io.OutputStream) -> Unit) {
+        val pfd = resolver.openFileDescriptor(uri, "rw") ?: throw IOException("The file cannot be opened")
+        pfd.use {
+            FileOutputStream(it.fileDescriptor).use { out ->
+                out.channel.truncate(from)
+                out.channel.position(from)
+                write(out)
+                runCatching { out.fd.sync() }
+            }
+        }
+    }
+
+    private fun sha256(resolver: ContentResolver, uri: Uri): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        (resolver.openInputStream(uri) ?: throw IOException("The file cannot be read back")).use { input ->
+            val buf = ByteArray(BUFFER)
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
+    }
+}
