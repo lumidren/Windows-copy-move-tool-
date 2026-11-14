@@ -108,3 +108,22 @@ object Inbox {
         cancelled = true
         Net.abortFetch()
     }
+
+    private suspend fun ask(ctx: Context) {
+        val prefs = Prefs(ctx)
+        var first = true
+        while (coroutineContext.isActive && prefs.paired) {
+            val offered = try {
+                // The first question asks for everything, including what an earlier run of the app had begun.
+                withContext(Dispatchers.IO) { Net.outbox(prefs, if (first) 0 else 25, all = first) }
+            } catch (_: NotPairedException) {
+                return
+            } catch (_: IOException) {
+                delay(4000) // the PC is not there right now; the health check says so on screen
+                continue
+            } ?: return // an older Flingo on the PC, which cannot send to phones
+            first = false
+            if (offered.isNotEmpty()) receive(ctx, prefs, offered)
+            if (leaveWhenIdle) return
+        }
+    }
