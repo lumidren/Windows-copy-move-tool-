@@ -74,6 +74,7 @@ class TransferService : Service() {
 
     companion object {
         private const val ACTION_CANCEL = "com.lumidren.flingo.CANCEL"
+        private const val RECEIVED = 4
         private const val CHANNEL_PROGRESS = "progress"
         private const val CHANNEL_RESULT = "result"
         private const val ONGOING = 1
@@ -130,6 +131,52 @@ class TransferService : Service() {
             if (now - updatedAt < 1000) return
             updatedAt = now
             runCatching { manager(ctx).notify(ONGOING, sending(ctx, s)) }
+        }
+
+        /**
+         * Ends the service after files came in from the PC, and leaves a notification that says
+         * what arrived. Tapping it opens the file, or Flingo when there were several.
+         */
+        fun finishReceive(ctx: Context, result: ReceiveResult, visible: Boolean) {
+            if (!Transfers.busy) {
+                live = false
+                runCatching { ctx.stopService(Intent(ctx, TransferService::class.java)) }
+            }
+            val pc = Prefs(ctx).pcName.ifEmpty { "your PC" }
+            val (title, text) = when (result) {
+                is ReceiveResult.Done -> when {
+                    result.arrived == 0 -> return
+                    result.arrived == 1 && result.last != null -> "Received from $pc" to result.last.name
+                    else -> "Received ${Words.files(result.arrived)} from $pc" to
+                        (if (result.failed > 0) "${Words.files(result.failed)} did not arrive." else "Tap to open Flingo.")
+                }
+                is ReceiveResult.Lost -> {
+                    if (visible) return
+                    "Receiving from $pc stopped" to "The connection was lost. Open Flingo to carry on."
+                }
+                is ReceiveResult.NoSpace -> "Not enough space on this phone" to "A file from $pc could not be saved."
+                is ReceiveResult.Cancelled -> return
+            }
+            val single = (result as? ReceiveResult.Done)?.takeIf { it.arrived == 1 }?.last
+            val tap = if (single != null) {
+                Intent(Intent.ACTION_VIEW).setDataAndType(single.uri, single.mime)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            } else {
+                Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            channels(ctx)
+            runCatching {
+                manager(ctx).notify(
+                    RECEIVED,
+                    Notification.Builder(ctx, CHANNEL_RESULT)
+                        .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                        .setContentTitle(title)
+                        .setContentText(text)
+                        .setContentIntent(PendingIntent.getActivity(ctx, 2, tap, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+                        .setAutoCancel(true)
+                        .build(),
+                )
+            }
         }
 
         /** Ends the service. If no screen is showing the outcome, leaves a notification that says it. */
