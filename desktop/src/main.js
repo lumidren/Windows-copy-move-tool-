@@ -8,7 +8,8 @@ const crypto = require('crypto');
 const { execFile, spawn } = require('child_process');
 const { pathToFileURL } = require('url');
 const qrcode = require('qrcode-generator');
-const { startServer, cleanStaleParts, HTTP_PORT } = require('./server');
+const { startServer, cleanStaleParts, sanitizeName, HTTP_PORT } = require('./server');
+const { createOutbox } = require('./outbox');
 const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
 const { runPreflight } = require('./preflight');
 const updates = require('./update');
@@ -60,6 +61,7 @@ let sleepBlocker = null;
 let selfToken = null;
 let selfResult = null; // filled in while a pre-flight transfer is running
 const lastSeen = new Map(); // device id -> { at, ip }
+const outRuns = new Map(); // phone id -> the files being sent to it in one go
 const transfers = new Map(); // transfer key -> one file on its way that is not part of a batch
 const batches = new Map(); // phone + batch id -> a group of files sent together
 const memberOf = new Map(); // transfer key -> the batch it belongs to
@@ -194,6 +196,7 @@ function publicState() {
     displays: displayList(),
     overlayDisplay: settings.overlayDisplay,
     overlayTarget: String(targetDisplay().id),
+    sendTo: defaultPhone()?.id || '',
     devices: devicesState(),
     history: history.filter((h) => fs.existsSync(h.path)).map((h) => ({ ...h, url: pathToFileURL(h.path).href })),
     platform: process.platform,
@@ -683,9 +686,6 @@ function closeBatch(b) {
   }
 }
 
-// ---------- updates ----------
-// Flingo asks GitHub which release is the newest, and says so in the window when it is
-// not this one. A copy put in place by the Windows installer can fetch the new installer,
 // ---------- sending to a phone ----------
 // Files for a phone go into the outbox, and the phone collects them (see outbox.js). The
 // window shows one card per phone for everything sent to it in one go.
@@ -794,6 +794,9 @@ function cancelSend(phoneId) {
   for (const id of run.ids) if (!run.ended.has(id)) outbox.cancel(id);
 }
 
+// ---------- updates ----------
+// Flingo asks GitHub which release is the newest, and says so in the window when it is
+// not this one. A copy put in place by the Windows installer can fetch the new installer,
 // check it and hand over to it. Every other copy gets a link to the download page.
 let update = { state: 'idle', version: '', fraction: 0, message: '' }; // state: idle, checking, current, available, downloading, ready, failed
 let found = null; // the newer release, as update.js describes it
@@ -1049,6 +1052,7 @@ if (!app.requestSingleInstanceLock()) {
       onEnd: transferEnded,
       onCancel: transferCancelled,
       onFile: handleFile,
+      outbox,
     }, {
       tls: identity,
       // Only for working on Flingo itself: a test copy on another port, next to the one you really use.
@@ -1064,6 +1068,7 @@ if (!app.requestSingleInstanceLock()) {
       if (typeof patch.sound === 'boolean') settings.sound = patch.sound;
       if (typeof patch.pairingLocked === 'boolean') settings.pairingLocked = patch.pairingLocked;
       if (typeof patch.autoUpdate === 'boolean') settings.autoUpdate = patch.autoUpdate;
+      if (typeof patch.sendTo === 'string' && settings.devices.some((d) => d.id === patch.sendTo)) settings.sendTo = patch.sendTo;
       if (typeof patch.stage === 'boolean') setStage(patch.stage);
       if (typeof patch.overlayDisplay === 'string') {
         settings.overlayDisplay = patch.overlayDisplay === 'auto' || screen.getAllDisplays().some((d) => String(d.id) === patch.overlayDisplay)
@@ -1102,6 +1107,12 @@ if (!app.requestSingleInstanceLock()) {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
     });
     ipcMain.on('identify-screens', identifyScreens);
+    ipcMain.on('send-files', (_e, paths, phoneId) => { sendToPhone(paths, phoneId); });
+    ipcMain.on('pick-and-send', async (_e, phoneId) => {
+      const picked = await dialog.showOpenDialog(mainWin, { title: 'Send to phone', buttonLabel: 'Send', properties: ['openFile', 'multiSelections'] });
+      if (!picked.canceled) sendToPhone(picked.filePaths, phoneId);
+    });
+    ipcMain.on('cancel-send', (_e, phoneId) => cancelSend(String(phoneId)));
     ipcMain.on('open-link', (_e, which) => { if (Object.hasOwn(LINKS, which)) shell.openExternal(LINKS[which]); });
     ipcMain.on('open-settings', (_e, what) => {
       if (what === 'folder') { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); }
