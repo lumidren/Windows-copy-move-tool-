@@ -153,3 +153,29 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
     changed(item);
     return stream;
   }
+
+  /** The phone's verdict: it has the whole file and the checksum matched, or it does not. */
+  function finish(item, ok, error = '') {
+    if (!OPEN.has(item.state)) return;
+    streams.get(item.id)?.destroy();
+    if (ok) item.sent = item.size;
+    set(item, ok ? 'done' : 'failed', ok ? '' : (error || 'The phone could not save the file.'));
+  }
+
+  /** Takes a file back out, from the PC's side or the phone's. */
+  function cancel(id) {
+    const item = items.get(id);
+    if (!item || !OPEN.has(item.state)) return false;
+    streams.get(id)?.destroy();
+    set(item, 'cancelled');
+    return true;
+  }
+
+  return {
+    add, wait, pending, find, open, finish, cancel,
+    list: () => [...items.values()],
+    get: (id) => items.get(id) || null,
+  };
+}
+
+module.exports = { createOutbox, typeOf, MAX_WAITING };
