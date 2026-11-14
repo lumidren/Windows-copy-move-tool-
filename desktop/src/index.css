@@ -105,11 +105,20 @@ p { margin: 0 0 10px; }
 .small, small { font-size: 12px; }
 .row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .spread { justify-content: space-between; }
+/* A heading that shares its line with buttons sits level with them. */
+.spread > h2 { margin: 0; }
+.card > .spread:first-child { margin-bottom: 12px; }
 
 .pair-steps { margin: 2px 0 14px; padding-left: 20px; color: var(--muted); }
 .pair-steps li { padding: 2px 0; }
 .pair-steps b { color: var(--text); }
 #qr { display: block; margin: 0 auto; width: 190px; height: 190px; border-radius: 12px; image-rendering: pixelated; cursor: zoom-in; }
+/* Once a phone is paired the code steps aside: the same card, without the numbered steps. */
+.pair-hint { display: none; text-align: center; margin: 12px 4px 0; }
+.pair-hint b { color: var(--text); font-weight: 600; }
+.pair.compact .pair-steps { display: none; }
+.pair.compact .pair-hint { display: block; }
+.pair.compact #qr:not(.big) { width: 176px; height: 176px; }
 .more { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
 .more summary { cursor: pointer; color: var(--muted); list-style-position: inside; padding: 4px 0; border-radius: 6px; }
 .more summary:hover { color: var(--text); }
