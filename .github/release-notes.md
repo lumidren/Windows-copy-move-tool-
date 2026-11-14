@@ -24,6 +24,8 @@ Flick a photo off your phone and watch it land on your PC. This release teaches 
 
 ### Faster
 
+- **Batches travel three files at a time,** in both directions, over connections that stay open between files. On the test bench 500 photos go 2.4 times faster to the PC and 2.2 times faster to the phone. How much of that you see depends on your Wi-Fi; it has not been measured on a real phone.
+- **A single large file reaches the PC's disk about 1.3 times faster** on the test bench, because the PC now writes a megabyte at a time.
 - **The PC window stays responsive during a large batch.** A new arrival adds one tile instead of redrawing the whole list, and the list is written to disk once a second instead of once per file.
 - **The phone sets up its secure connection to the PC once** and reuses it for the next file and for its regular "is the PC there" check, instead of starting from nothing every time. It also looks each file up once instead of twice.
 
