@@ -73,13 +73,18 @@ class Prefs(ctx: Context) {
     private fun ids(key: String): org.json.JSONObject =
         runCatching { org.json.JSONObject(sp.getString(key, "{}") ?: "{}") }.getOrDefault(org.json.JSONObject())
 
-    private fun remember(key: String, id: String, uri: String?, keep: Int) {
+    // Several files arrive at the same time, each on its own thread, and they share these lists.
+    private fun remember(key: String, id: String, uri: String?, keep: Int) = synchronized(LOCK) {
         val all = ids(key)
         if (uri == null) all.remove(id) else all.put(id, uri)
         // Old entries make way for new ones; the PC forgets a file long before this list does.
         val names = all.keys().asSequence().toList()
         names.dropLast(keep).forEach { all.remove(it) }
         sp.edit().putString(key, all.toString()).apply()
+    }
+
+    private companion object {
+        val LOCK = Any()
     }
 
     /** Where the part of file [id] that has arrived so far is kept, if any. */
