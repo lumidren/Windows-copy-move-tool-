@@ -1439,6 +1439,8 @@ class MainActivity : Activity() {
     private fun field(hintText: String, numeric: Boolean) = EditText(this).apply {
         hint = hintText
         maxLines = 1
+        minHeight = dpi(48f)
+        minimumHeight = dpi(48f)
         if (numeric) {
             inputType = InputType.TYPE_CLASS_NUMBER
             filters = arrayOf(InputFilter.LengthFilter(6))
@@ -1450,54 +1452,79 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun box(vararg views: View) = LinearLayout(this).apply {
+    /** The contents of a dialog, able to scroll: with large text they can be taller than the screen. */
+    private fun box(vararg views: View): View = ScrollView(this).apply {
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpi(22f), dpi(8f), dpi(22f), 0)
+            views.forEach { addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
+        })
+    }
+
+    /** A field with its name above it. A hint alone is gone as soon as typing starts, and is no name to a screen reader. */
+    private fun labelled(name: String, input: EditText): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dpi(22f), dpi(8f), dpi(22f), 0)
-        views.forEach { addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
+        input.id = View.generateViewId()
+        addView(TextView(this@MainActivity).apply {
+            text = name
+            textSize = 13f
+            setTextColor(Palette.SOFT)
+            labelFor = input.id
+            setPadding(dpi(4f), dpi(10f), 0, 0)
+        })
+        addView(input, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
     }
 
     /** Address and code on one screen, for when the camera or discovery cannot be used. */
     private fun showManualDialog(presetHost: String = "") {
-        val address = field("PC address, e.g. 192.168.1.20", numeric = false).apply { setText(presetHost) }
-        val code = field("000000", numeric = true)
-        AlertDialog.Builder(this)
+        val address = field("e.g. 192.168.1.20", numeric = false).apply { setText(presetHost) }
+        val code = field("6 digits", numeric = true)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Type the PC's details")
             .setMessage("Both are shown under Pair a phone in Flingo on the PC.")
-            .setView(box(address, code))
+            .setView(box(labelled("PC address", address), labelled("Pairing code", code)))
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Pair") { _, _ ->
-                val host = address.text.toString().trim().removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore(':')
-                val digits = code.text.toString().trim()
-                if (host.isEmpty() || digits.length != 6) {
-                    showStatus("Enter the PC's address and the 6-digit code.", holdMs = 4000)
-                    showManualDialog(host)
-                    return@setPositiveButton
-                }
-                showStatus("Connecting to $host…", sticky = true)
-                scope.launch {
-                    val pc = withContext(Dispatchers.IO) { Net.info(host) }
-                    if (pc == null) {
-                        buzz(hapticNo)
-                        showStatus("No Flingo PC answered at $host. Check the address, and that both are on the same network.", holdMs = 7000)
-                    } else {
-                        pairWithCode(pc, digits)
-                    }
+            .setPositiveButton("Pair", null) // set below, so that a mistake does not close the dialog
+            .show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val host = address.text.toString().trim().removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore(':')
+            val digits = code.text.toString().trim()
+            // What is wrong is said on the field it is wrong in, and what was typed is kept.
+            if (host.isEmpty()) { address.error = "Enter the PC's address"; address.requestFocus(); return@setOnClickListener }
+            if (digits.length != 6) { code.error = "Enter all 6 digits of the code"; code.requestFocus(); return@setOnClickListener }
+            dialog.dismiss()
+            showStatus("Connecting to $host…", sticky = true)
+            scope.launch {
+                val pc = withContext(Dispatchers.IO) { Net.info(host) }
+                if (pc == null) {
+                    buzz(hapticNo)
+                    showStatus("No Flingo PC answered at $host. Check the address, and that both are on the same network.", holdMs = 7000)
+                } else {
+                    pairWithCode(pc, digits)
                 }
             }
-            .show()
+        }
         (if (presetHost.isEmpty()) address else code).requestFocus()
     }
 
-    private fun showCodeDialog(pc: Pc) {
-        val code = field("000000", numeric = true)
-        AlertDialog.Builder(this)
+    /** [problem] is shown on the field when the last code tried was wrong. */
+    private fun showCodeDialog(pc: Pc, problem: String? = null) {
+        val code = field("6 digits", numeric = true)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Pair with ${pc.name}")
             .setMessage("Type the 6-digit code shown in Flingo on the PC.")
-            .setView(box(code))
+            .setView(box(labelled("Pairing code", code)))
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Pair") { _, _ -> pairWithCode(pc, code.text.toString().trim()) }
+            .setPositiveButton("Pair", null)
             .show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val digits = code.text.toString().trim()
+            if (digits.length != 6) { code.error = "Enter all 6 digits of the code"; code.requestFocus(); return@setOnClickListener }
+            dialog.dismiss()
+            pairWithCode(pc, digits)
+        }
         code.requestFocus()
+        if (problem != null) code.error = problem
     }
 
     /** Pairs with a typed code. The PC's certificate is remembered from this first connection. */
@@ -1510,8 +1537,9 @@ class MainActivity : Activity() {
                 showStatus("Paired with ${paired.pc.name} ✓  Security code ${Net.securityCode(paired.pc.fp)}", holdMs = 6000)
             } catch (_: WrongCodeException) {
                 buzz(hapticNo)
-                showStatus("That code didn't match. Check the code on the PC and try again.", holdMs = 5000)
-                showCodeDialog(pc)
+                // Said on the field itself: a message under the dialog that reopens would not be seen.
+                hideStatus()
+                showCodeDialog(pc, "That code didn't match. Check the code on the PC and try again.")
             } catch (_: PairingLockedException) {
                 buzz(hapticNo)
                 showStatus("Pairing is locked on ${pc.name}. On the PC, press Pair a phone, then try again.", holdMs = 7000)
