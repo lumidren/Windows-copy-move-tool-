@@ -11,6 +11,7 @@ const qrcode = require('qrcode-generator');
 const { startServer, cleanStaleParts, sanitizeName, HTTP_PORT } = require('./server');
 const { createOutbox } = require('./outbox');
 const { filesFromArgv, filesFromHandover, toHandover, SEND_FLAG } = require('./sendargs');
+const addresses = require('./addresses');
 const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
 const { runPreflight } = require('./preflight');
 const updates = require('./update');
@@ -118,19 +119,17 @@ function saveHistorySoon() {
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
+// The address this PC uses to reach the network, found again every few seconds. It goes
+// first in the pairing code, so a phone tries the live address before any other (see addresses.js).
+let wayOut = '';
 function lanAddresses() {
-  const out = [];
-  // Virtual adapters (VM hosts, WSL, VPNs) are never the address a phone can reach.
-  const virtual = /vmware|virtualbox|vethernet|hyper-v|wsl|docker|loopback|tailscale|zerotier/i;
-  // VirtualBox, VMware and Hyper-V host adapters, by MAC vendor prefix.
-  const virtualMac = /^(0a:00:27|08:00:27|00:50:56|00:0c:29|00:05:69|00:15:5d)/i;
-  for (const [name, list] of Object.entries(os.networkInterfaces())) {
-    if (virtual.test(name)) continue;
-    for (const a of list || []) {
-      if (a.family === 'IPv4' && !a.internal && !virtualMac.test(a.mac || '')) out.push(a.address);
-    }
-  }
-  return out;
+  return addresses.lanAddresses(os.networkInterfaces(), wayOut);
+}
+async function refreshWayOut() {
+  const found = await addresses.primaryAddress();
+  if (found === wayOut) return;
+  wayOut = found;
+  pushState(); // the QR code is drawn from the list, so it has to be drawn again
 }
 
 // ---------- pairing link + QR ----------
@@ -140,7 +139,7 @@ function lanAddresses() {
 // PC's name and id are not in it; the phone learns them when it pairs.
 function pairUri() {
   const port = receiver ? receiver.port : HTTP_PORT;
-  let uri = `flingo://pair?h=${lanAddresses().slice(0, 3).join(',')}&c=${pairCode}`;
+  let uri = `flingo://pair?h=${lanAddresses().slice(0, addresses.MAX_IN_LINK).join(',')}&c=${pairCode}`;
   if (port !== HTTP_PORT) uri += `&p=${port}`;
   if (identity) uri += `&fp=${fingerprint(identity.cert).toString('base64url')}`;
   return uri;
@@ -1087,6 +1086,8 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
     createTray();
     installShortcuts();
     syncSendToMenu();
+    refreshWayOut();
+    setInterval(refreshWayOut, 5000).unref(); // Wi-Fi comes and goes; the best address follows it
 
     for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) {
       screen.on(ev, () => { if (overlayWin && !overlayWin.isDestroyed()) placeOverlay(); pushState(); });
