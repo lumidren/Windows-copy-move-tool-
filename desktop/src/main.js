@@ -93,7 +93,7 @@ function loadSettings() {
     sendToMenu: true, // Windows: "Phone (Flingo)" in Explorer's Send to menu
     autoUpdate: true, // look for a newer release now and then; nothing installs without a click
     updateDismissed: '', // the version "Later" was pressed on
-    devices: [], // {id, name, deviceId, hash, added}
+    devices: [], // {id, name, deviceId, hash, added, heard, ip}
   };
   try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; }
   catch { settings = defaults; }
@@ -182,7 +182,11 @@ function devicesState() {
   return settings.devices.map(({ id, name, added }) => {
     const known = lastSeen.get(id);
     // `app` is the Flingo the phone says it runs; `receives` is 'no' for one too old to be sent files.
-    return { id, name, added, lastSeen: known?.at || 0, app: known?.app || '', receives: phones.receives(known, Date.now()) };
+    // `replaced` marks an entry that a later pairing of the same phone has taken over from.
+    return {
+      id, name, added, lastSeen: known?.at || 0, app: known?.app || '', receives: phones.receives(known, Date.now()),
+      replaced: phones.superseded(settings.devices, settings.devices.find((d) => d.id === id)),
+    };
   });
 }
 
@@ -741,22 +745,32 @@ function closeBatch(b) {
 // window shows one card per phone for everything sent to it in one go.
 const outbox = createOutbox({ cleanName: sanitizeName, onChange: outboxChanged });
 const ONLINE_MS = 15_000;
+const HEARD_SAVE_MS = 10 * 60 * 1000; // how often "last heard from" is written to disk for a phone that stays connected
 const STALLED_MS = 5_000; // no bytes for this long means the phone has gone quiet
+
+const isOnline = (d) => Date.now() - (lastSeen.get(d.id)?.at || 0) < ONLINE_MS;
+
+/**
+ * The paired phone that files for `id` go to. That one, unless the same phone has been paired
+ * again since (Flingo was installed again on it): then the pairing that is in use now.
+ */
+const phoneFor = (id) => phones.target(settings.devices, id, isOnline);
 
 /** The phone files go to when none is named: the chosen one, else the one heard from last. */
 function defaultPhone() {
   const paired = settings.devices;
   if (!paired.length) return null;
-  const chosen = paired.find((d) => d.id === settings.sendTo);
+  const chosen = phoneFor(settings.sendTo);
   if (chosen) return chosen;
   const heard = (d) => lastSeen.get(d.id)?.at || 0;
-  return [...paired].sort((a, b) => heard(b) - heard(a) || b.added - a.added)[0];
+  const newest = [...paired].sort((a, b) => heard(b) - heard(a) || b.added - a.added)[0];
+  return phoneFor(newest.id);
 }
 
 async function sendToPhone(paths, phoneId) {
   const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p).slice(0, 500);
   if (!list.length) return;
-  const phone = settings.devices.find((d) => d.id === phoneId) || defaultPhone();
+  const phone = phoneFor(phoneId) || defaultPhone();
   if (!phone) {
     sendMain('transfer', { id: 'out|none', state: 'failed', title: 'No phone to send to', detail: 'Pair a phone first.', fraction: 1 });
     return;
@@ -1111,15 +1125,17 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
 
     receiver = startServer({
       info: () => ({ id: settings.deviceId, name: settings.name, ...(identity ? { fp: fingerprint(identity.cert).toString('base64url') } : {}) }),
-      pair: ({ code, deviceName, deviceId }) => {
+      pair: ({ code, deviceName, deviceId, ip }) => {
         if (settings.pairingLocked) return { error: 'locked' };
         const a = Buffer.from(sha(code)); const b = Buffer.from(sha(pairCode));
         if (!crypto.timingSafeEqual(a, b)) return { error: 'wrong' };
         const token = crypto.randomBytes(32).toString('hex');
-        // One entry per phone: pairing the same phone again replaces its old entry.
-        if (deviceId) settings.devices = settings.devices.filter((d) => d.deviceId !== deviceId);
-        settings.devices.push({ id: crypto.randomBytes(6).toString('hex'), name: deviceName, deviceId, hash: sha(token), added: Date.now() });
-        settings.devices = settings.devices.slice(-20);
+        // One entry per phone: pairing the same phone again replaces its old entry (phones.js says when it is the same).
+        const now = Date.now();
+        const paired = { id: crypto.randomBytes(6).toString('hex'), name: deviceName, deviceId, hash: sha(token), added: now, heard: now, ip };
+        settings.devices = phones.withPaired(settings.devices, paired);
+        // The phone that has just been paired is the one in hand: files go to it until another is chosen.
+        settings.sendTo = paired.id;
         if (settings.stage) settings.pairingLocked = true; // on stage, one phone in and the door shuts
         saveSettings();
         pairCode = newCode(); // one code, one phone
@@ -1137,6 +1153,14 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
         if (device.id === 'self') return;
         const known = phones.note(lastSeen.get(device.id), { at: Date.now(), ip, ...said });
         lastSeen.set(device.id, known);
+        // Kept on disk too, now and then: when and where each phone was last heard from is how a
+        // phone that is paired again is told from a second phone of the same model.
+        const entry = settings.devices.find((d) => d.id === device.id);
+        if (entry && (entry.ip !== ip || known.at - (entry.heard || 0) > HEARD_SAVE_MS)) {
+          entry.ip = ip;
+          entry.heard = known.at;
+          saveSettings();
+        }
         // Whether a phone that says nothing about itself can receive is only clear a few seconds
         // after its first word. Show the list again then, without waiting for its next one.
         if (known.since === known.at && phones.receives(known, known.at) === 'unknown') {
