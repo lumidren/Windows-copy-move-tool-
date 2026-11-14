@@ -89,6 +89,7 @@
   - The phone collects from the PC over the same encrypted, pinned connection it sends on, so nothing new has to be trusted and the PC never has to find the phone.
   - A dropped connection carries on from where it stopped, in either direction, and every file is checked against its SHA-256 before the phone shows it.
   - Files arrive at once while Flingo is open on the phone, and otherwise the next time it is opened.
+- **Faster batches.** Three files of a batch travel at once, in both directions, over connections that stay open. On the test bench 500 photos go 2.4 times faster to the PC and 2.2 times faster to the phone; on a real phone the gain depends on the Wi-Fi. The numbers, and what they do not show, are in [docs/benchmarks.md](docs/benchmarks.md).
 - **Updates itself.** Both apps ask GitHub which release is the newest, and offer it when it is not the one you have.
   - **Windows:** *Update now* downloads the installer, checks it against the release's checksum, and restarts into the new version.
   - **Android:** *Update* downloads the APK, checks it the same way, and hands it to Android, which asks before it installs.
@@ -290,7 +291,7 @@ android/
 | **Updating without an app store** | Each app reads GitHub's public release list, and only trusts a download that comes from this project's releases and matches the SHA-256 the release declares. The phone also compares who signed the APK before asking Android to install it, so a mismatch is explained instead of failing oddly. The PC never checks while in stage mode. |
 | **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
 
-**Tested how.** `npm test` runs 52 tests on the receiver, the outbox, the certificate, the pre-flight logic and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
+**Tested how.** `npm test` runs 54 tests on the receiver, the outbox, the certificate, the pre-flight logic and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
