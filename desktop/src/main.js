@@ -10,7 +10,7 @@ const { pathToFileURL } = require('url');
 const qrcode = require('qrcode-generator');
 const { startServer, cleanStaleParts, sanitizeName, HTTP_PORT } = require('./server');
 const { createOutbox } = require('./outbox');
-const { filesFromArgv, filesFromHandover, toHandover } = require('./sendargs');
+const { filesFromArgv, filesFromHandover, toHandover, SEND_FLAG } = require('./sendargs');
 const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
 const { runPreflight } = require('./preflight');
 const updates = require('./update');
@@ -86,6 +86,7 @@ function loadSettings() {
     pairingLocked: false,
     overlayDisplay: 'auto', // or a display id
     launchAtLogin: false,
+    sendToMenu: true, // Windows: "Phone (Flingo)" in Explorer's Send to menu
     autoUpdate: true, // look for a newer release now and then; nothing installs without a click
     updateDismissed: '', // the version "Later" was pressed on
     devices: [], // {id, name, deviceId, hash, added}
@@ -196,6 +197,8 @@ function publicState() {
     sound: settings.sound,
     stage: settings.stage,
     launchAtLogin: settings.launchAtLogin,
+    sendToMenu: settings.sendToMenu !== false,
+    sendToMenuName: SEND_TO_NAME,
     displays: displayList(),
     overlayDisplay: settings.overlayDisplay,
     overlayTarget: String(targetDisplay().id),
@@ -408,6 +411,38 @@ function installShortcuts() {
   for (const lnk of targets) {
     try { shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'update' : 'create', opts); } catch { /* non-fatal */ }
   }
+}
+
+// ---------- Explorer's "Send to" menu ----------
+// Windows shows every shortcut in the SendTo folder under right-click > Send to, and starts
+// the shortcut's program with all the selected files on its command line. So one shortcut
+// to "Flingo.exe --send" is the whole integration: nothing is added to the registry, and
+// deleting the shortcut removes it. The installer creates and removes it too (see
+// installer/sendto.nsh); doing it here as well keeps it in step with the setting, points it
+// at this copy after an update, and covers a copy that was unpacked instead of installed.
+const SEND_TO_NAME = `Phone (${app.getName()})`;
+
+function sendToLink() {
+  // A copy run from source leaves Explorer alone, unless a folder to practise in is named.
+  if (!app.isPackaged) return process.env.FLINGO_SENDTO_DIR ? path.join(process.env.FLINGO_SENDTO_DIR, `${SEND_TO_NAME}.lnk`) : null;
+  return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'SendTo', `${SEND_TO_NAME}.lnk`);
+}
+
+function syncSendToMenu() {
+  if (process.platform !== 'win32') return;
+  const lnk = sendToLink();
+  if (!lnk) return;
+  try {
+    if (settings.sendToMenu === false) { fs.rmSync(lnk, { force: true }); return; }
+    shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'update' : 'create', {
+      target: process.execPath,
+      // From source, Electron has to be told which app to run before it is told what to send.
+      args: app.isPackaged ? SEND_FLAG : `"${app.getAppPath()}" ${SEND_FLAG}`,
+      description: `Send to your phone with ${app.getName()}`,
+      icon: app.isPackaged ? process.execPath : path.join(__dirname, '..', 'assets', 'icon.ico'),
+      iconIndex: 0,
+    });
+  } catch { /* non-fatal: dragging onto the window still works */ }
 }
 
 function setLaunchAtLogin(enabled) {
@@ -1046,6 +1081,7 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
     else createOverlay();
     createTray();
     installShortcuts();
+    syncSendToMenu();
 
     for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) {
       screen.on(ev, () => { if (overlayWin && !overlayWin.isDestroyed()) placeOverlay(); pushState(); });
@@ -1112,6 +1148,10 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
       if (typeof patch.launchAtLogin === 'boolean') {
         settings.launchAtLogin = patch.launchAtLogin;
         setLaunchAtLogin(patch.launchAtLogin);
+      }
+      if (typeof patch.sendToMenu === 'boolean') {
+        settings.sendToMenu = patch.sendToMenu;
+        syncSendToMenu();
       }
       saveSettings();
       pushState(); // keep the window right even when the change did not come from a click in it
