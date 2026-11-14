@@ -72,6 +72,8 @@ data class SendOptions(
     val id: String = "",
     /** How long to keep trying after the last byte got through. 0 gives up at the first failure. */
     val patienceMs: Long = 0,
+    /** Leave the connection open for the next file. Only for transfers that try again when one fails. */
+    val keepAlive: Boolean = false,
 )
 
 /** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
@@ -141,25 +143,44 @@ object Net {
         return Shared(pin, trust, tls.socketFactory).also { shared = it }
     }
 
+    // The address is an IP on the local network, so there is no name to check. The pin is the check.
+    // One object for every connection: Android only reuses a connection for requests set up alike.
+    private val anyName = HostnameVerifier { _, _ -> true }
+
     /**
      * [reuse] is for talking to the PC this phone is already paired with. Finding and pairing
      * leave it off: they need to see the certificate each connection presents.
+     *
+     * [keep] leaves the connection open afterwards, so the next file of a batch skips the
+     * handshake and starts at full speed instead of feeling its way up again. It is only for
+     * work that tries again by itself: a connection kept from before can turn out to be dead.
      */
-    private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000, reuse: Boolean = false): Conn {
+    private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000, reuse: Boolean = false, keep: Boolean = false): Conn {
         val kept = if (reuse && pin.isNotEmpty()) sharedFor(pin) else null
         val trust = kept?.trust ?: Pinning(decodeFp(pin))
         val factory = kept?.factory ?: SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }.socketFactory
         val url = URL("https", host, port, path)
         val conn = (wifi?.openConnection(url) ?: url.openConnection()) as HttpsURLConnection
         conn.sslSocketFactory = factory
-        // The address is an IP on the local network, so there is no name to check. The pin is the check.
-        conn.hostnameVerifier = HostnameVerifier { _, _ -> true }
+        conn.hostnameVerifier = anyName
         conn.connectTimeout = connectMs
         conn.readTimeout = 20000
         conn.useCaches = false
-        // One connection per request: a kept-alive socket goes stale when the PC sleeps or restarts.
-        conn.setRequestProperty("Connection", "close")
+        // Otherwise one connection per request: a kept-alive socket goes stale when the PC sleeps or restarts.
+        if (!(keep && kept != null)) conn.setRequestProperty("Connection", "close")
         return Conn(conn, trust)
+    }
+
+    /**
+     * Ends a request whose answer has arrived. A kept connection is read to its end and handed
+     * back for the next request; anything else is closed.
+     */
+    private fun HttpsURLConnection.finish(keep: Boolean) {
+        if (keep) {
+            val handedBack = runCatching { inputStream.use { s -> val b = ByteArray(1024); while (s.read(b) >= 0) { /* drain */ } } }.isSuccess
+            if (handedBack) return
+        }
+        disconnect()
     }
 
     private fun HttpsURLConnection.body(): String =
@@ -364,7 +385,7 @@ object Net {
         ctx: Context, host: String, prefs: Prefs, uri: Uri, name: String, size: Long, x: Float,
         o: SendOptions, offset: Long, cancelled: () -> Boolean, onProgress: (Long, Long) -> Unit,
     ): String {
-        val c = open(host, prefs.port, sendPath(x, o, offset), prefs.fp, connectMs = 1500, reuse = true)
+        val c = open(host, prefs.port, sendPath(x, o, offset), prefs.fp, connectMs = 1500, reuse = true, keep = o.keepAlive)
         val conn = c.http
         inFlight.add(conn)
         var answered = false
@@ -412,6 +433,7 @@ object Net {
             val status = conn.responseCode
             if (status == 401) throw NotPairedException()
             if (status != 200) throw PcRefusedException(status, conn.error("The PC could not take the file."))
+            answered = true
             return name
         } finally {
             inFlight.remove(conn)
@@ -608,7 +630,8 @@ object Net {
      * [StorageException] if the phone cannot write it.
      */
     fun fetch(prefs: Prefs, item: Incoming, offset: Long, out: java.io.OutputStream, cancelled: () -> Boolean, onProgress: (Long) -> Unit) {
-        val c = open(prefs.host, prefs.port, "/outbox/${item.id}", prefs.fp, connectMs = 1500, reuse = true)
+        // The connection is kept for the next file: whoever calls this tries again when it fails.
+        val c = open(prefs.host, prefs.port, "/outbox/${item.id}", prefs.fp, connectMs = 1500, reuse = true, keep = true)
         val conn = c.http
         fetching.add(conn)
         var whole = false
@@ -639,14 +662,16 @@ object Net {
                 }
             }
             if (got != item.size) throw IOException("The download stopped early")
+            whole = true // read to the last byte, so the connection is free for the next request
         } finally {
             fetching.remove(conn)
             if (!whole) conn.disconnect()
         }
     }
 
-    private fun post(prefs: Prefs, path: String, body: String) {
-        val c = open(prefs.host, prefs.port, path, prefs.fp, connectMs = 1500, reuse = true)
+    private fun post(prefs: Prefs, path: String, body: String, keep: Boolean = false) {
+        val c = open(prefs.host, prefs.port, path, prefs.fp, connectMs = 1500, reuse = true, keep = keep)
+        var answered = false
         try {
             val bytes = body.toByteArray()
             c.http.requestMethod = "POST"
@@ -657,8 +682,9 @@ object Net {
             c.http.doOutput = true
             c.http.outputStream.use { it.write(bytes) }
             c.http.responseCode
+            answered = true
         } finally {
-            c.http.disconnect()
+            if (answered) c.http.finish(keep) else c.http.disconnect()
         }
     }
 
