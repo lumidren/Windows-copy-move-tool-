@@ -774,7 +774,7 @@ class MainActivity : Activity() {
         view.y = originY
         grabDx = lastX - base[0] - originX
         grabDy = lastY - base[1] - originY
-        view.animate().scaleX(1.18f).scaleY(1.18f).setDuration(120).start()
+        if (motionOk) view.animate().scaleX(1.18f).scaleY(1.18f).setDuration(120).start()
         source.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 
         floating = view
@@ -787,7 +787,7 @@ class MainActivity : Activity() {
         zone.layoutParams = zone.layoutParams.apply { height = root.height * prefs.zonePercent / 100 }
         setZoneActive(false)
         zone.visibility = View.VISIBLE
-        zone.animate().alpha(1f).setDuration(150).start()
+        if (motionOk) zone.animate().alpha(1f).setDuration(150).start() else zone.alpha = 1f
 
         // Take the gesture away from the list so it stops scrolling.
         val now = SystemClock.uptimeMillis()
@@ -838,7 +838,8 @@ class MainActivity : Activity() {
         dragging = false
         floating = null
         dragItem = null
-        zone.animate().alpha(0f).setDuration(180).withEndAction { zone.visibility = View.GONE }.start()
+        if (motionOk) zone.animate().alpha(0f).setDuration(180).withEndAction { zone.visibility = View.GONE }.start()
+        else { zone.alpha = 0f; zone.visibility = View.GONE }
         if (view == null || item == null) return
 
         tracker?.computeCurrentVelocity(1000)
@@ -848,13 +849,22 @@ class MainActivity : Activity() {
 
         if (shouldSend && prefs.paired) {
             val x = ((lastX - rootOnScreen()[0]) / root.width).coerceIn(0f, 1f)
-            view.animate().y(-view.height * 1.6f).scaleX(0.5f).scaleY(0.5f).alpha(0.4f)
-                .setDuration(220).withEndAction { root.removeView(view) }.start()
+            if (motionOk) {
+                view.animate().y(-view.height * 1.6f).scaleX(0.5f).scaleY(0.5f).alpha(0.4f)
+                    .setDuration(220).withEndAction { root.removeView(view) }.start()
+            } else {
+                // Reduced motion: it fades where it was let go. Nothing flies off.
+                view.animate().alpha(0f).setDuration(160).withEndAction { root.removeView(view) }.start()
+            }
             send(dragUris, x, animateFirst = true)
             adapter.clearSelection()
         } else {
-            view.animate().x(originX).y(originY).scaleX(1f).scaleY(1f)
-                .setDuration(200).withEndAction { root.removeView(view) }.start()
+            if (motionOk) {
+                view.animate().x(originX).y(originY).scaleX(1f).scaleY(1f)
+                    .setDuration(200).withEndAction { root.removeView(view) }.start()
+            } else {
+                root.removeView(view)
+            }
             if (shouldSend) showPairDialog()
         }
     }
@@ -892,6 +902,8 @@ class MainActivity : Activity() {
                 runCatching { contentResolver.loadThumbnail(file.uri, android.util.Size(size, size), null) }.getOrNull()
             }
             if (picture == null) { dropping = false; return@launch }
+            val calm = !motionOk
+            val rest = root.height * 0.3f
             val view = ImageView(this@MainActivity).apply {
                 setImageBitmap(picture)
                 scaleType = ImageView.ScaleType.CENTER_CROP
@@ -901,11 +913,19 @@ class MainActivity : Activity() {
                     override fun getOutline(v: View, o: Outline) = o.setRoundRect(0, 0, v.width, v.height, dp(18f))
                 }
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                translationY = -size * 1.2f
-                rotation = -9f
+                if (calm) { translationY = rest; alpha = 0f } else { translationY = -size * 1.2f; rotation = -9f }
             }
             root.addView(view, FrameLayout.LayoutParams(size, size, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-            val rest = root.height * 0.3f
+            if (calm) {
+                // Reduced motion: the picture fades in where it would have come to rest, stays, and
+                // fades out. Nothing falls, turns or bounces. The wait is kept by the clock, because
+                // with animations switched off in Android an animated wait is no wait at all.
+                view.animate().alpha(1f).setDuration(220).start()
+                view.postDelayed({
+                    view.animate().alpha(0f).setDuration(220).withEndAction { root.removeView(view); dropping = false }.start()
+                }, 1400)
+                return@launch
+            }
             view.animate().translationY(rest).rotation(0f).setDuration(520)
                 .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
                 .withEndAction {
@@ -1550,9 +1570,24 @@ class MainActivity : Activity() {
         val updates = CheckBox(this).apply {
             text = "Check for updates"
             textSize = 15f
+            minHeight = dpi(48f)
             isChecked = prefs.checkUpdates
             setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
             setOnCheckedChangeListener { _, on -> prefs.checkUpdates = on }
+        }
+        val calm = CheckBox(this).apply {
+            text = "Reduce motion"
+            textSize = 15f
+            minHeight = dpi(48f)
+            isChecked = prefs.reduceMotion
+            setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
+            setOnCheckedChangeListener { _, on -> prefs.reduceMotion = on }
+        }
+        val calmNote = TextView(this).apply {
+            text = if (ValueAnimator.areAnimatorsEnabled()) "A photo that arrives fades in instead of dropping in, and a photo you send fades instead of flying off."
+            else "Movement is already reduced, because animations are switched off in this phone's settings."
+            textSize = 13f
+            alpha = 0.7f
         }
         val checkNow = TextView(this).apply {
             text = "Check now"
@@ -1560,20 +1595,23 @@ class MainActivity : Activity() {
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(accent)
             gravity = Gravity.CENTER
-            minHeight = dpi(44f)
+            minHeight = dpi(48f)
+            minWidth = dpi(48f)
             setPadding(dpi(12f), 0, dpi(4f), 0)
-        }
+        }.asButton(12f)
+        // The button sits under the words, not beside them: beside, large text left the words a column a few letters wide.
         val versionRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL
             addView(TextView(this@MainActivity).apply {
                 text = "Version ${BuildConfig.VERSION_NAME}. Flingo asks GitHub which version is the newest; nothing installs without a tap."
                 textSize = 13f
                 alpha = 0.7f
-            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            addView(checkNow)
+            })
+            addView(checkNow, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.END })
         }
         box.addView(awake)
+        box.addView(calm)
+        box.addView(calmNote)
         box.addView(updates)
         val about = TextView(this).apply {
             text = "About Flingo  ›"
