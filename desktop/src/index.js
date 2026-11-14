@@ -71,7 +71,7 @@ function renderDevices() {
   else { text = `Ready to pair as “${state.name}”`; dot.className = 'dot wait'; }
   $('status-text').textContent = text;
 
-  const key = devices.map((d) => `${d.id}:${d.name}:${isOnline(d)}:${!!d.lastSeen}:${d.app}:${d.receives}`).join('|');
+  const key = devices.map((d) => `${d.id}:${d.name}:${isOnline(d)}:${!!d.lastSeen}:${d.app}:${d.receives}:${d.replaced}`).join('|');
   if (key === devicesKey) return;
   devicesKey = key;
   $('devices').replaceChildren(...(devices.length ? devices.map((d) => {
@@ -80,7 +80,9 @@ function renderDevices() {
     const on = isOnline(d);
     // Which Flingo the phone runs, when it says. One too old to be sent files is called that.
     const what = d.app ? `Flingo ${d.app}` : d.receives === 'no' ? 'Older Flingo: it can only send. Update it on the phone.' : '';
-    const how = on ? 'Connected' : d.lastSeen ? 'Not connected right now' : 'Not seen since Flingo started';
+    // An entry left behind when Flingo was installed again on the phone and paired again.
+    const how = on ? 'Connected' : d.replaced ? 'An earlier pairing of this phone, no longer used. It can be removed.'
+      : d.lastSeen ? 'Not connected right now' : 'Not seen since Flingo started';
     return el('li', {}, [
       el('span', { className: 'who' }, [
         el('span', { className: `dot ${on ? '' : 'off'}`, ariaHidden: 'true' }),
@@ -230,11 +232,13 @@ let targetsKey = null;
 
 function renderSendTargets(s) {
   $('send-to-phone').hidden = s.devices.length === 0;
-  $('send-target').hidden = s.devices.length < 2;
-  const key = s.devices.map((d) => `${d.id}:${d.name}`).join('|');
+  // A pairing the same phone has since replaced is not a choice: files for it go to the new one anyway.
+  const choices = s.devices.filter((d) => !d.replaced || d.id === s.sendTo);
+  $('send-target').hidden = choices.length < 2;
+  const key = choices.map((d) => `${d.id}:${d.name}`).join('|');
   if (key !== targetsKey) {
     targetsKey = key;
-    $('send-target').replaceChildren(...s.devices.map((d) => el('option', { value: d.id, textContent: d.name })));
+    $('send-target').replaceChildren(...choices.map((d) => el('option', { value: d.id, textContent: d.name })));
   }
   if (s.sendTo) $('send-target').value = s.sendTo;
 }
