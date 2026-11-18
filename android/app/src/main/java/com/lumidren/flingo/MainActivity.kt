@@ -1151,11 +1151,29 @@ class MainActivity : Activity() {
         // own private files, such as the one that holds the pairing.
         val shared = uris.filter { it.scheme == "content" }
         if (shared.isEmpty()) return
-        if (prefs.paired) {
-            send(shared, 0.5f, animateFirst = shared.size == 1)
+        val go = {
+            if (prefs.paired) {
+                send(shared, 0.5f, animateFirst = shared.size == 1)
+            } else {
+                pendingShare = shared
+                showPairDialog()
+            }
+        }
+        // An app that shares its own files gives Flingo permission to read them, and that is
+        // what the gallery and the file manager do. An app that hands over files without that
+        // permission would have Flingo read them with Flingo's own access to the photos, which
+        // is not the app's to lend. Those are sent only after asking.
+        if (intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0) {
+            go()
         } else {
-            pendingShare = shared
-            showPairDialog()
+            val to = if (prefs.paired) prefs.pcName else "your PC"
+            AlertDialog.Builder(this)
+                .setTitle("Send ${Words.files(shared.size)} to $to?")
+                .setMessage(if (shared.size == 1) "Another app asked Flingo to send this file. Only continue if you chose to share it." else "Another app asked Flingo to send these files. Only continue if you chose to share them.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Send") { _, _ -> go() }
+                .show()
+                .guarded()
         }
     }
 
