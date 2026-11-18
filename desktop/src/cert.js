@@ -79,16 +79,37 @@ function securityCode(certPem) {
   return [0, 4, 8, 12].map((i) => hex.slice(i, i + 4)).join(' ');
 }
 
-/** Loads the saved identity, or creates and saves one. */
-function loadOrCreateIdentity(file, commonName) {
+/**
+ * Loads the saved identity, or creates and saves one.
+ *
+ * `vault`, when given, is the operating system's protection for secrets kept by this user
+ * ({ protect(text) -> text, unprotect(text) -> text }; on Windows the user's own encryption,
+ * which no other account and no copy of the file on another PC can undo). The private key is
+ * then saved only in protected form, and a key saved in the clear by an older Flingo is
+ * protected the first time it is read. Without a vault the key is saved as before.
+ */
+function loadOrCreateIdentity(file, commonName, vault = null) {
+  const save = (identity) => {
+    const stored = vault
+      ? { cert: identity.cert, protectedKey: vault.protect(identity.key) }
+      : { cert: identity.cert, key: identity.key };
+    fs.writeFileSync(file, JSON.stringify(stored), { mode: 0o600 });
+  };
   try {
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    // A protected key that cannot be unprotected here (another user, another PC) is no key:
+    // a new identity is made, and phones pair again.
+    const keyPem = saved.protectedKey ? (vault ? vault.unprotect(saved.protectedKey) : null) : saved.key;
     const x509 = new crypto.X509Certificate(saved.cert);
-    const key = crypto.createPrivateKey(saved.key);
-    if (x509.checkPrivateKey(key) && new Date(x509.validTo) > new Date()) return { key: saved.key, cert: saved.cert };
-  } catch { /* missing or damaged: make a new one */ }
+    const key = crypto.createPrivateKey(keyPem);
+    if (x509.checkPrivateKey(key) && new Date(x509.validTo) > new Date()) {
+      const identity = { key: keyPem, cert: saved.cert };
+      if (vault && !saved.protectedKey) { try { save(identity); } catch { /* kept as it was; protected next time */ } }
+      return identity;
+    }
+  } catch { /* missing, damaged or not ours to read: make a new one */ }
   const identity = createIdentity(commonName);
-  fs.writeFileSync(file, JSON.stringify(identity), { mode: 0o600 });
+  save(identity);
   return identity;
 }
 

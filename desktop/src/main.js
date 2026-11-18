@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification, powerSaveBlocker, net, session } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification, powerSaveBlocker, net, session, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -78,6 +78,24 @@ const memberOf = new Map(); // transfer key -> the batch it belongs to
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const historyFile = () => path.join(app.getPath('userData'), 'history.json');
 const identityFile = () => path.join(app.getPath('userData'), 'identity.json');
+
+/**
+ * The system's protection for the PC's private key: on Windows the user's own encryption, on
+ * Linux the desktop's keyring. Null where there is none worth the name (Linux without a keyring
+ * falls back to a fixed password, which would only pretend), and the key is then kept as before.
+ */
+function keyVault() {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text') return null;
+    return {
+      protect: (text) => safeStorage.encryptString(text).toString('base64'),
+      unprotect: (blob) => safeStorage.decryptString(Buffer.from(blob, 'base64')),
+    };
+  } catch {
+    return null;
+  }
+}
 
 function loadSettings() {
   const defaults = {
@@ -1108,7 +1126,7 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
 
   app.whenReady().then(() => {
     loadSettings();
-    try { identity = loadOrCreateIdentity(identityFile(), 'Flingo'); } catch { identity = null; }
+    try { identity = loadOrCreateIdentity(identityFile(), 'Flingo', keyVault()); } catch { identity = null; }
     // If the certificate cannot be saved (a full or read-only disk), one is made for this run
     // alone. Phones will have to pair again next time, but nothing is ever sent unencrypted.
     if (!identity) { try { identity = createIdentity('Flingo'); } catch { identity = null; } }
