@@ -12,12 +12,32 @@ sealed class PairOutcome {
 
 /** Reading a pairing code, and pairing from one. */
 object Pairing {
-    private val HOST = Regex("[0-9A-Za-z.:-]{1,64}")
+    /** Characters that are not seen and can reorder or hide what is: they have no place in a name. */
+    const val INVISIBLE = "\u200b\u200c\u200d\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\ufeff"
     private val CODE = Regex("\\d{6}")
+    private val FINGERPRINT = Regex("[A-Za-z0-9_-]{43}")
+    private val IPV4 = Regex("(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})")
+
+    /** True for what a certificate's fingerprint looks like in a pairing code: 32 bytes as base64url. */
+    fun isFingerprint(text: String): Boolean = text.matches(FINGERPRINT)
+
+    /**
+     * True for an address a PC on the same Wi-Fi or hotspot can have: a private or link-local
+     * IPv4 address, written as numbers. Not a name, not an address on the internet, and not
+     * this phone itself: a pairing link from another app must not be able to point Flingo at
+     * a server of that app's choosing.
+     */
+    fun isLocalAddress(host: String): Boolean {
+        val m = IPV4.matchEntire(host) ?: return false
+        val (a, b, c, d) = m.destructured.toList().map { it.toIntOrNull() ?: return false }
+        if (listOf(a, b, c, d).any { it > 255 }) return false
+        return a == 10 || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 169 && b == 254) || (a == 100 && b in 64..127)
+    }
 
     /**
      * Reads what a pairing QR code holds: flingo://pair?h=addresses&c=code&fp=fingerprint
-     * (port, name and id are optional). Null for anything else, including another app's QR code.
+     * (port, name and id are optional). Null for anything else, including another app's QR code,
+     * a code without the PC's fingerprint, and one that points anywhere but the local network.
      * Plain string work, so it is tested without a phone.
      */
     fun parse(text: String): PairLink? {
@@ -29,15 +49,16 @@ object Pairing {
             if (key.isEmpty() || key in q) continue
             q[key] = runCatching { URLDecoder.decode(part.substringAfter('=', ""), "UTF-8") }.getOrDefault("")
         }
-        val hosts = (q["h"] ?: "").split(',').map { it.trim() }.filter { it.matches(HOST) }
+        val hosts = (q["h"] ?: "").split(',').map { it.trim() }.filter(::isLocalAddress).distinct()
         val code = q["c"] ?: ""
         val port = q["p"]?.toIntOrNull() ?: Net.HTTP_PORT
-        if (hosts.isEmpty() || !code.matches(CODE) || port !in 1..65535) return null
+        val fp = q["fp"] ?: ""
+        if (hosts.isEmpty() || !code.matches(CODE) || port !in 1..65535 || !isFingerprint(fp)) return null
         val pc = Pc(
             id = q["id"] ?: "",
-            name = (q["n"]?.takeIf { it.isNotBlank() } ?: "your PC").take(40),
+            name = (q["n"]?.filter { !it.isISOControl() && it !in INVISIBLE }?.trim()?.takeIf { it.isNotEmpty() } ?: "your PC").take(40),
             host = hosts.first(), port = port,
-            fp = q["fp"] ?: "",
+            fp = fp,
             hosts = hosts,
         )
         return PairLink(pc, code)
