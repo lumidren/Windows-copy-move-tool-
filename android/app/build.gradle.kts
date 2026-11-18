@@ -26,8 +26,8 @@ android {
         applicationId = "com.lumidren.flingo"
         minSdk = 29
         targetSdk = 35
-        versionCode = (findProperty("flingoVersionCode") as String?)?.toInt() ?: 5
-        versionName = (findProperty("flingoVersionName") as String?) ?: "0.4.1"
+        versionCode = (findProperty("flingoVersionCode") as String?)?.toInt() ?: 6
+        versionName = (findProperty("flingoVersionName") as String?) ?: "0.5.0"
         buildConfigField("String", "UPDATE_FEED", "\"$updateFeed\"")
         buildConfigField("String", "UPDATE_DOWNLOADS", "\"$updateDownloads\"")
         // Off in every build that is handed to anyone. With -PflingoTestHooks=true the app accepts
