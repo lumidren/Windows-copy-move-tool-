@@ -186,10 +186,11 @@ function readSmallBody(req, limit = 4096, patienceMs = SMALL_BODY_MS) {
  *   seen(device, ip): a paired phone just talked to us,
  *   saveDir(): string,
  *   maxBytes(): largest file accepted,
- *   onStart({id, key, name, from, total, received, quiet, batch}),
- *   onProgress({id, key, received, total}), onEnd({id, key, ok, waiting}),
- *   onFile({id, key, path, name, size, mime, from, x, quiet, batch}),
- *   onCancel({key, from}): the phone's owner stopped that transfer
+ *   onStart({id, key, deviceId, name, from, total, received, quiet, batch}),
+ *   onProgress({id, key, deviceId, received, total}), onEnd({id, key, deviceId, ok, waiting}),
+ *   onFile({id, key, deviceId, path, name, size, mime, from, x, quiet, batch}),
+ *   onCancel({key, deviceId, from}): the phone's owner stopped that transfer
+ * deviceId says which phone: keys and batch ids are chosen by phones, so two phones can pick the same.
  * }
  * key is the phone's own name for a transfer when it gave one (so a transfer that is cut
  * off and carried on later keeps one identity), otherwise the same as id.
@@ -333,7 +334,7 @@ function startServer(hooks, options = {}) {
       release();
       active.delete(tmp);
       owners.delete(tmp);
-      if (hooks.onEnd) hooks.onEnd({ id, key, ok, waiting });
+      if (hooks.onEnd) hooks.onEnd({ id, key, deviceId: device.id, ok, waiting });
       return true;
     };
     const fail = (status, error) => {
@@ -358,7 +359,7 @@ function startServer(hooks, options = {}) {
       if (status && !res.headersSent) refuse(req, res, status, error);
     };
 
-    if (hooks.onStart) hooks.onStart({ id, key, name, from: device.name, total, received: offset, quiet, batch });
+    if (hooks.onStart) hooks.onStart({ id, key, deviceId: device.id, name, from: device.name, total, received: offset, quiet, batch });
     req.setTimeout(IDLE_TIMEOUT_MS, () => { fail(); req.destroy(); });
     req.on('data', (c) => {
       size += c.length;
@@ -372,7 +373,7 @@ function startServer(hooks, options = {}) {
       const now = Date.now();
       if (hooks.onProgress && now - lastTick >= PROGRESS_EVERY_MS) {
         lastTick = now;
-        hooks.onProgress({ id, key, received: size, total });
+        hooks.onProgress({ id, key, deviceId: device.id, received: size, total });
       }
     });
     req.on('aborted', () => fail());
@@ -393,6 +394,7 @@ function startServer(hooks, options = {}) {
         hooks.onFile({
           id,
           key,
+          deviceId: device.id,
           quiet,
           batch,
           path: finalPath,
@@ -487,7 +489,7 @@ function startServer(hooks, options = {}) {
         const tid = url.searchParams.get('id') || '';
         if (SAFE_ID.test(tid) && SAFE_ID.test(device.id)) {
           const part = partPath(hooks.saveDir(), device, tid);
-          if (hooks.onCancel) hooks.onCancel({ key: tid, from: device.name });
+          if (hooks.onCancel) hooks.onCancel({ key: tid, deviceId: device.id, from: device.name });
           const stop = active.get(part);
           if (stop) stop(true);
           else {

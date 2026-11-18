@@ -211,7 +211,7 @@ test('an upload that is cut off leaves no partial file', async () => {
     assert.deepEqual(fs.readdirSync(t.dir), []);
     assert.equal(t.files.length, 0);
     const { id } = t.events[0][1];
-    assert.deepEqual(t.events.at(-1), ['end', { id, key: id, ok: false, waiting: false }]);
+    assert.deepEqual(t.events.at(-1), ['end', { id, key: id, deviceId: 'd1', ok: false, waiting: false }]);
     assert.equal(t.s.status().uploads, 0);
   } finally { t.close(); }
 });
@@ -238,7 +238,7 @@ test('a named transfer that is cut off is carried on from where it stopped', asy
   try {
     const body = crypto.randomBytes(2_000_000);
     await cutOff(t, 'id=abc123def456', 'big.bin', body, 700_000);
-    assert.deepEqual(t.events.at(-1)[1], { id: t.events[0][1].id, key: 'abc123def456', ok: false, waiting: true });
+    assert.deepEqual(t.events.at(-1)[1], { id: t.events[0][1].id, key: 'abc123def456', deviceId: 'd1', ok: false, waiting: true });
     assert.equal(t.files.length, 0);
     assert.deepEqual(parts(t.dir), ['.flingo-d1-abc123def456.part']);
 
@@ -353,7 +353,7 @@ test('cancelling from the phone stops the transfer and keeps nothing', async () 
     assert.deepEqual(fs.readdirSync(t.dir), []);
     assert.equal(t.events.at(-1)[1].waiting, false);
     assert.equal(t.s.status().uploads, 0);
-    assert.deepEqual(cancelled, [{ key: 'stopme1', from: 'Test Phone' }]);
+    assert.deepEqual(cancelled, [{ key: 'stopme1', deviceId: 'd1', from: 'Test Phone' }]);
     req.destroy();
 
     // After the connection had already dropped and its first part was being kept.

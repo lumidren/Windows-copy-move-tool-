@@ -138,6 +138,13 @@ function saveHistorySoon() {
 }
 
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
+
+/** An event from the receiver with its keys filed under the phone it came from. */
+function perPhone(e) {
+  const scoped = { ...e, key: `${e.deviceId}/${e.key}` };
+  if (e.batch) scoped.batch = { ...e.batch, id: `${e.deviceId}-${e.batch.id}` };
+  return scoped;
+}
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 // The address this PC uses to reach the network, found again every few seconds. It goes
@@ -1231,11 +1238,13 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
         sendMain('devices', devicesState());
       },
       saveDir: () => settings.saveDir,
-      onStart: transferStarted,
-      onProgress: transferProgress,
-      onEnd: transferEnded,
-      onCancel: transferCancelled,
-      onFile: handleFile,
+      // A phone picks its own names for transfers and batches. Each is filed under the phone
+      // that sent it, so one phone can never move, finish or cancel another phone's card.
+      onStart: (t) => transferStarted(perPhone(t)),
+      onProgress: (p) => transferProgress(perPhone(p)),
+      onEnd: (e) => transferEnded(perPhone(e)),
+      onCancel: (c) => transferCancelled(perPhone(c)),
+      onFile: (f) => handleFile(perPhone(f)),
       outbox,
     }, {
       tls: identity,
