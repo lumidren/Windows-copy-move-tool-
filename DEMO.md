@@ -49,7 +49,7 @@ Do this on the real stage laptop, on the real hotspot.
    - Pause Windows Update for a week. Close chat apps, mail and anything that pops up.
    - Turn off the screen saver and any "dim the display" setting. Stage mode holds the display awake, but not a lid close.
    - Update offers (0.4.0 and newer): stage mode keeps the laptop silent about them. On the phone, open Settings (⚙) and untick **Check for updates**, so no offer appears in the middle of the demo. Do not update either device between the rehearsal and the stage.
-9. **Run the Pre-flight check** (top of the Flingo window) with the phone open on Flingo. Every line must be green except the one that reminds you about notifications. A test photo flies across the arrival screen as part of the check.
+9. **Run the Pre-flight check** (top of the Flingo window while Stage mode is on) with the phone open on Flingo. Every line must be green except the one that reminds you about notifications. A test photo flies across the arrival screen as part of the check.
 10. **Rehearse the whole script three times**, including picking the phone up from the table and unlocking it.
 11. **Rehearse the failures once each:** switch the hotspot off and on again and watch the phone reconnect by itself; close and reopen Flingo on the laptop; flick from the second phone.
 
@@ -110,7 +110,7 @@ Stay calm and keep talking. Each row is in the order to try it.
 
 Verified by automated tests and by running the real apps:
 
-- 18 automated tests of the receiver, the certificate and the pre-flight logic, including 140 transfers in a row with every file checked byte for byte
+- 125 automated tests of the receiver, the certificate, pairing limits, file names and the pre-flight logic, including 140 transfers in a row with every file checked byte for byte
 - The arrival overlay at 10 screen configurations: 1080p at 100%, 125% and 150%; 4K at 100%, 150% and 200%; 720p; 4:3; ultrawide; portrait
 - Animation speed on the development laptop: 110 to 140 frames per second on a 144 Hz panel
 - Pairing over pinned TLS, flicking photos, a 34 MB file with progress on both sides, an interrupted transfer, and automatic reconnection after the PC app was stopped and restarted (Android emulator against the real desktop app)

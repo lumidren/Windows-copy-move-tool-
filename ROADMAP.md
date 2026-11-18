@@ -18,6 +18,9 @@ Finished items stay in the tables below, marked ✅, so the numbering other docu
 | 3 | **Confirm before saving** | Optional "Accept / Decline" on the PC for each arrival, with an auto-accept list of trusted phones. | S |
 | 4 | **Signed releases** | Sign the APK with a stable key and the Windows installer with a code-signing certificate, so updates install over old versions and SmartScreen stops warning. | S |
 | 5 | **Per-phone permissions** | Give each paired phone its own save folder and size cap, and see when it last sent something. | S |
+| 37 | ✅ **Security review** | Both apps read against who could be on the other side, and what was found fixed and tested: pairing that cannot be guessed in bursts or happen silently, a typed code that asks "Is this your PC?" first, a click that only opens what is safe, a release build on Android, a locked-down arrival window. Written up in [docs/security.md](docs/security.md). | L |
+| 38 | **A supported Electron** | Move the PC app off Electron 33, which no longer gets security fixes, and turn on Electron's fuses. The first of the known limits in docs/security.md. | M |
+| 39 | **Signed desktop updates** | Sign the Windows installer with a key that is not on GitHub and check it before installing, so a release alone is not enough to reach people's PCs. | M |
 
 ## Transfer
 

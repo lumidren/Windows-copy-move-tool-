@@ -51,9 +51,9 @@
 <table>
 <tr>
 <td width="50%" align="center" valign="top">
-  <img src="docs/phone.png" alt="Flingo on Android: the photo grid, paired with Home-PC" width="270"><br>
+  <img src="docs/phone.png" alt="Flingo on Android: the photo grid, paired with Home-PC, with buttons to browse files and to see what was received" width="270"><br>
   <b>Your gallery</b><br>
-  <sub>Paired once, ready every time you open it.</sub>
+  <sub>Paired once, ready every time you open it. <b>Received</b> lists what the PC sent.</sub>
 </td>
 <td width="50%" align="center" valign="top">
   <img src="docs/phone-drag.png" alt="A photo lifted off the grid and dragged into the glowing send zone" width="270"><br>
@@ -63,9 +63,9 @@
 </tr>
 <tr>
 <td colspan="2" align="center">
-  <img src="docs/window.png" alt="Flingo on Windows: pairing QR code, paired phone, effect picker and received photos" width="88%"><br>
+  <img src="docs/window.png" alt="Flingo on Windows: a strip to send files to the phone, received files grouped by day, and the pairing QR code" width="88%"><br>
   <b>On the PC</b><br>
-  <sub>Scan the QR code to pair. Received photos sit on the right: drag any tile into another app.</sub>
+  <sub>Drop files anywhere to send them to the phone. What arrived is listed by day: drag any tile into another app. The QR code pairs a phone.</sub>
 </td>
 </tr>
 <tr>
@@ -73,6 +73,13 @@
   <img src="docs/stage.png" alt="Flingo in stage mode with the pre-flight check showing every item ready" width="88%"><br>
   <b>Stage mode and pre-flight</b><br>
   <sub>For presenting: pairing locks, the display stays awake, and one button checks the whole path with a real test transfer.</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" align="center">
+  <img src="docs/phone-received.png" alt="The Received list on the phone: photos and documents the PC sent, newest first" width="270"><br>
+  <b>Received, on the phone</b><br>
+  <sub>Everything the PC sent, newest first. A tap opens it.</sub>
 </td>
 </tr>
 </table>
@@ -83,9 +90,20 @@
 | **Runs as** | A real window with a launcher entry; tray icon where the desktop has one | Regular app + system share target |
 | **Ships as** | Windows installer, Linux `.deb` and `.tar.gz` | ~6 MB APK |
 
+**Coming in 0.5.0** (on `main` now; the downloads below are still 0.4.1)
+
+- **Security, reviewed and tightened.** Both apps were read against the people who could be on the other side, and what was found was fixed and tested. What is protected, how it was checked and what is still open is in [docs/security.md](docs/security.md).
+  - Typing the pairing code now asks **"Is this your PC?"** and shows a security code to compare, before anything is sent. Scanning the QR code needs no such step.
+  - The pairing code can no longer be guessed in bursts; sustained guessing locks pairing and tells you. Every pairing shows a notification.
+  - A click on the PC opens only pictures, video, sound and documents to read. Anything that could run is shown in its folder, and received files carry the mark Windows gives a download.
+  - The Android app is a release build, no longer a debuggable one.
+- **A clearer PC window.** A strip on Home to send files to the phone, received files grouped by day in larger tiles, a top bar that only says how things stand, and Settings in groups. Stage mode and the pre-flight check live in Settings.
+- **Received, on the phone.** A button on the main screen lists what the PC sent, with a picture, the size and how long ago. Settings on the phone is a sheet with switches, in three groups.
+- **The phone keeps asking** a PC that was too old to send, so files arrive once the PC is updated, without reopening the app.
+
 **New in 0.4.0**
 
-- **PC to phone.** Flingo is two-way. Drag files onto the Flingo window, or press **Send to phone** and pick them. They land in the phone's Pictures/Flingo (photos and videos) or Download/Flingo (everything else), with a photo dropping in from the top of the phone's screen and a notification that opens the file.
+- **PC to phone.** Flingo is two-way. Drag files onto the Flingo window, or press **Choose files** and pick them. They land in the phone's Pictures/Flingo (photos and videos) or Download/Flingo (everything else), with a photo dropping in from the top of the phone's screen and a notification that opens the file.
   - The phone collects from the PC over the same encrypted, pinned connection it sends on, so nothing new has to be trusted and the PC never has to find the phone.
   - A dropped connection carries on from where it stopped, in either direction, and every file is checked against its SHA-256 before the phone shows it.
   - Files arrive at once while Flingo is open on the phone, and otherwise the next time it is opened.
@@ -202,7 +220,7 @@ Every download is built by GitHub Actions from this repository and attached to t
 | **Linux** (any 64-bit distro) | [`flingo-linux.tar.gz`](https://github.com/lumidren/Windows-copy-move-tool-/releases/latest/download/flingo-linux.tar.gz) | Extract and run `./flingo`. |
 
 > [!IMPORTANT]
-> **Windows:** the first time Flingo starts, Windows Firewall asks whether to allow it. Tick **Private and Public** and choose **Allow**, or the phone cannot reach the PC. The **Pre-flight check** button in Flingo tells you if this went wrong.
+> **Windows:** the first time Flingo starts, Windows Firewall asks whether to allow it. Tick **Private and Public** and choose **Allow**, or the phone cannot reach the PC. The **Pre-flight check** in Flingo's Settings tells you if this went wrong.
 >
 > The installer is not code-signed yet, so Windows shows "Windows protected your PC" the first time. Choose **More info**, then **Run anyway**.
 
@@ -292,13 +310,13 @@ android/
 | **Two hundred photos at once** | A batch carries its id, position and total size with every file. The PC folds them into one card, refreshes its window a few times a second instead of per file, and plays no flights unless the phone flicked. |
 | **Leaving the app mid-transfer** | The queue belongs to the app, not the screen, and a foreground service with a wake lock holds it while the phone is locked or showing something else. |
 | **Any screen, any refresh rate** | Sizes are a share of the screen and motion is measured in time, not frames. The photo is drawn once into a sprite, so a 50-megapixel picture costs the same per frame as a thumbnail. |
-| **Hostile filenames** | Names are cut to a base name, stripped of characters Windows rejects and of invisible direction-override characters, guarded against device names like `CON` and `NUL`, and de-duplicated with ` (1)`, ` (2)`. Files that would run when opened are shown in their folder instead. |
-| **Hostile clients** | One code per phone; five wrong guesses per address per minute; the code is replaced after twelve misses from anyone; pairing can be locked; uploads are capped in size, number and idle time; free space is checked first. |
+| **Hostile filenames** | Names are cut to a base name, stripped of characters Windows rejects and of invisible direction-override characters, kept from ending in a dot or a space (which Windows would drop, turning `photo.exe.` into `photo.exe`), guarded against device names like `CON` and `NUL`, and de-duplicated. A click opens only kinds of file that are looked at or read; the rest are shown in their folder. |
+| **Hostile clients** | One code per phone; five guesses per address per minute, counted as they arrive; the code is replaced after twelve misses and pairing locks itself if that keeps happening; every pairing shows a notification; uploads are capped in size, number and per phone; a request that says nothing is dropped. The whole picture is in [docs/security.md](docs/security.md). |
 | **Virtual network adapters** | VirtualBox, VMware, Hyper-V and WSL adapters are hidden, so the address shown is one a phone can actually reach. |
 | **Updating without an app store** | Each app reads GitHub's public release list, and only trusts a download that comes from this project's releases and matches the SHA-256 the release declares. The phone also compares who signed the APK before asking Android to install it, so a mismatch is explained instead of failing oddly. The PC never checks while in stage mode. |
 | **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
 
-**Tested how.** `npm test` runs 113 tests on the receiver, the outbox, telling an older phone from a newer one and a phone that was paired again from a second phone, the certificate, the pre-flight logic, the command line, colour contrast and screen-reader markup, and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
+**Tested how.** `npm test` runs 125 tests on the receiver (among them a burst of pairing guesses, a stalled request and names built to hide an extension), which received files a click may open, the outbox, telling an older phone from a newer one and a phone that was paired again from a second phone, the certificate, the pre-flight logic, the command line, colour contrast and screen-reader markup, and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
