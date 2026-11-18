@@ -737,10 +737,8 @@ object Net {
         }
     }
 
-    /** Asks the PC to forget this phone, so the token it holds stops working there too. Best effort: never throws. */
-    fun unpair(prefs: Prefs) {
-        runCatching { post(prefs, "/unpair", "{}") }
-    }
+    /** Asks the PC to forget this phone, so the token it holds stops working there too. True if the PC answered. Never throws. */
+    fun unpair(prefs: Prefs): Boolean = runCatching { post(prefs, "/unpair", "{}"); true }.getOrDefault(false)
 
     private fun post(prefs: Prefs, path: String, body: String, keep: Boolean = false) {
         val c = open(prefs.host, prefs.port, path, prefs.fp, connectMs = 1500, reuse = true, keep = keep)
