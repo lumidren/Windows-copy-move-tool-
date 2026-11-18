@@ -1133,16 +1133,29 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
         // One entry per phone: pairing the same phone again replaces its old entry (phones.js says when it is the same).
         const now = Date.now();
         const paired = { id: crypto.randomBytes(6).toString('hex'), name: deviceName, deviceId, hash: sha(token), added: now, heard: now, ip };
+        const chosen = settings.devices.find((d) => d.id === settings.sendTo);
         settings.devices = phones.withPaired(settings.devices, paired);
-        // The phone that has just been paired is the one in hand: files go to it until another is chosen.
-        settings.sendTo = paired.id;
+        // Files go to the new phone if none was chosen, or if it has taken the chosen one's
+        // place. A phone that is in use keeps its files: pairing a second phone, or someone
+        // else's, does not quietly move where "Send to" goes.
+        if (!chosen || !settings.devices.includes(chosen)) settings.sendTo = paired.id;
         if (settings.stage) settings.pairingLocked = true; // on stage, one phone in and the door shuts
         saveSettings();
         pairCode = newCode(); // one code, one phone
         pushState();
+        // Never silent: whoever is at the PC is told that a phone got in, and where to remove it.
+        notify(`${deviceName} is now paired with this PC. Not yours? Remove it under Phones.`, () => { showMain(); sendMain('show-tab', 'phones'); });
         return { token };
       },
       rotateCode: () => { pairCode = newCode(); pushState(); },
+      // Wrong codes keep coming: someone on the network is guessing. Pairing shuts until the owner opens it again.
+      guessing: () => {
+        settings.pairingLocked = true;
+        saveSettings();
+        pairCode = newCode();
+        pushState();
+        notify('Pairing was locked: wrong codes kept arriving from the network. Press "Pair a phone" when you want to pair.', showMain);
+      },
       checkToken: (token) => {
         if (selfToken && token === selfToken) return { id: 'self', name: SELF_TEST };
         const h = sha(token);
