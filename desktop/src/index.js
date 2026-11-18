@@ -103,6 +103,7 @@ function render(s) {
   document.body.classList.toggle('calm', wantsCalm(s));
   $('stage-badge').hidden = !s.stage;
   $('stage-exit').hidden = !s.stage;
+  $('stage-preflight').hidden = !s.stage;
   $('stage').checked = s.stage;
   if (s.stage) showTab('home'); // the bar of tabs is hidden on stage, so make sure Home is what shows
   $('side-version').textContent = `Flingo ${s.version}`;
@@ -452,17 +453,22 @@ const MARK_WORDS = { ok: 'Passed', warn: 'Worth a look', fail: 'Must be fixed', 
 const ACTIONS = { firewall: 'Open firewall settings', notifications: 'Open notification settings', folder: 'Open folder' };
 
 async function runPreflight() {
-  showTab('settings'); // the checklist appears there, under the button that starts it
+  // The checklist appears under the button that starts it: in Settings, or, on stage where
+  // Settings cannot be reached, at the top of the one page there is.
+  const onStage = !!(state && state.stage);
+  const card = $('preflight-card');
+  if (onStage) $('home-main').prepend(card); else $('settings-main').append(card);
+  showTab(onStage ? 'home' : 'settings');
   $('preflight-card').hidden = false;
   $('preflight-card').scrollIntoView({ block: 'start' });
-  $('preflight').disabled = $('preflight-again').disabled = true;
+  $('preflight').disabled = $('stage-preflight').disabled = $('preflight-again').disabled = true;
   $('preflight-summary').className = 'summary running';
   $('preflight-summary').textContent = 'Checking… a test photo will fly across the arrival screen.';
   $('preflight-list').replaceChildren();
   let r;
   try { r = await api.preflight(); }
   catch { r = { items: [], fail: 1, warn: 0 }; }
-  $('preflight').disabled = $('preflight-again').disabled = false;
+  $('preflight').disabled = $('stage-preflight').disabled = $('preflight-again').disabled = false;
   const manual = r.items.filter((i) => i.status === 'manual').length;
   const summary = $('preflight-summary');
   if (!r.items.length) { summary.className = 'summary fail'; summary.textContent = 'The check could not run. Restart Flingo and try again.'; return; }
@@ -515,6 +521,7 @@ $('screen').onchange = async (e) => render(await api.set({ overlayDisplay: e.tar
 $('identify').onclick = () => api.identifyScreens();
 $('test-arrival').onclick = () => api.previewEffect(state ? state.effect : 'comet');
 $('preflight').onclick = runPreflight;
+$('stage-preflight').onclick = runPreflight;
 $('preflight-again').onclick = runPreflight;
 $('preflight-close').onclick = () => { $('preflight-card').hidden = true; };
 for (const tab of document.querySelectorAll('.tab')) tab.onclick = () => showTab(tab.dataset.tab);

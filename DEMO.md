@@ -39,10 +39,10 @@ Do this on the real stage laptop, on the real hotspot.
 4. **Pair each phone.** On the phone: **Pair with PC**, then **Scan the QR code**, and point it at the code in the Flingo window. Click the QR code on the laptop to enlarge it if the phone struggles.
    - If the camera will not scan: choose **Type the PC's address and code** and copy the address and the six digits shown next to the QR code.
 5. **Check the security code matches.** Tap the PC's name at the top of the phone app. The security code shown there must be the same as the one under "Pair a phone" on the laptop.
-6. **Turn on Stage mode** (top right of the Flingo window). It keeps the laptop's display awake, makes the window readable from a distance, selects the Comet effect, and **locks pairing** so nobody in the audience can pair their own phone.
+6. **Turn on Stage mode** (Settings, under *Presenting and checking*). It keeps the laptop's display awake, makes the window readable from a distance, selects the Comet effect, and **locks pairing** so nobody in the audience can pair their own phone.
 7. **Set the arrival screen.** Connect the projector or a second monitor.
    - Simplest and recommended: set Windows to **Duplicate** (Win+P). The audience sees what you see and there is nothing to choose.
-   - If you must use **Extend**: on the **Arrivals** tab (turn Stage mode off for a moment to reach the tabs) pick the audience's screen in **Show arrivals on**. Press **Identify** to see which number is which. Then press **Play a test arrival** and confirm the audience screen shows it.
+   - If you must use **Extend**: on the **Arrivals** tab (press **Leave stage mode** at the top for a moment to reach the tabs) pick the audience's screen in **Show arrivals on**. Press **Identify** to see which number is which. Then press **Play a test arrival** and confirm the audience screen shows it.
 8. **Windows settings that can ruin a demo:**
    - Turn on **Do not disturb** (notification centre, or Settings → System → Notifications).
    - Plug in the charger. Set the power mode to **Best performance**.
@@ -102,7 +102,7 @@ Stay calm and keep talking. Each row is in the order to try it.
 
 ## After the demo
 
-- Turn Stage mode off. This does not unlock pairing: press **Pair a phone** when you next need to.
+- Press **Leave stage mode** at the top of the window. This does not unlock pairing: press **Pair a phone** when you next need to.
 - Received photos are in the folder shown on the **Settings** tab (by default `Pictures\Flingo`).
 - If the laptop was on a network other people use, remove phones you do not recognise on the **Phones** tab.
 

@@ -11,7 +11,8 @@
   <div class="brand"><span class="logo" aria-hidden="true"></span><h1>Flingo</h1><span class="badge" id="stage-badge" hidden>Stage mode</span></div>
   <div class="row">
     <div class="status" id="status" role="status"><span class="dot" id="dot" aria-hidden="true"></span><span id="status-text">Starting…</span></div>
-    <!-- On stage the bar of sections is hidden, so the way back out is here. -->
+    <!-- On stage the bar of sections is hidden, so the check before a demo and the way back out are here. -->
+    <button id="stage-preflight" class="ghost" hidden>Pre-flight check</button>
     <button id="stage-exit" class="ghost" hidden>Leave stage mode</button>
   </div>
 </header>
@@ -41,7 +42,7 @@
 
 <main>
   <div class="page" data-page="home">
-  <section class="col wide">
+  <section class="col wide" id="home-main">
     <!-- Sending the other way: drop files anywhere on the window, or choose them here. -->
     <div class="send-zone" id="send-zone" hidden>
       <span class="send-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V5M7.5 9.5 12 5l4.5 4.5"/><path d="M5 15.5v2A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg></span>
@@ -157,7 +158,7 @@
   </div>
 
   <div class="page" data-page="settings" hidden>
-  <section class="col solo">
+  <section class="col solo" id="settings-main">
     <div class="card thispc">
       <h2>This PC</h2>
       <label class="field">Name shown on the phone
