@@ -541,7 +541,7 @@ function startServer(hooks, options = {}) {
   };
 
   const server = tls
-    ? https.createServer({ key: tls.key, cert: tls.cert, minVersion: 'TLSv1.2' }, handler)
+    ? https.createServer({ key: tls.key, cert: tls.cert, minVersion: 'TLSv1.3' }, handler)
     : http.createServer(handler);
   server.requestTimeout = 0; // a large video may take longer than Node's default five minutes
   server.headersTimeout = 15_000;
