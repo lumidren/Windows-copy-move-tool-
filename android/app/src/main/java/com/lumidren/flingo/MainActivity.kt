@@ -1417,14 +1417,20 @@ class MainActivity : Activity() {
             pairWith(link)
             return
         }
-        // A link opened from outside the app could have been made by anyone, so ask first.
+        // A link opened from outside the app could have been made by anyone, so ask first. The
+        // name inside the link is not shown: whoever made the link chose it. The address is.
+        val replaces = if (prefs.paired) "\n\nThis replaces the pairing with ${prefs.pcName}." else ""
         AlertDialog.Builder(this)
-            .setTitle("Pair with ${link.pc.name}?")
-            .setMessage("Photos you flick will go to the computer at ${link.pc.host}. Only continue if you just scanned the code on your own PC.")
+            .setTitle("Pair with a PC?")
+            .setMessage("Photos you flick will go to the computer at ${link.pc.host}. Only continue if you just scanned the code on your own PC.$replaces")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Pair") { _, _ -> pairWith(link) }
             .show()
+            .guarded()
     }
+
+    /** A question that matters is not answered by a tap that came through another app's window drawn on top. */
+    private fun AlertDialog.guarded(): AlertDialog = apply { window?.decorView?.filterTouchesWhenObscured = true }
 
     private fun deviceName(): String = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Android phone"
 
@@ -1478,7 +1484,8 @@ class MainActivity : Activity() {
                     .setNeutralButton("Search again") { _, _ -> searchForPc() }
             } else {
                 builder.setTitle("Choose your PC")
-                    .setItems(pcs.map { it.name }.toTypedArray()) { _, i -> showCodeDialog(pcs[i]) }
+                    // With its address: two answers with one name are two computers, and only one is yours.
+                    .setItems(pcs.map { "${it.name}  ·  ${it.host}" }.toTypedArray()) { _, i -> showCodeDialog(pcs[i]) }
             }
             builder.show()
         }
@@ -1575,14 +1582,49 @@ class MainActivity : Activity() {
         if (problem != null) code.error = problem
     }
 
-    /** Pairs with a typed code. The PC's certificate is remembered from this first connection. */
+    /** The certificate the person has confirmed, by its security code, to be their PC's. */
+    private var checkedFp: String? = null
+
+    /**
+     * Pairs with a typed code. A name on the network and an address prove nothing: any
+     * computer on the Wi-Fi can answer to either. So before the code leaves the phone, the
+     * certificate of whatever answered is shown as a security code for the person to compare
+     * with the one on their PC, and the code is then sent only to that certificate.
+     */
     private fun pairWithCode(pc: Pc, code: String) {
+        showStatus("Connecting to ${pc.name}…", sticky = true)
+        scope.launch {
+            val seen = if (pc.fp.isNotEmpty()) pc else withContext(Dispatchers.IO) { Net.info(pc.host, pc.port) }
+            hideStatus()
+            if (seen == null || seen.fp.isEmpty()) {
+                buzz(hapticNo)
+                showStatus("Couldn't reach ${pc.name}. Check that both are on the same network.", holdMs = 6000)
+                return@launch
+            }
+            if (seen.fp == checkedFp) { sendCode(seen, code); return@launch }
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle("Is this your PC?")
+                .setMessage(
+                    "In Flingo on the PC, under Pair a phone, find the security code. It should read:\n\n" +
+                        "${Net.securityCode(seen.fp)}\n\n" +
+                        "If the PC shows something else, another computer on this network is answering in its place: do not continue. " +
+                        "(A PC on an older Flingo shows only the first two groups.)",
+                )
+                .setNegativeButton("It's different") { _, _ -> showStatus("Not paired. Scanning the QR code on the PC is the safest way.", holdMs = 6000) }
+                .setPositiveButton("It matches") { _, _ -> checkedFp = seen.fp; sendCode(seen, code) }
+                .show()
+                .guarded()
+        }
+    }
+
+    /** Sends the code to a PC whose certificate has been checked, and to no other. */
+    private fun sendCode(pc: Pc, code: String) {
         showStatus("Pairing with ${pc.name}…", sticky = true)
         scope.launch {
             try {
                 val paired = withContext(Dispatchers.IO) { Net.pair(pc, code, deviceName(), prefs.deviceId) }
                 onPaired(paired)
-                showStatus("Paired with ${paired.pc.name} ✓  Security code ${Net.securityCode(paired.pc.fp)}", holdMs = 6000)
+                showStatus("Paired with ${paired.pc.name} ✓", holdMs = 4000)
             } catch (_: WrongCodeException) {
                 buzz(hapticNo)
                 // Said on the field itself: a message under the dialog that reopens would not be seen.
