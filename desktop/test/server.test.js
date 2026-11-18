@@ -58,6 +58,28 @@ test('file names are made safe', () => {
   assert.ok(sanitizeName('x'.repeat(400) + '.jpeg').endsWith('.jpeg'));
 });
 
+test('a name cannot end in a way that hides what the file is', () => {
+  // Windows drops dots and spaces from the end of a name, so each of these would run as x.exe.
+  for (const raw of ['x.exe.', 'x.exe ', 'x.exe. . ', 'x.exe.\u00a0', 'x.exe\u00a0', 'x.exe.\u2028', 'x.exe.\u3000', 'x.exe\u200b.', ' x.exe']) {
+    assert.equal(sanitizeName(raw), 'x.exe', JSON.stringify(raw));
+  }
+  // An over-long name is cut, and the cut must not leave a dot or a space at the end either.
+  const long = sanitizeName(`${'a'.repeat(200)}.exe${' '.repeat(18)}x`);
+  assert.ok(long.length <= 180);
+  assert.doesNotMatch(long, /[. ]$/);
+  assert.equal(sanitizeName('  '), 'file');
+  assert.equal(sanitizeName('...'), 'file');
+});
+
+test('names Windows keeps for devices are never used as they are', () => {
+  for (const raw of ['CON', 'con.txt', 'NUL', 'aux.jpg', 'COM1', 'com0.log', 'LPT9', 'lpt0', 'CONIN$', 'conout$.txt', 'con .txt', 'COM\u00b9']) {
+    const name = sanitizeName(raw);
+    assert.ok(name.startsWith('_'), `${raw} became ${name}`);
+  }
+  assert.equal(sanitizeName('console.txt'), 'console.txt');
+  assert.equal(sanitizeName('community.jpg'), 'community.jpg');
+});
+
 test('info identifies the receiver', async () => {
   const t = await boot();
   try {

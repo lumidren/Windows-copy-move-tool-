@@ -23,20 +23,27 @@ const PART_KEEP_MS = 60 * 60 * 1000; // a half-received file waits this long for
 const SAFE_ID = /^[0-9a-zA-Z]{1,32}$/;
 const PART_FILE = /^\.flingo-[0-9a-zA-Z]+(-[0-9a-zA-Z]+)?\.part$/;
 
-const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+// Names Windows keeps for devices, with or without an extension, and with spaces before the dot.
+const RESERVED = /^(con|prn|aux|nul|conin\$|conout\$|com[0-9¹²³]|lpt[0-9¹²³]) *(\..*)?$/i;
 // Zero-width and direction-override characters can disguise a file's real extension.
 const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/g;
 
+/** No spaces at the start, no dots or spaces at the end: Windows drops those itself, so "a.exe." would be "a.exe". */
+const trimEnds = (name) => name.replace(/^ +/, '').replace(/[. ]+$/, '');
+
 function sanitizeName(raw) {
   let name = path.basename(String(raw || '').replace(/\\/g, '/'));
-  name = name.replace(INVISIBLE, '').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '_').replace(/[. ]+$/, '').trim();
+  name = name.replace(INVISIBLE, '').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '_');
+  // Every kind of space becomes a plain one first (a no-break space at the end would otherwise
+  // survive the trim and hide the dot before it).
+  name = trimEnds(name.replace(/\s/gu, ' '));
   name = name.replace(/^\.+/, '_'); // no hidden files
-  if (!name) name = 'file';
-  if (RESERVED.test(name)) name = '_' + name;
   if (name.length > 180) {
     const ext = path.extname(name).slice(0, 20);
-    name = name.slice(0, 180 - ext.length) + ext;
+    name = trimEnds(name.slice(0, 180 - ext.length) + ext); // the cut may have left a dot or a space at the end
   }
+  if (!name) name = 'file';
+  if (RESERVED.test(name)) name = '_' + name;
   return name;
 }
 
