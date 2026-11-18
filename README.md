@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-2f6fed?logo=windows11&logoColor=white" alt="Windows 10 and 11">
   <img src="https://img.shields.io/badge/Linux-Kali%20%7C%20Debian%20%7C%20Ubuntu-f5c211?logo=linux&logoColor=black" alt="Linux: Kali, Debian, Ubuntu">
   <img src="https://img.shields.io/badge/Android-10%2B-3ddc84?logo=android&logoColor=white" alt="Android 10 or newer">
-  <img src="https://img.shields.io/badge/Electron-33-47848f?logo=electron&logoColor=white" alt="Electron 33">
+  <img src="https://img.shields.io/badge/Electron-45-47848f?logo=electron&logoColor=white" alt="Electron 45">
   <img src="https://img.shields.io/badge/Kotlin-2.0-7f52ff?logo=kotlin&logoColor=white" alt="Kotlin 2.0">
   <img src="https://img.shields.io/badge/cloud-none-0e1016" alt="No cloud">
   <img src="https://img.shields.io/badge/license-MIT-9b6bff" alt="MIT license">
@@ -97,6 +97,7 @@
   - The pairing code can no longer be guessed in bursts; sustained guessing locks pairing and tells you. Every pairing shows a notification.
   - A click on the PC opens only pictures, video, sound and documents to read. Anything that could run is shown in its folder, and received files carry the mark Windows gives a download.
   - The Android app is a release build, no longer a debuggable one.
+  - The PC app runs on Electron 45 (it was on 33, which no longer got security fixes), locked down with Electron's fuses, and keeps its private key encrypted with the user's own Windows protection.
 - **A clearer PC window.** A strip on Home to send files to the phone, received files grouped by day in larger tiles, a top bar that only says how things stand, and Settings in groups. Stage mode and the pre-flight check live in Settings.
 - **Received, on the phone.** A button on the main screen lists what the PC sent, with a picture, the size and how long ago. Settings on the phone is a sheet with switches, in three groups.
 - **The phone keeps asking** a PC that was too old to send, so files arrive once the PC is updated, without reopening the app.
@@ -316,7 +317,7 @@ android/
 | **Updating without an app store** | Each app reads GitHub's public release list, and only trusts a download that comes from this project's releases and matches the SHA-256 the release declares. The phone also compares who signed the APK before asking Android to install it, so a mismatch is explained instead of failing oddly. The PC never checks while in stage mode. |
 | **Dependencies** | The receiver uses only Node's `https`, `dgram`, `fs`, `crypto`. The desktop app adds one small library to draw the QR code. The phone adds one to scan it. |
 
-**Tested how.** `npm test` runs 125 tests on the receiver (among them a burst of pairing guesses, a stalled request and names built to hide an extension), which received files a click may open, the outbox, telling an older phone from a newer one and a phone that was paired again from a second phone, the certificate, the pre-flight logic, the command line, colour contrast and screen-reader markup, and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
+**Tested how.** `npm test` runs 129 tests on the receiver (among them a burst of pairing guesses, a stalled request and names built to hide an extension), which received files a click may open, the outbox, telling an older phone from a newer one and a phone that was paired again from a second phone, the certificate, the pre-flight logic, the command line, colour contrast and screen-reader markup, and the updater (a download that was tampered with or cut short is thrown away), including 140 transfers in a row with every file compared byte for byte, and transfers that are cut off, carried on or cancelled. `npm run test:overlay` renders the real overlay at ten emulated screens, from 720p to 4K at 200%, and checks pixel by pixel that the photo lands centred, at the right size, and leaves nothing behind. Both run in CI on every push, alongside builds of all four downloads.
 
 ## How it compares
 
