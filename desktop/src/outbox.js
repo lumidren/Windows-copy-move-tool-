@@ -158,7 +158,8 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
       throw new Error('changed');
     }
     streams.get(item.id)?.destroy(); // the phone is asking again, so the old download is dead
-    const stream = fs.createReadStream(item.path, { start: offset, highWaterMark: 1024 * 1024 });
+    // Never past the size that was promised, even if the file has grown since it was put here.
+    const stream = fs.createReadStream(item.path, { start: offset, ...(offset < item.size ? { end: item.size - 1 } : {}), highWaterMark: 1024 * 1024 });
     streams.set(item.id, stream);
     item.sent = offset;
     item.state = 'sending';
@@ -183,6 +184,12 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
     set(item, ok ? 'done' : 'failed', ok ? '' : (error || 'The phone could not save the file.'));
   }
 
+  /** Takes back everything still waiting for or going to one phone: it has been removed. */
+  function cancelDevice(deviceId) {
+    for (const item of [...items.values()]) if (item.deviceId === deviceId) cancel(item.id);
+    wake(deviceId);
+  }
+
   /** Takes a file back out, from the PC's side or the phone's. */
   function cancel(id) {
     const item = items.get(id);
@@ -193,7 +200,7 @@ function createOutbox({ cleanName = (n) => n, maxBytes = () => Infinity, onChang
   }
 
   return {
-    add, release, wait, pending, find, open, finish, cancel,
+    add, release, wait, pending, find, open, finish, cancel, cancelDevice,
     list: () => [...items.values()],
     get: (id) => items.get(id) || null,
   };
