@@ -182,6 +182,7 @@ function readSmallBody(req, limit = 4096, patienceMs = SMALL_BODY_MS) {
  *   rotateCode(): called after too many wrong codes,
  *   guessing(): the code keeps being replaced because of wrong guesses; pairing should be shut,
  *   checkToken(token): {id, name} | null,
+ *   unpair(device): the phone asked to be forgotten; its token stops working,
  *   seen(device, ip): a paired phone just talked to us,
  *   saveDir(): string,
  *   maxBytes(): largest file accepted,
@@ -452,6 +453,15 @@ function startServer(hooks, options = {}) {
           app: cleanApp(req.headers['x-flingo-app']),
           asks: url.pathname === '/outbox' || url.pathname.startsWith('/outbox/'),
         });
+      }
+
+      // The phone was unpaired on the phone: it asks to be forgotten here too, so its token is
+      // dead at once instead of lingering until someone removes it on the PC.
+      if (req.method === 'POST' && url.pathname === '/unpair') {
+        req.resume();
+        if (!device) return json(res, 401, { error: 'Not paired' });
+        if (hooks.unpair) hooks.unpair(device);
+        return json(res, 200, { ok: true });
       }
 
       if (req.method === 'GET' && url.pathname === '/ping') {

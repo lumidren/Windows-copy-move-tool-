@@ -22,6 +22,7 @@ async function boot(extra = {}) {
     checkToken: (t) => (t === TOKEN ? { id: 'd1', name: 'Test Phone' } : t === TOKEN_2 ? { id: 'd2', name: 'Second Phone' } : null),
     rotateCode: extra.rotateCode,
     guessing: extra.guessing,
+    unpair: extra.unpair,
     saveDir: () => dir,
     maxBytes: () => extra.maxBytes ?? 1024 ** 3,
     onStart: (e) => events.push(['start', e]),
@@ -519,6 +520,18 @@ test('a pairing request that opens and says nothing is dropped', async () => {
     assert.ok(Date.now() - started < 3000);
     // The server is still there for everyone else.
     assert.equal((await fetch(`${t.base}/info`)).status, 200);
+  } finally { t.close(); }
+});
+
+test('a phone can ask to be forgotten, and only a paired phone can', async () => {
+  const gone = [];
+  const t = await boot({ unpair: (d) => gone.push(d.id) });
+  const unpair = (token) => fetch(`${t.base}/unpair`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).then((r) => r.status);
+  try {
+    assert.equal(await unpair('nope'), 401);
+    assert.deepEqual(gone, []);
+    assert.equal(await unpair(TOKEN), 200);
+    assert.deepEqual(gone, ['d1']);
   } finally { t.close(); }
 });
 

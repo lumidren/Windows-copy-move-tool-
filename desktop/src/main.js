@@ -772,6 +772,16 @@ const STALLED_MS = 5_000; // no bytes for this long means the phone has gone qui
 
 const isOnline = (d) => Date.now() - (lastSeen.get(d.id)?.at || 0) < ONLINE_MS;
 
+/** A phone is out from this moment: its token stops working, what it was sending stops, and what was waiting for it is taken back. */
+function forgetDevice(id) {
+  settings.devices = settings.devices.filter((d) => d.id !== id);
+  lastSeen.delete(id);
+  outbox.cancelDevice(id);
+  if (receiver) receiver.stopDevice(id);
+  saveSettings();
+  pushState();
+}
+
 /**
  * The paired phone that files for `id` go to. That one, unless the same phone has been paired
  * again since (Flingo was installed again on it): then the pairing that is in use now.
@@ -1190,6 +1200,11 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
         pushState();
         notify('Pairing was locked: wrong codes kept arriving from the network. Press "Pair a phone" when you want to pair.', showMain);
       },
+      unpair: (device) => {
+        if (device.id === 'self') return;
+        forgetDevice(device.id);
+        notify(`${device.name} unpaired itself from this PC.`, showMain);
+      },
       checkToken: (token) => {
         if (selfToken && token === selfToken) return { id: 'self', name: SELF_TEST };
         const h = sha(token);
@@ -1267,15 +1282,7 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
       return publicState();
     });
     handleMain('new-code', () => { pairCode = newCode(); return publicState(); });
-    handleMain('remove-device', (_e, id) => {
-      settings.devices = settings.devices.filter((d) => d.id !== id);
-      lastSeen.delete(id);
-      // It is out from this moment: what it was sending stops, and what was waiting for it is taken back.
-      outbox.cancelDevice(id);
-      if (receiver) receiver.stopDevice(id);
-      saveSettings();
-      return publicState();
-    });
+    handleMain('remove-device', (_e, id) => { forgetDevice(id); return publicState(); });
     handleMain('clear-history', () => { history = []; saveHistory(); return publicState(); });
     handleMain('preflight', () => preflight());
     onMain('open-folder', () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); });
