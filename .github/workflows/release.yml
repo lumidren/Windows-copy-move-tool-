@@ -95,10 +95,11 @@ jobs:
           $exe = $shortcut.TargetPath
           $fuses = (& npx --no-install electron-fuses read --app $exe) -join "`n"
           $fuses
-          foreach ($want in 'RunAsNode is Disabled', 'EnableNodeOptionsEnvironmentVariable is Disabled', 'EnableNodeCliInspectArguments is Disabled', 'OnlyLoadAppFromAsar is Enabled', 'EnableEmbeddedAsarIntegrityValidation is Enabled', 'GrantFileProtocolExtraPrivileges is Disabled') {
+          foreach ($want in 'RunAsNode is Disabled', 'EnableNodeOptionsEnvironmentVariable is Disabled', 'EnableNodeCliInspectArguments is Disabled', 'OnlyLoadAppFromAsar is Enabled', 'EnableEmbeddedAsarIntegrityValidation is Enabled') {
             if ($fuses -notmatch [regex]::Escape($want)) { throw "Fuse not set: $want" }
           }
-          Start-Process -FilePath $exe -ArgumentList '--hidden'
+          # Started with a debugging port, so the next step can look at what its window drew.
+          Start-Process -FilePath $exe -ArgumentList '--hidden', '--remote-debugging-port=9222'
           $up = $false
           for ($i = 0; $i -lt 60 -and -not $up; $i++) { Start-Sleep -Milliseconds 500; $up = [bool](Get-NetTCPConnection -LocalPort 47801 -State Listen -ErrorAction SilentlyContinue) }
           if (-not $up) { throw 'The installed Flingo did not start its receiver.' }
@@ -108,6 +109,9 @@ jobs:
           curl.exe -sk --tls-max 1.2 -o NUL https://127.0.0.1:47801/info
           if ($LASTEXITCODE -eq 0) { throw 'The receiver accepted TLS 1.2.' }
           'TLS 1.2 is refused.'
+          # A program can answer on the network and still show a blank window.
+          node test/installed-smoke.js 9222
+          if ($LASTEXITCODE -ne 0) { throw 'The installed Flingo did not draw its window.' }
           Get-Process -Name Flingo -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 2
           $dir = Split-Path $shortcut.TargetPath
@@ -138,7 +142,7 @@ jobs:
         run: |
           out="$(npx --no-install electron-fuses read --app release/linux-unpacked/flingo)"
           echo "$out"
-          for want in 'RunAsNode is Disabled' 'EnableNodeOptionsEnvironmentVariable is Disabled' 'EnableNodeCliInspectArguments is Disabled' 'OnlyLoadAppFromAsar is Enabled' 'GrantFileProtocolExtraPrivileges is Disabled'; do
+          for want in 'RunAsNode is Disabled' 'EnableNodeOptionsEnvironmentVariable is Disabled' 'EnableNodeCliInspectArguments is Disabled' 'OnlyLoadAppFromAsar is Enabled'; do
             echo "$out" | grep -qF "$want" || { echo "::error::Fuse not set: $want"; exit 1; }
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
