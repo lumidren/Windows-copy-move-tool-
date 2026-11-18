@@ -52,7 +52,7 @@ What Flingo protects, how, what was checked, and what it does not do yet. Writte
 ## The PC app itself
 
 - **Electron 45**, a version that still receives security fixes, pinned exactly.
-- **Fuses set in the installed program:** it cannot be run as plain Node, ignores `NODE_OPTIONS` and inspector switches, loads its code only from its own archive and checks that archive's integrity, and gives its `file://` pages no more than a browser would. CI reads these back from both builds, starts the installed Windows program and checks that its receiver answers over TLS 1.3 and refuses TLS 1.2.
+- **Fuses set in the installed program:** it cannot be run as plain Node, ignores `NODE_OPTIONS` and inspector switches, and loads its code only from its own archive and checks that archive's integrity. CI reads these back from both builds, starts the installed Windows program, checks that its receiver answers over TLS 1.3 and refuses TLS 1.2, and checks that its window drew Flingo's page with no access to Node.
 - Both windows are sandboxed with context isolation and no Node. Pages get no permissions, cannot navigate and cannot open windows.
 - The arrival screen, which decodes pictures a phone sent, has its own preload with two messages in and one out. It cannot read settings, pick files or send anything.
 - The main window hands over dropped files, never paths: where a file is on disk is resolved in the preload, so page code cannot ask for a file nobody dropped. Requests are accepted from the main window only.
@@ -73,7 +73,7 @@ What Flingo protects, how, what was checked, and what it does not do yet. Writte
 - An independent read of both code bases against the table above, then a fix and a test for each finding that was fixed.
 - 129 automated tests on the PC (`npm test`), including the key kept encrypted and converted from the clear, a phone unpairing itself, and a burst of sixty guesses of which at most five are even read, pairing locking after sustained guessing, a request that stalls, the per-phone upload limit, removal stopping a transfer, names built to hide an extension, the allowlist for opening, and the download mark on Windows.
 - 40 unit tests on the phone, including pairing links without a fingerprint, with internet addresses, with names, and with invisible characters.
-- Run for real on Electron 45 with the strict fuses flipped on a copy: received pictures in the list and on the arrival screen, pairing, a transfer and the pre-flight check. Two phones sending batches with the same name at once, each file credited to the right phone. A profile with a key in the clear converted on start, same certificate before and after. On the emulator: a share pushed in without permission asks first and sends nothing; a share with permission goes straight through; Unpair removes the phone on the PC at once. Earlier: a file dropped on the window as Explorer drops it, a disguised `.exe` upload (saved as `holiday.exe` and shown in its folder), the pre-flight check through the restricted arrival screen, and on the emulator with the release build: a link without a fingerprint refused, typed pairing asking first with the same code on both screens and nothing sent before the answer, and files both ways with matching checksums.
+- Run for real on Electron 45: a packaged copy with the same fuses as the installer, its window and pre-flight check; with the strictest `file://` fuse also tried, which blanks the packaged window and is therefore left on (see Known limits). Two phones sending batches with the same name at once, each file credited to the right phone. A profile with a key in the clear converted on start, same certificate before and after. On the emulator: a share pushed in without permission asks first and sends nothing; a share with permission goes straight through; Unpair removes the phone on the PC at once. Earlier: a file dropped on the window as Explorer drops it, a disguised `.exe` upload (saved as `holiday.exe` and shown in its folder), the pre-flight check through the restricted arrival screen, and on the emulator with the release build: a link without a fingerprint refused, typed pairing asking first with the same code on both screens and nothing sent before the answer, and files both ways with matching checksums.
 
 ## Known limits
 
@@ -83,8 +83,9 @@ These are real and not yet fixed. They are listed so nobody has to find them.
 2. **Comparing the security code is up to you** on the typed-code paths. Scanning the QR code needs no comparison and is the recommended way.
 3. **Anyone on the Wi-Fi can learn** that Flingo is running, the PC's name and its certificate fingerprint. None of these is secret.
 4. **The phone keeps its pairing in the app's private storage,** which Android protects from other apps but which is not separately encrypted.
-5. **Linux without a keyring** (no GNOME Keyring or KWallet) keeps the PC's private key as before, readable by the same user, because the only alternative there is a fixed password that would only pretend.
-6. No outside audit. The review was done in the course of development, by the same project.
+5. **The window's page is loaded from `file://`.** Electron can take away the extra rights such pages have, but Flingo's page then cannot load from inside its own archive (tried: the window stays blank), so that fuse is left on. Serving the page and the thumbnails through a custom protocol would allow it to be turned off.
+6. **Linux without a keyring** (no GNOME Keyring or KWallet) keeps the PC's private key as before, readable by the same user, because the only alternative there is a fixed password that would only pretend.
+7. No outside audit. The review was done in the course of development, by the same project.
 
 ## Reporting a problem
 
