@@ -75,7 +75,7 @@ jobs:
       - run: npm run dist:win
       # The installer is run for real: it has to put "Phone (Flingo)" in Explorer's Send to
       # menu, pointing at the installed program, and the uninstaller has to take it out again.
-      - name: Install, check the Send to entry, uninstall
+      - name: Install, check the Send to entry and the fuses, start it, uninstall
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -90,6 +90,26 @@ jobs:
           if ($shortcut.Arguments -ne '--send') { throw "Wrong arguments: $($shortcut.Arguments)" }
           if ((Split-Path $shortcut.TargetPath -Leaf) -ne 'Flingo.exe') { throw "Wrong program: $($shortcut.TargetPath)" }
           if (-not (Test-Path -LiteralPath $shortcut.TargetPath)) { throw "It points at a program that is not there: $($shortcut.TargetPath)" }
+          # The installed program, as people get it: its fuses are set, it starts with them, and
+          # its receiver answers over TLS 1.3 and refuses anything older.
+          $exe = $shortcut.TargetPath
+          $fuses = (& npx --no-install electron-fuses read --app $exe) -join "`n"
+          $fuses
+          foreach ($want in 'RunAsNode is Disabled', 'EnableNodeOptionsEnvironmentVariable is Disabled', 'EnableNodeCliInspectArguments is Disabled', 'OnlyLoadAppFromAsar is Enabled', 'EnableEmbeddedAsarIntegrityValidation is Enabled', 'GrantFileProtocolExtraPrivileges is Disabled') {
+            if ($fuses -notmatch [regex]::Escape($want)) { throw "Fuse not set: $want" }
+          }
+          Start-Process -FilePath $exe -ArgumentList '--hidden'
+          $up = $false
+          for ($i = 0; $i -lt 60 -and -not $up; $i++) { Start-Sleep -Milliseconds 500; $up = [bool](Get-NetTCPConnection -LocalPort 47801 -State Listen -ErrorAction SilentlyContinue) }
+          if (-not $up) { throw 'The installed Flingo did not start its receiver.' }
+          $info = curl.exe -sk --tlsv1.3 https://127.0.0.1:47801/info | ConvertFrom-Json
+          "Answered: app=$($info.app) protocol=$($info.version)"
+          if ($info.app -ne 'flingo') { throw 'The receiver did not answer as Flingo.' }
+          curl.exe -sk --tls-max 1.2 -o NUL https://127.0.0.1:47801/info
+          if ($LASTEXITCODE -eq 0) { throw 'The receiver accepted TLS 1.2.' }
+          'TLS 1.2 is refused.'
+          Get-Process -Name Flingo -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
           $dir = Split-Path $shortcut.TargetPath
           Start-Process -FilePath (Join-Path $dir 'Uninstall Flingo.exe') -ArgumentList '/S', "_?=$dir" -Wait
           if (Test-Path -LiteralPath $link) { throw "The uninstaller left $link behind" }
@@ -114,6 +134,13 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
       - run: npm run dist:linux
+      - name: Check the fuses of the Linux build
+        run: |
+          out="$(npx --no-install electron-fuses read --app release/linux-unpacked/flingo)"
+          echo "$out"
+          for want in 'RunAsNode is Disabled' 'EnableNodeOptionsEnvironmentVariable is Disabled' 'EnableNodeCliInspectArguments is Disabled' 'OnlyLoadAppFromAsar is Enabled' 'GrantFileProtocolExtraPrivileges is Disabled'; do
+            echo "$out" | grep -qF "$want" || { echo "::error::Fuse not set: $want"; exit 1; }
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: linux

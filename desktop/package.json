@@ -26,6 +26,15 @@
   "homepage": "https://github.com/lumidren/Windows-copy-move-tool-",
   "build": {
     "appId": "com.lumidren.flingo",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    },
     "productName": "Flingo",
     "files": [
       "src/**/*",
