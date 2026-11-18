@@ -70,6 +70,7 @@ object Inbox {
     }
 
     private const val PATIENCE_MS = 45_000L
+    private const val OLD_PC_RETRY_MS = 30_000L
     private const val LONG_COUNT = 3
     private const val LONG_BYTES = 20L * 1024 * 1024
     private const val BUFFER = 256 * 1024
@@ -135,7 +136,14 @@ object Inbox {
                 if (leaveWhenIdle) return // nobody is watching; the next time Flingo is opened it asks again
                 delay(4000) // the PC is not there right now; the health check says so on screen
                 continue
-            } ?: return // an older Flingo on the PC, which cannot send to phones
+            }
+            if (offered == null) {
+                // An older Flingo on the PC, which cannot send to phones. It may be updated while
+                // this screen stays open, so ask again now and then instead of giving up for good.
+                if (leaveWhenIdle) return
+                delay(OLD_PC_RETRY_MS)
+                continue
+            }
             everything = false
             unheard = false
             // Files this phone already has are only confirmed again, without a second arrival.
