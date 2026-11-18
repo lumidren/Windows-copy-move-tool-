@@ -21,7 +21,8 @@ test('the certificate is valid, self-signed X.509 that matches its key', () => {
   assert.ok(new Date(x.validFrom) < new Date());
   assert.ok(new Date(x.validTo) > new Date(Date.now() + 19 * 365 * 24 * 3600 * 1000));
   assert.equal(fingerprint(id.cert).length, 32);
-  assert.match(securityCode(id.cert), /^[0-9A-F]{4} [0-9A-F]{4}$/);
+  assert.match(securityCode(id.cert), /^[0-9A-F]{4}( [0-9A-F]{4}){3}$/);
+  assert.equal(securityCode(id.cert).replace(/ /g, '').toLowerCase(), fingerprint(id.cert).toString('hex').slice(0, 16));
 });
 
 test('dates after 2049 use the long time form and still parse', () => {

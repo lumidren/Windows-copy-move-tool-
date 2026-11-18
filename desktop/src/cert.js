@@ -70,10 +70,13 @@ function fingerprint(certPem) {
   return crypto.createHash('sha256').update(new crypto.X509Certificate(certPem).raw).digest();
 }
 
-/** A short form people can compare by eye, e.g. "4F2A 91C3". */
+/**
+ * A short form people can compare by eye, e.g. "4F2A 91C3 07BE D215". Sixteen characters: with
+ * eight, someone could make keys until one had the same short form as this PC's.
+ */
 function securityCode(certPem) {
   const hex = fingerprint(certPem).toString('hex').toUpperCase();
-  return `${hex.slice(0, 4)} ${hex.slice(4, 8)}`;
+  return [0, 4, 8, 12].map((i) => hex.slice(i, i + 4)).join(' ');
 }
 
 /** Loads the saved identity, or creates and saves one. */
