@@ -396,9 +396,20 @@ object Net {
 
     /** Looks for the paired PC by name-and-id broadcast, for when its address has changed. Returns as soon as it answers. */
     fun relocate(prefs: Prefs): Boolean {
-        val moved = runCatching { discover(1500, wantId = prefs.pcId) }.getOrDefault(emptyList()).firstOrNull { it.id == prefs.pcId } ?: return false
-        prefs.host = moved.host
-        return true
+        // An answer on the network is only a claim: anything can answer with this PC's name and
+        // id. An address is kept only once the PC there has shown the pinned certificate and
+        // accepted this phone's token. If the first to answer is not it, every answer is tried.
+        val tried = HashSet<String>()
+        fun verified(answers: List<Pc>): Boolean {
+            for (pc in answers) {
+                if (pc.id != prefs.pcId || !tried.add(pc.host)) continue
+                if (pingAt(prefs, pc.host)) { prefs.host = pc.host; return true }
+            }
+            return false
+        }
+        if (verified(runCatching { discover(1500, wantId = prefs.pcId) }.getOrDefault(emptyList()))) return true
+        if (tried.isEmpty()) return false // nobody answered at all
+        return verified(runCatching { discover(2400) }.getOrDefault(emptyList()))
     }
 
     // ---------- sending ----------

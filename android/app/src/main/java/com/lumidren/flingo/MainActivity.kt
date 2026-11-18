@@ -1687,7 +1687,7 @@ class MainActivity : Activity() {
                 // PC cannot be reached, the phone forgets it anyway; it can be removed on the PC.
                 val asked = Prefs(applicationContext)
                 scope.launch {
-                    val told = withContext(Dispatchers.IO) { runCatching { Net.unpair(asked) }.isSuccess && online == true }
+                    val told = withContext(Dispatchers.IO) { Net.unpair(asked) }
                     prefs.clearPairing()
                     online = null
                     healthJob?.cancel()
