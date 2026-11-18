@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { cleanApp } = require('./phones');
+const { markFromElsewhere } = require('./files');
 
 const HTTP_PORT = 47801;
 const DISCOVERY_PORT = 47800;
@@ -13,7 +14,16 @@ const DISCOVERY_MAGIC = 'FLINGO_DISCOVER';
 const PROTOCOL_VERSION = 2;
 const MAX_PAIR_FAILS = 5; // wrong codes per IP per minute
 const MAX_TOTAL_FAILS = 12; // wrong codes from anyone before the code is replaced
+const MAX_PAIRING_AT_ONCE = 3; // codes being checked at one moment, from anyone
+const MAX_ROTATIONS = 3; // the code was replaced this often in ROTATION_WINDOW_MS: someone is guessing, so pairing is shut
+const ROTATION_WINDOW_MS = 10 * 60 * 1000;
 const MAX_UPLOADS = 12; // transfers in flight at once: a phone sends up to four files of a batch together
+const MAX_UPLOADS_PER_PHONE = 8; // so one phone cannot take every place and keep the others out
+const MAX_KEPT_PARTS = 8; // half-received files kept for one phone to carry on with
+const SMALL_BODY_MS = 10_000; // a pairing request or a verdict arrives at once or not at all
+const SOCKET_IDLE_MS = 75_000; // longer than the longest wait on the outbox (50 s)
+const MAX_CONNECTIONS = 128;
+const SPACE_CHECK_BYTES = 64 * 1024 ** 2; // a file of unknown size has the free space checked again this often
 const WRITE_BUFFER = 1024 * 1024;
 const IDLE_TIMEOUT_MS = 30_000; // a stalled upload is dropped after this long without data
 const DEFAULT_MAX_BYTES = 32 * 1024 ** 3;
@@ -73,6 +83,16 @@ function cleanStaleParts(dir, olderThanMs = 0) {
     }
   } catch { /* folder does not exist yet */ }
   return removed;
+}
+
+/**
+ * Deletes a half-received file. On Windows a file that was being written a moment ago can
+ * still be held open for an instant, so a refusal is tried again a few times before giving up.
+ */
+function removeFile(file, triesLeft = 6) {
+  fs.rm(file, { force: true }, (err) => {
+    if (err && triesLeft > 0 && ['EBUSY', 'EPERM', 'EACCES'].includes(err.code)) setTimeout(() => removeFile(file, triesLeft - 1), 120).unref();
+  });
 }
 
 function fileSize(file) {
@@ -139,10 +159,12 @@ function sendOut(req, res, outbox, item) {
   stream.pipe(res);
 }
 
-function readSmallBody(req, limit = 4096) {
+function readSmallBody(req, limit = 4096, patienceMs = SMALL_BODY_MS) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    // A request that opens and then says nothing must not hold a connection for ever.
+    req.setTimeout(patienceMs, () => { reject(new Error('too slow')); req.destroy(); });
     req.on('data', (c) => {
       size += c.length;
       if (size > limit) { reject(new Error('too large')); req.destroy(); return; }
@@ -158,6 +180,7 @@ function readSmallBody(req, limit = 4096) {
  *   info(): {id, name, ...},
  *   pair({code, deviceName, deviceId, ip}): {token} | {error: 'wrong' | 'locked'},
  *   rotateCode(): called after too many wrong codes,
+ *   guessing(): the code keeps being replaced because of wrong guesses; pairing should be shut,
  *   checkToken(token): {id, name} | null,
  *   seen(device, ip): a paired phone just talked to us,
  *   saveDir(): string,
@@ -177,12 +200,19 @@ function startServer(hooks, options = {}) {
   const tls = options.tls || null;
   const wantedPort = options.port ?? HTTP_PORT;
   const discoveryPort = options.discoveryPort ?? DISCOVERY_PORT;
+  // The two limits a test needs to reach without sixty real seconds or forty real senders.
+  const maxPairFails = options.maxPairFails ?? MAX_PAIR_FAILS;
+  const smallBodyMs = options.smallBodyMs ?? SMALL_BODY_MS;
   const fails = new Map(); // ip -> [timestamps]
   const claimed = new Set(); // final paths picked by transfers that are still finishing
   const active = new Map(); // partial file path -> stop(): that transfer, while it is running
   const expiry = new Map(); // partial file path -> timer that deletes it if the phone never returns
+  const owners = new Map(); // partial file path -> id of the phone it belongs to
+  const perPhone = new Map(); // phone id -> transfers it has in flight
   let totalFails = 0;
   let uploads = 0;
+  let pairing = 0; // codes being checked right now
+  let rotations = []; // when the code was last replaced because of wrong guesses
 
   function tooManyFails(ip) {
     const now = Date.now();
@@ -190,14 +220,35 @@ function startServer(hooks, options = {}) {
       const recent = list.filter((t) => now - t < 60_000);
       if (recent.length) fails.set(k, recent); else fails.delete(k);
     }
-    return (fails.get(ip) || []).length >= MAX_PAIR_FAILS;
+    return (fails.get(ip) || []).length >= maxPairFails;
   }
 
-  function noteFail(ip) {
-    fails.set(ip, [...(fails.get(ip) || []), Date.now()]);
-    if (++totalFails >= MAX_TOTAL_FAILS) {
-      totalFails = 0;
-      if (hooks.rotateCode) hooks.rotateCode();
+  /**
+   * Counts an attempt against its sender the moment it arrives, before its code has even been
+   * read. Counted only afterwards, a thousand requests sent together would all be let in.
+   * Returns a function that takes the count back, for the attempt that turns out to be right.
+   */
+  function noteAttempt(ip) {
+    const at = Date.now();
+    fails.set(ip, [...(fails.get(ip) || []), at]);
+    return () => {
+      const list = fails.get(ip) || [];
+      const i = list.indexOf(at);
+      if (i >= 0) list.splice(i, 1);
+    };
+  }
+
+  function noteFail() {
+    if (++totalFails < MAX_TOTAL_FAILS) return;
+    totalFails = 0;
+    if (hooks.rotateCode) hooks.rotateCode();
+    // A new code every dozen wrong guesses does not stop someone who keeps guessing: each guess
+    // is as likely as the last. When it keeps happening, the door is shut until the owner opens it.
+    const now = Date.now();
+    rotations = [...rotations.filter((t) => now - t < ROTATION_WINDOW_MS), now];
+    if (rotations.length >= MAX_ROTATIONS) {
+      rotations = [];
+      if (hooks.guessing) hooks.guessing();
     }
   }
 
@@ -226,14 +277,28 @@ function startServer(hooks, options = {}) {
     const total = body === null ? null : offset + body;
     const limit = hooks.maxBytes ? hooks.maxBytes() : DEFAULT_MAX_BYTES;
     if (total !== null && total > limit) return refuse(req, res, 413, 'That file is too large for this PC.');
-    if (uploads >= MAX_UPLOADS) return refuse(req, res, 429, 'This PC is busy receiving. Try again in a moment.');
+    const mine = perPhone.get(device.id) || 0;
+    if (uploads >= MAX_UPLOADS || mine >= MAX_UPLOADS_PER_PHONE) return refuse(req, res, 429, 'This PC is busy receiving. Try again in a moment.');
+    // The place is taken now, before anything is waited for: counted later, requests that
+    // arrive together would all see a free place.
+    uploads++;
+    perPhone.set(device.id, mine + 1);
+    let held = true;
+    const release = () => {
+      if (!held) return;
+      held = false;
+      uploads--;
+      const left = (perPhone.get(device.id) || 1) - 1;
+      if (left > 0) perPhone.set(device.id, left); else perPhone.delete(device.id);
+    };
+    const turnAway = (status, error, extra) => { release(); return refuse(req, res, status, error, extra); };
 
     const dir = hooks.saveDir();
-    try { fs.mkdirSync(dir, { recursive: true }); } catch { return refuse(req, res, 500, 'The save folder on the PC cannot be used.'); }
+    try { fs.mkdirSync(dir, { recursive: true }); } catch { return turnAway(500, 'The save folder on the PC cannot be used.'); }
     req.pause();
     const free = await freeBytes(dir);
-    if (free !== null && body !== null && free < body + SPACE_MARGIN) {
-      return refuse(req, res, 507, 'Not enough free space on the PC.');
+    if (free !== null && free < (body ?? 0) + SPACE_MARGIN) {
+      return turnAway(507, 'Not enough free space on the PC.');
     }
 
     let rawName = req.headers['x-filename'] || 'file';
@@ -242,10 +307,10 @@ function startServer(hooks, options = {}) {
     const id = crypto.randomBytes(6).toString('hex');
     const key = tid || id;
     const tmp = tid ? partPath(dir, device, tid) : path.join(dir, `.flingo-${id}.part`);
-    if (active.has(tmp)) return refuse(req, res, 409, 'That file is already on its way.');
+    if (active.has(tmp)) return turnAway(409, 'That file is already on its way.');
     // Carrying on only works from exactly where the saved part ends.
     if (offset > 0 && fileSize(tmp) !== offset) {
-      return refuse(req, res, 409, 'The PC has a different amount of that file.', { received: fileSize(tmp) });
+      return turnAway(409, 'The PC has a different amount of that file.', { received: fileSize(tmp) });
     }
     clearTimeout(expiry.get(tmp));
     expiry.delete(tmp);
@@ -257,14 +322,16 @@ function startServer(hooks, options = {}) {
     let done = false;
     let lastTick = 0;
     let dropped = false; // stopped on purpose: nothing is kept for later
-    uploads++;
+    let checkedAt = offset; // how much had arrived when the free space was last looked at
     active.set(tmp, (drop = false) => { dropped = drop; fail(); req.destroy(); });
+    owners.set(tmp, device.id);
 
     const finish = (ok, waiting = false) => {
       if (done) return false;
       done = true;
-      uploads--;
+      release();
       active.delete(tmp);
+      owners.delete(tmp);
       if (hooks.onEnd) hooks.onEnd({ id, key, ok, waiting });
       return true;
     };
@@ -274,11 +341,18 @@ function startServer(hooks, options = {}) {
       if (!finish(false, keep)) return;
       out.destroy();
       if (keep) {
-        const timer = setTimeout(() => { expiry.delete(tmp); if (!active.has(tmp)) fs.rm(tmp, { force: true }, () => {}); }, PART_KEEP_MS);
+        const timer = setTimeout(() => { expiry.delete(tmp); if (!active.has(tmp)) removeFile(tmp); }, PART_KEEP_MS);
         timer.unref();
         expiry.set(tmp, timer);
+        // One phone may leave only so many halves behind; beyond that the oldest goes.
+        const kept = [...expiry.keys()].filter((p) => path.basename(p).startsWith(`.flingo-${device.id}-`));
+        for (const old of kept.slice(0, Math.max(0, kept.length - MAX_KEPT_PARTS))) {
+          clearTimeout(expiry.get(old));
+          expiry.delete(old);
+          if (!active.has(old)) removeFile(old);
+        }
       } else {
-        fs.rm(tmp, { force: true }, () => {});
+        removeFile(tmp);
       }
       if (status && !res.headersSent) refuse(req, res, status, error);
     };
@@ -288,6 +362,12 @@ function startServer(hooks, options = {}) {
     req.on('data', (c) => {
       size += c.length;
       if (size > limit) { fail(413, 'That file is too large for this PC.'); return; }
+      // A file that did not say how large it is could not be checked against the free space
+      // at the start, so the disk is looked at again as it grows.
+      if (body === null && size - checkedAt >= SPACE_CHECK_BYTES) {
+        checkedAt = size;
+        freeBytes(dir).then((left) => { if (left !== null && left < SPACE_MARGIN) fail(507, 'Not enough free space on the PC.'); });
+      }
       const now = Date.now();
       if (hooks.onProgress && now - lastTick >= PROGRESS_EVERY_MS) {
         lastTick = now;
@@ -306,6 +386,7 @@ function startServer(hooks, options = {}) {
       fs.rename(tmp, finalPath, (err) => {
         claimed.delete(finalPath);
         if (err) return fail(500, 'The PC could not save the file.');
+        markFromElsewhere(finalPath); // Windows then treats it as it would a download
         if (!finish(true)) return;
         const x = Math.min(1, Math.max(0, parseFloat(url.searchParams.get('x')) || 0.5));
         hooks.onFile({
@@ -335,23 +416,30 @@ function startServer(hooks, options = {}) {
       }
 
       if (req.method === 'POST' && url.pathname === '/pair') {
-        if (tooManyFails(ip)) return json(res, 429, { error: 'Too many attempts. Wait a minute.' });
-        let body;
-        try { body = JSON.parse(await readSmallBody(req)); } catch { return json(res, 400, { error: 'Bad request' }); }
-        if (!body || typeof body !== 'object') return json(res, 400, { error: 'Bad request' });
-        const result = hooks.pair({
-          code: String(body.code || ''),
-          deviceName: String(body.deviceName || 'Phone').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 60) || 'Phone',
-          deviceId: String(body.deviceId || '').replace(/[^0-9a-zA-Z_-]/g, '').slice(0, 64),
-          ip,
-        }) || { error: 'wrong' };
-        if (result.error === 'locked') return json(res, 423, { error: 'Pairing is locked on this PC.' });
-        if (!result.token) {
-          noteFail(ip);
-          return json(res, 403, { error: 'Wrong code' });
+        if (tooManyFails(ip) || pairing >= MAX_PAIRING_AT_ONCE) return refuse(req, res, 429, 'Too many attempts. Wait a minute.');
+        const forgive = noteAttempt(ip);
+        pairing++;
+        try {
+          let body;
+          try { body = JSON.parse(await readSmallBody(req, 4096, smallBodyMs)); } catch { return json(res, 400, { error: 'Bad request' }); }
+          if (!body || typeof body !== 'object') return json(res, 400, { error: 'Bad request' });
+          const result = hooks.pair({
+            code: String(body.code || ''),
+            deviceName: String(body.deviceName || 'Phone').replace(INVISIBLE, '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 60) || 'Phone',
+            deviceId: String(body.deviceId || '').replace(/[^0-9a-zA-Z_-]/g, '').slice(0, 64),
+            ip,
+          }) || { error: 'wrong' };
+          if (result.error === 'locked') { forgive(); return json(res, 423, { error: 'Pairing is locked on this PC.' }); }
+          if (!result.token) {
+            noteFail();
+            return json(res, 403, { error: 'Wrong code' });
+          }
+          forgive();
+          totalFails = 0;
+          return json(res, 200, { token: result.token, ...hooks.info() });
+        } finally {
+          pairing--;
         }
-        totalFails = 0;
-        return json(res, 200, { token: result.token, ...hooks.info() });
       }
 
       const auth = req.headers.authorization || '';
@@ -395,7 +483,7 @@ function startServer(hooks, options = {}) {
           else {
             clearTimeout(expiry.get(part));
             expiry.delete(part);
-            fs.rm(part, { force: true }, () => {});
+            removeFile(part);
           }
         }
         return json(res, 200, { ok: true });
@@ -458,6 +546,10 @@ function startServer(hooks, options = {}) {
   server.requestTimeout = 0; // a large video may take longer than Node's default five minutes
   server.headersTimeout = 15_000;
   server.keepAliveTimeout = 8_000;
+  // A connection that carries nothing either way for this long is closed, and there is a limit
+  // to how many are open at once: nobody on the Wi-Fi can use them all up by opening and waiting.
+  server.timeout = SOCKET_IDLE_MS;
+  server.maxConnections = MAX_CONNECTIONS;
   server.on('clientError', (_err, socket) => { try { socket.destroy(); } catch { /* already gone */ } });
   server.on('tlsClientError', () => { /* a probe that is not TLS; nothing to do */ });
 
@@ -481,6 +573,16 @@ function startServer(hooks, options = {}) {
   return {
     server,
     ready,
+    /** Stops every transfer this phone has in flight and keeps nothing of them: it has been removed. */
+    stopDevice(id) {
+      for (const [part, owner] of [...owners]) if (owner === id) { const stop = active.get(part); if (stop) stop(true); }
+      for (const part of [...expiry.keys()]) {
+        if (!path.basename(part).startsWith(`.flingo-${id}-`)) continue;
+        clearTimeout(expiry.get(part));
+        expiry.delete(part);
+        removeFile(part);
+      }
+    },
     tls: !!tls,
     get port() { return server.address() ? server.address().port : wantedPort; },
     status: () => ({ listening: server.listening, ...state, uploads }),

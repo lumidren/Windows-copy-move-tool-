@@ -10,6 +10,7 @@ const { startServer, sanitizeName, cleanStaleParts } = require('../src/server');
 
 const CODE = '123456';
 const TOKEN = 'a'.repeat(64);
+const TOKEN_2 = 'b'.repeat(64); // a second paired phone
 
 async function boot(extra = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flingo-test-'));
@@ -18,7 +19,9 @@ async function boot(extra = {}) {
   const hooks = {
     info: () => ({ id: 'pc1', name: 'Test PC' }),
     pair: ({ code }) => (extra.locked ? { error: 'locked' } : code === CODE ? { token: TOKEN } : { error: 'wrong' }),
-    checkToken: (t) => (t === TOKEN ? { id: 'd1', name: 'Test Phone' } : null),
+    checkToken: (t) => (t === TOKEN ? { id: 'd1', name: 'Test Phone' } : t === TOKEN_2 ? { id: 'd2', name: 'Second Phone' } : null),
+    rotateCode: extra.rotateCode,
+    guessing: extra.guessing,
     saveDir: () => dir,
     maxBytes: () => extra.maxBytes ?? 1024 ** 3,
     onStart: (e) => events.push(['start', e]),
@@ -28,7 +31,7 @@ async function boot(extra = {}) {
     onCancel: extra.onCancel,
     seen: extra.seen,
   };
-  const s = startServer(hooks, { port: 0, discoveryPort: null, host: '127.0.0.1' });
+  const s = startServer(hooks, { port: 0, discoveryPort: null, host: '127.0.0.1', ...(extra.options || {}) });
   assert.equal(await s.ready, true);
   const base = `http://127.0.0.1:${s.port}`;
   return {
@@ -427,19 +430,29 @@ test('more uploads at once than the PC allows are turned away, and the rest carr
   const t = await boot();
   const open = [];
   try {
-    // Twelve uploads that have begun and are holding their place.
-    for (let i = 0; i < 12; i++) {
+    // Twelve uploads that have begun and are holding their place: eight from one phone, which
+    // is as many as one phone may hold, and four from another.
+    const hold = (i, token) => {
       const req = http.request(`${t.base}/send?id=hold${i}`, {
         method: 'POST', agent: false,
-        headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': `held-${i}.bin`, 'Content-Length': 2000 },
+        headers: { Authorization: `Bearer ${token}`, 'X-Filename': `held-${i}.bin`, 'Content-Length': 2000 },
       });
       req.on('error', () => {});
       req.write(Buffer.alloc(1000, i));
       open.push(req);
-    }
-    for (let i = 0; i < 100 && t.s.status().uploads < 12; i++) await new Promise((r) => setTimeout(r, 20));
+    };
+    const until = async (n) => { for (let i = 0; i < 100 && t.s.status().uploads < n; i++) await new Promise((r) => setTimeout(r, 20)); };
+    for (let i = 0; i < 8; i++) hold(i, TOKEN);
+    await until(8);
+    assert.equal(t.s.status().uploads, 8);
+    // One phone cannot take every place: its ninth is turned away while the PC still has room.
+    const greedy = await t.send('ninth-from-one-phone.jpg', Buffer.from('x'));
+    assert.equal(greedy.status, 429);
+    assert.equal((await t.send('the-other-phone.jpg', Buffer.from('x'), TOKEN_2)).status, 200, 'another phone still gets in');
+    for (let i = 8; i < 12; i++) hold(i, TOKEN_2);
+    await until(12);
     assert.equal(t.s.status().uploads, 12);
-    const refused = await t.send('one-too-many.jpg', Buffer.from('x'));
+    const refused = await t.send('one-too-many.jpg', Buffer.from('x'), TOKEN_2);
     assert.equal(refused.status, 429);
     assert.match((await refused.json()).error, /busy/i);
     // The ones already going are not disturbed by the refusal.
@@ -449,6 +462,94 @@ test('more uploads at once than the PC allows are turned away, and the rest carr
     assert.equal(fs.readFileSync(path.join(t.dir, 'held-3.bin')).length, 2000);
     assert.equal((await t.send('after.jpg', Buffer.from('x'))).status, 200);
   } finally { for (const req of open) req.destroy(); t.close(); }
+});
+
+test('a burst of guesses sent together is counted as it arrives, not afterwards', async () => {
+  const t = await boot();
+  const guess = (code) => fetch(`${t.base}/pair`, { method: 'POST', body: JSON.stringify({ code, deviceName: 'x' }) }).then((r) => r.status, () => 0);
+  try {
+    // Sixty wrong codes at the same moment. Counted only once each had been read, all sixty
+    // would have been let in; counted on arrival, five at most are even looked at.
+    const answers = await Promise.all(Array.from({ length: 60 }, (_, i) => guess(String(100000 + i))));
+    const looked = answers.filter((s) => s === 403).length;
+    assert.ok(looked >= 1 && looked <= 5, `${looked} guesses were checked`);
+    assert.equal(answers.filter((s) => s === 429 || s === 0).length, 60 - looked, 'the rest were turned away unread');
+    // And the right code is refused too for the rest of the minute: no way round by being right late.
+    assert.equal(await guess(CODE), 429);
+  } finally { t.close(); }
+});
+
+test('the right code is not counted against the phone that sent it', async () => {
+  const t = await boot();
+  const pair = () => fetch(`${t.base}/pair`, { method: 'POST', body: JSON.stringify({ code: CODE, deviceName: 'x' }) }).then((r) => r.status);
+  try {
+    for (let i = 0; i < 12; i++) assert.equal(await pair(), 200, `pairing ${i + 1}`);
+  } finally { t.close(); }
+});
+
+test('guessing that goes on and on shuts pairing', async () => {
+  let rotated = 0;
+  let shut = 0;
+  const t = await boot({ rotateCode: () => { rotated++; }, guessing: () => { shut++; }, options: { maxPairFails: 1000 } });
+  const guess = (i) => fetch(`${t.base}/pair`, { method: 'POST', body: JSON.stringify({ code: String(200000 + i), deviceName: 'x' }) }).then((r) => r.status);
+  try {
+    // Twelve wrong guesses replace the code. That alone does not stop anyone, so the third
+    // time it happens the server asks for pairing to be locked.
+    for (let i = 0; i < 35; i++) assert.equal(await guess(i), 403);
+    assert.equal(rotated, 2);
+    assert.equal(shut, 0);
+    assert.equal(await guess(35), 403);
+    assert.equal(rotated, 3);
+    assert.equal(shut, 1);
+  } finally { t.close(); }
+});
+
+test('a pairing request that opens and says nothing is dropped', async () => {
+  const t = await boot({ options: { smallBodyMs: 300 } });
+  try {
+    const started = Date.now();
+    const outcome = await new Promise((resolve) => {
+      const req = http.request(`${t.base}/pair`, { method: 'POST', agent: false, headers: { 'Content-Length': 50 } });
+      req.on('response', (res) => { res.resume(); resolve(`answered ${res.statusCode}`); });
+      req.on('error', () => resolve('dropped'));
+      req.write('{"code":'); // and then nothing, for ever
+      setTimeout(() => resolve('still open'), 4000).unref();
+    });
+    assert.notEqual(outcome, 'still open');
+    assert.ok(Date.now() - started < 3000);
+    // The server is still there for everyone else.
+    assert.equal((await fetch(`${t.base}/info`)).status, 200);
+  } finally { t.close(); }
+});
+
+test('removing a phone stops what it was sending and keeps nothing of it', async () => {
+  const t = await boot();
+  try {
+    const cut = new Promise((resolve) => {
+      const req = http.request(`${t.base}/send?id=going`, {
+        method: 'POST', agent: false,
+        headers: { Authorization: `Bearer ${TOKEN}`, 'X-Filename': 'half.bin', 'Content-Length': 5000 },
+      });
+      req.on('error', () => resolve('cut'));
+      req.on('response', (res) => { res.resume(); resolve(`answered ${res.statusCode}`); });
+      req.write(Buffer.alloc(2000, 1));
+    });
+    for (let i = 0; i < 100 && t.s.status().uploads < 1; i++) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(parts(t.dir).length, 1);
+    t.s.stopDevice('d1');
+    assert.equal(await cut, 'cut');
+    for (let i = 0; i < 50 && parts(t.dir).length; i++) await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(fs.readdirSync(t.dir), [], 'not even the half that had arrived');
+    assert.equal(t.s.status().uploads, 0);
+  } finally { t.close(); }
+});
+
+test('a saved file is marked as coming from another device (Windows)', { skip: process.platform !== 'win32' }, async () => {
+  const t = await boot();
+  try {
+    assert.equal((await t.send('holiday.jpg', Buffer.from('jpeg bytes'))).status, 200);
+    assert.match(fs.readFileSync(`${path.join(t.dir, 'holiday.jpg')}:Zone.Identifier`, 'utf8'), /ZoneId=3/);
+  } finally { t.close(); }
 });
 
 test('stale partial files are cleaned up', () => {
