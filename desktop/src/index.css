@@ -96,7 +96,8 @@ main { flex: 1; min-width: 0; min-height: 0; display: flex; padding: 20px 24px 2
 .col { width: 300px; flex: none; display: flex; flex-direction: column; gap: 18px; overflow: hidden auto; padding-right: 4px; }
 .col.wide { flex: 1; width: auto; min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
-.card.grow { flex: 1 0 auto; min-height: 300px; display: flex; flex-direction: column; }
+/* The list of what has arrived takes the room that is left and scrolls inside itself. */
+.card.grow { flex: 1 1 280px; min-height: 280px; display: flex; flex-direction: column; }
 h2 { font-size: 15px; letter-spacing: .1px; color: var(--text); margin: 0 0 12px; font-weight: 600; }
 p { margin: 0 0 10px; }
 .muted { color: var(--muted); }
@@ -222,20 +223,24 @@ code {
 
 .history {
   flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; grid-auto-rows: max-content;
   /* Room inside the scrolling box for the focus ring of a tile at its edge. */
   padding: 5px; margin: 1px -5px 0;
 }
+/* The day a group of files arrived, across the whole row. */
+.day { grid-column: 1 / -1; margin: 4px 0 -2px; font-size: 12px; font-weight: 600; letter-spacing: .3px; color: var(--muted); }
+.day:not(:first-child) { margin-top: 12px; }
 .tile {
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
   overflow: hidden; cursor: pointer; padding: 0; text-align: left; color: var(--text); font-weight: 400;
+  transition: border-color .12s, transform .12s;
 }
-.tile:hover { border-color: var(--accent); }
-.tile .thumb { height: 104px; background: #0b0d12 center/cover no-repeat; display: grid; place-items: center; color: var(--muted); font-weight: 700; letter-spacing: 1px; }
-.tile img { width: 100%; height: 104px; object-fit: cover; display: block; -webkit-user-drag: none; }
-.tile .meta { padding: 7px 9px; }
-.tile .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.tile .sub { font-size: 11px; color: var(--muted); }
+.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
+.tile .thumb { aspect-ratio: 4 / 3; background: #0b0d12 center/cover no-repeat; display: grid; place-items: center; color: var(--muted); font-weight: 700; letter-spacing: 1px; }
+.tile img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; -webkit-user-drag: none; }
+.tile .meta { padding: 8px 10px 9px; }
+.tile .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.tile .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
 
 .empty { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .empty.show { display: flex; }

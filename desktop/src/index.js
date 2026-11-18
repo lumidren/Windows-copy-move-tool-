@@ -204,9 +204,22 @@ function makeTile(h) {
   return tile;
 }
 
+// The list is in days: "Today", "Yesterday", then the date. A heading spans the whole row.
+const dayHeads = new Map(); // day label -> heading
+const DAY_MS = 24 * 60 * 60 * 1000;
+const startOfDay = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+function dayLabel(at, now = Date.now()) {
+  const days = Math.round((startOfDay(now) - startOfDay(at)) / DAY_MS);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return new Date(at).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
 function renderHistory(history) {
   const keys = history.map((h) => h.path + h.at);
-  const key = keys.join('|');
+  // The day it is now is part of the key, so "Today" turns into "Yesterday" overnight.
+  const key = `${startOfDay(Date.now())}|${keys.join('|')}`;
   $('empty').classList.toggle('show', history.length === 0);
   $('history').style.display = history.length ? '' : 'none';
   $('history-hint').hidden = history.length === 0;
@@ -216,13 +229,26 @@ function renderHistory(history) {
   const list = $('history');
   const wanted = new Set(keys);
   for (const [k, tile] of tiles) if (!wanted.has(k)) { tile.remove(); tiles.delete(k); }
-  let before = list.firstChild;
+  // What the list should hold, in order: a heading whenever the day changes, then that day's files.
+  const nodes = [];
+  const days = new Set();
   history.forEach((h, i) => {
+    const day = dayLabel(h.at);
+    if (!days.has(day)) {
+      days.add(day);
+      if (!dayHeads.has(day)) dayHeads.set(day, el('h3', { className: 'day', textContent: day }));
+      nodes.push(dayHeads.get(day));
+    }
     let tile = tiles.get(keys[i]);
     if (!tile) { tile = makeTile(h); tiles.set(keys[i], tile); }
-    if (tile === before) before = before.nextSibling; // already in place
-    else list.insertBefore(tile, before);
+    nodes.push(tile);
   });
+  for (const [day, head] of dayHeads) if (!days.has(day)) { head.remove(); dayHeads.delete(day); }
+  let before = list.firstChild;
+  for (const node of nodes) {
+    if (node === before) before = before.nextSibling; // already in place
+    else list.insertBefore(node, before);
+  }
 }
 
 // ---------- sending to a phone ----------
