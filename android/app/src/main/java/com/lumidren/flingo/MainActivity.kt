@@ -1665,11 +1665,17 @@ class MainActivity : Activity() {
         }
         builder.setNeutralButton("Scan QR code") { _, _ -> scanQr() }
             .setNegativeButton("Unpair") { _, _ ->
-                prefs.clearPairing()
-                online = null
-                healthJob?.cancel()
-                updateChip()
-                showStatus("Unpaired.")
+                // The PC is told first, while this phone still holds what proves who it is. If the
+                // PC cannot be reached, the phone forgets it anyway; it can be removed on the PC.
+                val asked = Prefs(applicationContext)
+                scope.launch {
+                    val told = withContext(Dispatchers.IO) { runCatching { Net.unpair(asked) }.isSuccess && online == true }
+                    prefs.clearPairing()
+                    online = null
+                    healthJob?.cancel()
+                    updateChip()
+                    showStatus(if (told) "Unpaired. $name has forgotten this phone too." else "Unpaired. $name could not be told: remove this phone under Phones on the PC.", holdMs = 5000)
+                }
             }
             .show()
     }
