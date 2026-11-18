@@ -308,10 +308,7 @@ window.addEventListener('drop', (e) => {
   dragDepth = 0;
   showDrop(false);
   if (ownDrag || !state || !state.devices.length) { ownDrag = false; return; }
-  const paths = [...e.dataTransfer.files].map((f) => api.pathOf(f)).filter(Boolean);
-  if (!paths.length) return;
-  showTab('home'); // where the progress shows
-  api.sendFiles(paths, sendTarget());
+  if (api.sendDropped([...e.dataTransfer.files], sendTarget())) showTab('home'); // where the progress shows
 });
 
 // ---------- tabs ----------

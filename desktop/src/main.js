@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification, powerSaveBlocker, net } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage, screen, Notification, powerSaveBlocker, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -13,7 +13,8 @@ const { createOutbox } = require('./outbox');
 const { filesFromArgv, filesFromHandover, toHandover, SEND_FLAG } = require('./sendargs');
 const addresses = require('./addresses');
 const phones = require('./phones');
-const { loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
+const { createIdentity, loadOrCreateIdentity, fingerprint, securityCode } = require('./cert');
+const { opensDirectly } = require('./files');
 const { runPreflight } = require('./preflight');
 const updates = require('./update');
 
@@ -38,8 +39,9 @@ const LINKS = {
 };
 const UPDATE_FIRST_CHECK_MS = 20_000; // after the window is up, so starting stays quick
 const UPDATE_EVERY_MS = 12 * 60 * 60 * 1000;
-// Opening one of these by double-click would run it, so the app shows it in its folder instead.
-const RUNNABLE = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|ps1|vbs|vbe|js|jse|wsf|wsh|hta|jar|reg|cpl|msc|dll|sh|desktop|appimage|run|apk)$/i;
+// Switches for working on Flingo itself (screenshots, frame dumps, timings). They are read
+// only when Flingo runs from source: an installed copy ignores them, whatever its environment says.
+const DEV = app.isPackaged ? {} : process.env;
 const startHidden = process.argv.includes('--hidden');
 // Files to send to a phone, when Flingo was started from Explorer's "Send to" menu. Null otherwise.
 const sendAtStart = filesFromArgv(process.argv);
@@ -244,7 +246,7 @@ function createMainWindow() {
     icon: ICON,
     title: 'Flingo',
     autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   mainWin.loadFile(path.join(__dirname, 'index.html'));
   mainWin.once('ready-to-show', () => {
@@ -255,10 +257,10 @@ function createMainWindow() {
   // Links never navigate the app window.
   mainWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWin.webContents.on('will-navigate', (e) => e.preventDefault());
-  if (process.env.FLINGO_DEBUG_MAIN) {
+  if (DEV.FLINGO_DEBUG_MAIN) {
     mainWin.webContents.on('console-message', (_e, _l, msg) => console.log('[renderer]', msg));
     setInterval(async () => {
-      try { fs.writeFileSync(process.env.FLINGO_DEBUG_MAIN, (await mainWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
+      try { fs.writeFileSync(DEV.FLINGO_DEBUG_MAIN, (await mainWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
     }, 2000);
   }
   mainWin.on('close', (e) => {
@@ -276,8 +278,10 @@ function createOverlay() {
     x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
     show: false, frame: false, transparent: true, resizable: false, movable: false,
     skipTaskbar: true, focusable: false, hasShadow: false, alwaysOnTop: true,
+    // Its own, much smaller preload: this window decodes pictures a phone sent, so it is given
+    // nothing but "here is what arrived" and "I have finished showing it".
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false,
+      preload: path.join(__dirname, 'overlay-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true,
       backgroundThrottling: false,
     },
   });
@@ -319,14 +323,14 @@ function playOverlay(item) {
     overlayWin.showInactive();
     overlayShown = true;
     overlayWin.webContents.send('arrive', { ...item, sound: settings.sound, motion: settings.motion });
-    const cap = process.env.FLINGO_DEBUG_CAPTURE;
+    const cap = DEV.FLINGO_DEBUG_CAPTURE;
     if (cap) {
       setTimeout(async () => {
         try { fs.writeFileSync(cap, (await overlayWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
       }, 1500);
     }
     // Debug: dump the first arrival as numbered frames (used to make the README animation).
-    const framesDir = process.env.FLINGO_DEBUG_FRAMES;
+    const framesDir = DEV.FLINGO_DEBUG_FRAMES;
     if (framesDir && !framesStarted) {
       framesStarted = true;
       fs.mkdirSync(framesDir, { recursive: true });
@@ -1105,6 +1109,18 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
   app.whenReady().then(() => {
     loadSettings();
     try { identity = loadOrCreateIdentity(identityFile(), 'Flingo'); } catch { identity = null; }
+    // If the certificate cannot be saved (a full or read-only disk), one is made for this run
+    // alone. Phones will have to pair again next time, but nothing is ever sent unencrypted.
+    if (!identity) { try { identity = createIdentity('Flingo'); } catch { identity = null; } }
+    // Nothing a page asks for is granted (camera, location, notifications from the page…), and
+    // no window of Flingo's ever goes to another page or opens one.
+    session.defaultSession.setPermissionRequestHandler((_wc, _permission, answer) => answer(false));
+    session.defaultSession.setPermissionCheckHandler(() => false);
+    app.on('web-contents-created', (_e, contents) => {
+      contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      contents.on('will-navigate', (e) => e.preventDefault());
+      contents.on('will-attach-webview', (e) => e.preventDefault());
+    });
     // Recent partial files stay: a phone may still be waiting to carry on with one.
     cleanStaleParts(settings.saveDir, PART_MAX_AGE_MS);
     updates.cleanDownloads(updatesDir()); // the installer that put this copy here is no longer needed
@@ -1195,8 +1211,12 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
     });
     receiver.ready.then(pushState);
 
-    ipcMain.handle('get-state', () => publicState());
-    ipcMain.handle('set', (_e, patch) => {
+    // Only the main window may ask for any of this. A request from any other page is dropped.
+    const fromMain = (e) => !!mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents;
+    const onMain = (channel, fn) => ipcMain.on(channel, (e, ...args) => { if (fromMain(e)) fn(e, ...args); });
+    const handleMain = (channel, fn) => ipcMain.handle(channel, (e, ...args) => (fromMain(e) ? fn(e, ...args) : null));
+    handleMain('get-state', () => publicState());
+    handleMain('set', (_e, patch) => {
       if (typeof patch.name === 'string' && patch.name.trim()) settings.name = patch.name.trim().slice(0, 40);
       if (EFFECTS.includes(patch.effect)) settings.effect = patch.effect;
       if (typeof patch.showOverlay === 'boolean') settings.showOverlay = patch.showOverlay || settings.stage;
@@ -1223,50 +1243,58 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
       pushState(); // keep the window right even when the change did not come from a click in it
       return publicState();
     });
-    ipcMain.handle('choose-folder', async () => {
+    handleMain('choose-folder', async () => {
       const r = await dialog.showOpenDialog(mainWin, { properties: ['openDirectory', 'createDirectory'], defaultPath: settings.saveDir });
       if (!r.canceled && r.filePaths[0]) { settings.saveDir = r.filePaths[0]; saveSettings(); }
       return publicState();
     });
-    ipcMain.handle('new-code', () => { pairCode = newCode(); return publicState(); });
-    ipcMain.handle('remove-device', (_e, id) => {
+    handleMain('new-code', () => { pairCode = newCode(); return publicState(); });
+    handleMain('remove-device', (_e, id) => {
       settings.devices = settings.devices.filter((d) => d.id !== id);
       lastSeen.delete(id);
+      // It is out from this moment: what it was sending stops, and what was waiting for it is taken back.
+      outbox.cancelDevice(id);
+      if (receiver) receiver.stopDevice(id);
       saveSettings();
       return publicState();
     });
-    ipcMain.handle('clear-history', () => { history = []; saveHistory(); return publicState(); });
-    ipcMain.handle('preflight', () => preflight());
-    ipcMain.on('open-folder', () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); });
-    ipcMain.on('open-file', (_e, p) => {
+    handleMain('clear-history', () => { history = []; saveHistory(); return publicState(); });
+    handleMain('preflight', () => preflight());
+    onMain('open-folder', () => { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); });
+    onMain('open-file', (_e, p) => {
       if (!history.some((h) => h.path === p)) return;
-      if (RUNNABLE.test(p)) shell.showItemInFolder(p); else shell.openPath(p);
+      // Pictures, video, sound and documents to read open. Anything else, which might run, is
+      // shown in its folder, where Windows asks before starting it.
+      if (opensDirectly(p)) shell.openPath(p); else shell.showItemInFolder(p);
     });
-    ipcMain.on('reveal-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.showItemInFolder(p); });
-    ipcMain.on('preview-effect', (_e, effect) => {
+    onMain('reveal-file', (_e, p) => { if (history.some((h) => h.path === p)) shell.showItemInFolder(p); });
+    onMain('preview-effect', (_e, effect) => {
       playOverlay({ url: null, name: 'Preview', from: 'Preview', x: 0.5, effect: EFFECTS.includes(effect) ? effect : settings.effect });
     });
-    ipcMain.on('identify-screens', identifyScreens);
-    ipcMain.on('send-files', (_e, paths, phoneId) => { sendToPhone(paths, phoneId); });
-    ipcMain.on('pick-and-send', async (_e, phoneId) => {
+    onMain('identify-screens', identifyScreens);
+    onMain('send-files', (_e, paths, phoneId) => { sendToPhone(paths, phoneId); });
+    // The same from a script, for working on Flingo itself. An installed copy does not listen for it.
+    if (!app.isPackaged) onMain('send-paths', (_e, paths, phoneId) => { sendToPhone(paths, phoneId); });
+    onMain('pick-and-send', async (_e, phoneId) => {
       const picked = await dialog.showOpenDialog(mainWin, { title: 'Send to phone', buttonLabel: 'Send', properties: ['openFile', 'multiSelections'] });
       if (!picked.canceled) sendToPhone(picked.filePaths, phoneId);
     });
-    ipcMain.on('cancel-send', (_e, phoneId) => cancelSend(String(phoneId)));
-    ipcMain.on('open-link', (_e, which) => { if (Object.hasOwn(LINKS, which)) shell.openExternal(LINKS[which]); });
-    ipcMain.on('open-settings', (_e, what) => {
+    onMain('cancel-send', (_e, phoneId) => cancelSend(String(phoneId)));
+    onMain('open-link', (_e, which) => { if (Object.hasOwn(LINKS, which)) shell.openExternal(LINKS[which]); });
+    onMain('open-settings', (_e, what) => {
       if (what === 'folder') { fs.mkdirSync(settings.saveDir, { recursive: true }); shell.openPath(settings.saveDir); }
       if (process.platform !== 'win32') return;
-      if (what === 'firewall') execFile('control.exe', ['firewall.cpl'], () => {});
+      // By its full path, so that nothing else called control.exe can be the one that runs.
+      if (what === 'firewall') execFile(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'control.exe'), ['firewall.cpl'], () => {});
       if (what === 'notifications') shell.openExternal('ms-settings:notifications');
     });
-    ipcMain.on('drag-file', (e, p) => {
+    onMain('drag-file', (e, p) => {
       if (!history.some((h) => h.path === p) || !fs.existsSync(p)) return;
-      let icon = nativeImage.createFromPath(p);
-      icon = icon.isEmpty() ? nativeImage.createFromPath(ICON).resize({ width: 64 }) : icon.resize({ width: 96 });
-      e.sender.startDrag({ file: p, icon });
+      // Flingo's own icon rides along with the drag. The file itself is not opened for a
+      // picture of it: it came from a phone, and nothing here needs to read what is in it.
+      e.sender.startDrag({ file: p, icon: nativeImage.createFromPath(ICON).resize({ width: 64 }) });
     });
-    ipcMain.on('update', (_e, what) => {
+    onMain('update', (_e, what) => {
       if (what === 'check') checkForUpdate(true);
       if (what === 'download') downloadUpdate();
       if (what === 'install') installUpdate();
@@ -1278,9 +1306,10 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
     setTimeout(checkForUpdate, UPDATE_FIRST_CHECK_MS);
     setInterval(checkForUpdate, UPDATE_EVERY_MS);
 
-    ipcMain.on('overlay-idle', (_e, stats) => {
+    ipcMain.on('overlay-idle', (e, stats) => {
+      if (!overlayWin || overlayWin.isDestroyed() || e.sender !== overlayWin.webContents) return;
       if (selfResult && stats && stats.frames > 20) selfResult.stats = { fps: stats.fps, worstMs: stats.worstMs };
-      if (process.env.FLINGO_DEBUG_PERF && stats) console.log('[overlay]', JSON.stringify(stats));
+      if (DEV.FLINGO_DEBUG_PERF && stats) console.log('[overlay]', JSON.stringify(stats));
       // Stay up while something is still on its way: its next progress tick is already coming.
       if (batches.size || [...transfers.values()].some((t) => t.onScreen)) return;
       overlayShown = false;

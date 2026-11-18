@@ -15,12 +15,18 @@ contextBridge.exposeInMainWorld('flingo', {
   previewEffect: (effect) => ipcRenderer.send('preview-effect', effect),
   identifyScreens: () => ipcRenderer.send('identify-screens'),
   openSettings: (what) => ipcRenderer.send('open-settings', what),
-  overlayIdle: (stats) => ipcRenderer.send('overlay-idle', stats),
   update: (what) => ipcRenderer.send('update', what),
   openLink: (which) => ipcRenderer.send('open-link', which),
-  // Sending to a phone: the window only ever names files the person dropped or picked.
-  pathOf: (file) => webUtils.getPathForFile(file),
-  sendFiles: (paths, phoneId) => ipcRenderer.send('send-files', paths, phoneId),
+  // Sending to a phone. The page hands over the files a person dropped on it, never a path:
+  // where each one is on disk is worked out here, where the page's own code cannot reach, so
+  // nothing running in the page can ask for a file the person did not drop. Returns how many.
+  sendDropped: (files, phoneId) => {
+    const paths = [...(files || [])].map((f) => { try { return webUtils.getPathForFile(f); } catch { return ''; } }).filter(Boolean);
+    if (paths.length) ipcRenderer.send('send-files', paths, phoneId);
+    return paths.length;
+  },
+  // For working on Flingo itself: the app ignores this unless it is run from source.
+  sendFiles: (paths, phoneId) => ipcRenderer.send('send-paths', paths, phoneId),
   pickAndSend: (phoneId) => ipcRenderer.send('pick-and-send', phoneId),
   cancelSend: (phoneId) => ipcRenderer.send('cancel-send', phoneId),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
@@ -28,6 +34,4 @@ contextBridge.exposeInMainWorld('flingo', {
   onTransfer: (fn) => ipcRenderer.on('transfer', (_e, t) => fn(t)),
   onUpdate: (fn) => ipcRenderer.on('update', (_e, u) => fn(u)),
   onShowTab: (fn) => ipcRenderer.on('show-tab', (_e, name) => fn(name)),
-  onArrive: (fn) => ipcRenderer.on('arrive', (_e, item) => fn(item)),
-  onProgress: (fn) => ipcRenderer.on('progress', (_e, p) => fn(p)),
 });

@@ -73,7 +73,7 @@ app.whenReady().then(async () => {
   // A real but invisible window: animation frames only run in a window that is shown.
   const win = new BrowserWindow({
     width: 400, height: 300, show: false, frame: false, transparent: true, opacity: 0, skipTaskbar: true, focusable: false,
-    webPreferences: { preload: path.join(__dirname, '..', 'src', 'preload.js'), contextIsolation: true, backgroundThrottling: false },
+    webPreferences: { preload: path.join(__dirname, '..', 'src', 'overlay-preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
   await win.loadFile(path.join(__dirname, '..', 'src', 'overlay.html'));
   // The emulated screen has to be set after the page loads; setting it earlier crashes Electron 33.
