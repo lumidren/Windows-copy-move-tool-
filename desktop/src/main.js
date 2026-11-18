@@ -61,6 +61,8 @@ let overlayShown = false;
 let stateTimer = null;
 let historyTimer = null;
 let pairCode = newCode();
+let pairCodeAt = Date.now();
+const CODE_LIFE_MS = 10 * 60 * 1000; // a code shown longer than this is replaced: a photo of the screen goes stale
 let settings = null;
 let history = [];
 let identity = null; // { key, cert } PEM, or null if it could not be created
@@ -138,6 +140,12 @@ function saveHistorySoon() {
 }
 
 function newCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'); }
+
+/** A new pairing code, from now. Every code is used once and lives at most CODE_LIFE_MS. */
+function freshCode() {
+  pairCode = newCode();
+  pairCodeAt = Date.now();
+}
 
 /** An event from the receiver with its keys filed under the phone it came from. */
 function perPhone(e) {
@@ -1192,18 +1200,18 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
         if (!chosen || !settings.devices.includes(chosen)) settings.sendTo = paired.id;
         if (settings.stage) settings.pairingLocked = true; // on stage, one phone in and the door shuts
         saveSettings();
-        pairCode = newCode(); // one code, one phone
+        freshCode(); // one code, one phone
         pushState();
         // Never silent: whoever is at the PC is told that a phone got in, and where to remove it.
         notify(`${deviceName} is now paired with this PC. Not yours? Remove it under Phones.`, () => { showMain(); sendMain('show-tab', 'phones'); });
         return { token };
       },
-      rotateCode: () => { pairCode = newCode(); pushState(); },
+      rotateCode: () => { freshCode(); pushState(); },
       // Wrong codes keep coming: someone on the network is guessing. Pairing shuts until the owner opens it again.
       guessing: () => {
         settings.pairingLocked = true;
         saveSettings();
-        pairCode = newCode();
+        freshCode();
         pushState();
         notify('Pairing was locked: wrong codes kept arriving from the network. Press "Pair a phone" when you want to pair.', showMain);
       },
@@ -1290,7 +1298,12 @@ if (!app.requestSingleInstanceLock(toHandover(sendAtStart))) {
       if (!r.canceled && r.filePaths[0]) { settings.saveDir = r.filePaths[0]; saveSettings(); }
       return publicState();
     });
-    handleMain('new-code', () => { pairCode = newCode(); return publicState(); });
+    handleMain('new-code', () => { freshCode(); return publicState(); });
+    // A code that has been on screen for a while is replaced, so a photo of the screen, or a
+    // glance over a shoulder, is only good for a few minutes.
+    setInterval(() => {
+      if (!settings.pairingLocked && Date.now() - pairCodeAt >= CODE_LIFE_MS) { freshCode(); pushState(); }
+    }, 30_000).unref();
     handleMain('remove-device', (_e, id) => { forgetDevice(id); return publicState(); });
     handleMain('clear-history', () => { history = []; saveHistory(); return publicState(); });
     handleMain('preflight', () => preflight());
