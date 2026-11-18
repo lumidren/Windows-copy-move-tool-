@@ -38,7 +38,6 @@ import android.view.ViewOutlineProvider
 import android.view.Window
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityManager
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -46,6 +45,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.SeekBar
+import android.widget.Switch
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -277,34 +277,42 @@ class MainActivity : Activity() {
         }.asButton(24f), LinearLayout.LayoutParams(dpi(48f), dpi(48f)))
         column.addView(header)
 
-        // Side by side normally. With large text the hint would be squeezed into a column a few
-        // words wide, so then the button goes underneath it.
+        // What to do, in a line, then the two other things this screen is for: sending a file
+        // that is not a photo in the grid, and finding what the PC has sent. The buttons share a
+        // row; with large text each gets a row of its own.
         val hintRow = LinearLayout(this).apply {
-            orientation = if (bigText) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
-            gravity = if (bigText) Gravity.START else Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL
             setPadding(dpi(18f), 0, dpi(12f), dpi(10f))
         }
         hintRow.addView(TextView(this).apply {
             text = "Hold a photo and flick it up. Tap to select several."
             textSize = 13f
             setTextColor(Palette.MUTED)
-        }, if (bigText) LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT) else LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        hintRow.addView(TextView(this).apply {
-            // Opens the phone's own file browser: the way to send a large video, a document or
-            // anything else that is not a photo in the grid. Outlined so it reads as a button.
-            text = "Browse files"
+        }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        val actions = LinearLayout(this).apply {
+            orientation = if (bigText) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+        }
+        fun action(words: String, says: String, stroke: Int, onTap: () -> Unit) = TextView(this).apply {
+            text = words
             textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             maxLines = 1
-            background = pill(Palette.PANEL_2, 24f).apply { setStroke(dpi(1.5f), accent) }
+            background = pill(Palette.PANEL_2, 24f).apply { setStroke(dpi(1.5f), stroke) }
             setPadding(dpi(16f), 0, dpi(16f), 0)
             minHeight = dpi(48f)
             // Begins with the words on the button, so "tap Browse files" works by voice.
-            contentDescription = "Browse files. Send any file, such as a large video or a document"
-            setOnClickListener { pickFiles() }
-        }.asButton(24f), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { if (bigText) topMargin = dpi(8f) else leftMargin = dpi(10f) })
+            contentDescription = says
+            setOnClickListener { onTap() }
+        }.asButton(24f)
+        fun place(first: Boolean) = if (bigText) LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dpi(8f) }
+        else LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { topMargin = dpi(10f); if (!first) leftMargin = dpi(10f) }
+        // Opens the phone's own file browser: the way to send a large video, a document or
+        // anything else that is not a photo in the grid. Outlined so it reads as a button.
+        actions.addView(action("Browse files", "Browse files. Send any file, such as a large video or a document", accent) { pickFiles() }, place(true))
+        actions.addView(action("Received", "Received. Files your PC has sent to this phone", Palette.EDGE) { showReceivedList() }, place(false))
+        hintRow.addView(actions, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         column.addView(hintRow)
 
         // Shown when a newer Flingo has been released: what it is, a button to get it, and a way to close the offer.
@@ -1621,18 +1629,161 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // ---------- settings ----------
-    private fun showSettings() {
-        val box = LinearLayout(this).apply {
+    // ---------- what the PC has sent ----------
+    /** The files this phone has received, newest first. Tapping one opens it. */
+    private fun showReceivedList() {
+        sheet("Received") { dialog ->
+            // The way out is at the top: the list can be sixty files long.
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(sheetTitle("Received"), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                addView(sheetClose(dialog, "Close"))
+            })
+            addView(sheetNote("Files your PC sent to this phone. Photos and videos are saved in Pictures/Flingo, everything else in Download/Flingo."))
+            val list = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+            val waiting = TextView(this@MainActivity).apply {
+                text = "Looking…"
+                textSize = 14f
+                setTextColor(Palette.MUTED)
+                setPadding(0, dpi(8f), 0, dpi(8f))
+            }
+            list.addView(waiting)
+            addView(list, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dpi(12f) })
+            scope.launch {
+                val files = withContext(Dispatchers.IO) { Received.list(applicationContext) }
+                if (!dialog.isShowing) return@launch
+                list.removeAllViews()
+                if (files.isEmpty()) {
+                    waiting.text = "Nothing yet. On the PC, drop files on the Flingo window and they arrive here."
+                    list.addView(waiting)
+                    return@launch
+                }
+                val now = System.currentTimeMillis()
+                files.forEachIndexed { i, file ->
+                    list.addView(receivedRow(file, now), LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { if (i > 0) topMargin = dpi(8f) })
+                }
+                say("${Words.files(files.size)} received")
+            }
+        }
+    }
+
+    /** One received file: a small picture of it (or its type), its name, its size and when it came. */
+    private fun receivedRow(file: ReceivedFile, now: Long): View {
+        val uri = Uri.parse(file.uri)
+        val side = dpi(52f)
+        val detail = Received.detail(file, now)
+        val picture = FrameLayout(this).apply {
+            background = pill(Palette.BG, 12f)
+            clipToOutline = true
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, o: Outline) = o.setRoundRect(0, 0, v.width, v.height, dp(12f))
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = Received.badge(file.name)
+                glyph(12f)
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(Palette.SOFT)
+                gravity = Gravity.CENTER
+            }, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        }
+        if (file.mime.startsWith("image/") || file.mime.startsWith("video/")) {
+            val image = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
+            picture.addView(image, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            scope.launch {
+                val bitmap = withContext(Dispatchers.IO) {
+                    runCatching { contentResolver.loadThumbnail(uri, android.util.Size(side * 2, side * 2), null) }.getOrNull()
+                }
+                if (bitmap != null) image.setImageBitmap(bitmap)
+            }
+        }
+        val words = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpi(24f), dpi(12f), dpi(24f), 0)
+            addView(TextView(this@MainActivity).apply {
+                text = file.name
+                textSize = 15f
+                setTextColor(Color.WHITE)
+                maxLines = if (bigText) 3 else 1
+                ellipsize = TextUtils.TruncateAt.MIDDLE
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = detail
+                textSize = 13f
+                setTextColor(Palette.MUTED)
+            })
         }
-        val label = TextView(this).apply { textSize = 15f }
-        val note = TextView(this).apply {
-            text = "Let go of a photo inside this area at the top of the screen to send it. A quick upward flick sends from anywhere."
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = pressable(Palette.PANEL_2, 14f, outline = false)
+            setPadding(dpi(8f), dpi(8f), dpi(12f), dpi(8f))
+            minimumHeight = dpi(64f)
+            contentDescription = "${file.name}, $detail"
+            addView(picture, LinearLayout.LayoutParams(side, side))
+            addView(words, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { leftMargin = dpi(12f) })
+            setOnClickListener {
+                val open = Intent(Intent.ACTION_VIEW).setDataAndType(uri, file.mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                runCatching { startActivity(open) }.onFailure { showStatus("No app on this phone opens that kind of file.\nIt is saved in ${if (file.uri.contains("/downloads/")) "Download" else "Pictures"}/Flingo.", holdMs = 5000) }
+            }
+        }.asButton(14f, action = "open it")
+    }
+
+    // ---------- settings ----------
+    /** A switch with its words before it, in Flingo's colours. [note] is said under it in smaller words. */
+    private fun settingSwitch(words: String, note: String?, on: Boolean, onChange: (Boolean) -> Unit): View {
+        val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+        val toggle = Switch(this).apply {
+            text = words
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            minHeight = dpi(48f)
+            isChecked = on
+            thumbTintList = ColorStateList(states, intArrayOf(Color.WHITE, Palette.SOFT))
+            trackTintList = ColorStateList(states, intArrayOf(accent, Palette.EDGE))
+            switchPadding = dpi(12f)
+            setOnCheckedChangeListener { _, checked -> onChange(checked) }
+        }
+        if (note == null) return toggle
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(toggle, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(settingNote(note))
+        }
+    }
+
+    private fun settingNote(words: String) = TextView(this).apply {
+        text = words
+        textSize = 13f
+        setTextColor(Palette.MUTED)
+        setPadding(0, 0, 0, dpi(4f))
+    }
+
+    /** A group of settings: a small heading, then a panel that holds them. */
+    private fun settingGroup(name: String, vararg rows: View): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(TextView(this@MainActivity).apply {
+            text = name
             textSize = 13f
-            alpha = 0.7f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Palette.SOFT)
+            isAccessibilityHeading = true
+            setPadding(dpi(4f), dpi(14f), 0, dpi(6f))
+        })
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            background = pill(Palette.PANEL_2, 16f)
+            setPadding(dpi(14f), dpi(6f), dpi(14f), dpi(10f))
+            rows.forEach { addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
+        })
+    }
+
+    private fun showSettings() {
+        val label = TextView(this).apply {
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            setPadding(0, dpi(8f), 0, 0)
         }
+        val note = settingNote("Let go of a photo inside this area at the top of the screen to send it. A quick upward flick sends from anywhere.")
         val bar = SeekBar(this).apply {
             id = View.generateViewId()
             min = 10
@@ -1653,43 +1804,18 @@ class MainActivity : Activity() {
             override fun onStopTrackingTouch(s: SeekBar) {}
         })
         refresh()
-        val awake = CheckBox(this).apply {
-            text = "Keep the screen on while Flingo is open"
-            textSize = 15f
-            minHeight = dpi(48f)
-            isChecked = prefs.keepAwake
-            setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
-            setOnCheckedChangeListener { _, on ->
-                prefs.keepAwake = on
-                if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            }
+        val awake = settingSwitch("Keep the screen on while Flingo is open", null, prefs.keepAwake) { on ->
+            prefs.keepAwake = on
+            if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
-        box.addView(label)
-        box.addView(bar)
-        box.addView(note)
-        val updates = CheckBox(this).apply {
-            text = "Check for updates"
-            textSize = 15f
-            minHeight = dpi(48f)
-            isChecked = prefs.checkUpdates
-            setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
-            setOnCheckedChangeListener { _, on -> prefs.checkUpdates = on }
-        }
-        val calm = CheckBox(this).apply {
-            text = "Reduce motion"
-            textSize = 15f
-            minHeight = dpi(48f)
-            isChecked = prefs.reduceMotion
-            setPadding(dpi(6f), dpi(14f), 0, dpi(6f))
-            setOnCheckedChangeListener { _, on -> prefs.reduceMotion = on }
-        }
-        val calmNote = TextView(this).apply {
-            text = if (ValueAnimator.areAnimatorsEnabled()) "A photo that arrives fades in instead of dropping in, and a photo you send fades instead of flying off."
-            else "Movement is already reduced, because animations are switched off in this phone's settings."
-            textSize = 13f
-            alpha = 0.7f
-        }
+        val updates = settingSwitch("Check for updates", null, prefs.checkUpdates) { on -> prefs.checkUpdates = on }
+        val calm = settingSwitch(
+            "Reduce motion",
+            if (ValueAnimator.areAnimatorsEnabled()) "A photo that arrives fades in instead of dropping in, and a photo you send fades instead of flying off."
+            else "Movement is already reduced, because animations are switched off in this phone's settings.",
+            prefs.reduceMotion,
+        ) { on -> prefs.reduceMotion = on }
         val checkNow = TextView(this).apply {
             text = "Check now"
             textSize = 14f
@@ -1703,17 +1829,9 @@ class MainActivity : Activity() {
         // The button sits under the words, not beside them: beside, large text left the words a column a few letters wide.
         val versionRow = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(TextView(this@MainActivity).apply {
-                text = "Version ${BuildConfig.VERSION_NAME}. Flingo asks GitHub which version is the newest; nothing installs without a tap."
-                textSize = 13f
-                alpha = 0.7f
-            })
+            addView(settingNote("Version ${BuildConfig.VERSION_NAME}. Flingo asks GitHub which version is the newest; nothing installs without a tap."))
             addView(checkNow, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.END })
         }
-        box.addView(awake)
-        box.addView(calm)
-        box.addView(calmNote)
-        box.addView(updates)
         val about = TextView(this).apply {
             text = "About Flingo  ›"
             textSize = 15f
@@ -1721,14 +1839,19 @@ class MainActivity : Activity() {
             setTextColor(accent)
             gravity = Gravity.CENTER_VERTICAL
             minHeight = dpi(48f)
-            setPadding(dpi(6f), dpi(6f), 0, 0)
+            setPadding(dpi(4f), dpi(10f), 0, 0)
             contentDescription = "About Flingo"
         }.asButton(12f)
-        box.addView(versionRow)
-        box.addView(about)
 
-        // Able to scroll: with large text the list is taller than the screen, and a dialog does not scroll by itself.
-        val dialog = AlertDialog.Builder(this).setTitle("Settings").setView(ScrollView(this).apply { addView(box) }).setPositiveButton("Done", null).show()
+        // Flingo's own sheet, which scrolls: with large text the list is taller than the screen.
+        val dialog = sheet("Settings") { dialog ->
+            addView(sheetTitle("Settings"))
+            addView(settingGroup("Sending", label, bar, note))
+            addView(settingGroup("Screen", awake, calm))
+            addView(settingGroup("Updates", updates, versionRow))
+            addView(about)
+            addView(sheetClose(dialog, "Done"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.END })
+        }
         about.setOnClickListener {
             dialog.dismiss()
             showAbout()
