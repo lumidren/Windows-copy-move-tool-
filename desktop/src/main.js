@@ -258,7 +258,7 @@ function createMainWindow() {
   mainWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWin.webContents.on('will-navigate', (e) => e.preventDefault());
   if (DEV.FLINGO_DEBUG_MAIN) {
-    mainWin.webContents.on('console-message', (_e, _l, msg) => console.log('[renderer]', msg));
+    mainWin.webContents.on('console-message', (e) => console.log('[renderer]', e.message));
     setInterval(async () => {
       try { fs.writeFileSync(DEV.FLINGO_DEBUG_MAIN, (await mainWin.webContents.capturePage()).toPNG()); } catch { /* debug only */ }
     }, 2000);
