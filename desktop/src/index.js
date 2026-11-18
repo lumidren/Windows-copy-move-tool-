@@ -102,6 +102,7 @@ function render(s) {
   document.body.classList.toggle('stage', s.stage);
   document.body.classList.toggle('calm', wantsCalm(s));
   $('stage-badge').hidden = !s.stage;
+  $('stage-exit').hidden = !s.stage;
   $('stage').checked = s.stage;
   if (s.stage) showTab('home'); // the bar of tabs is hidden on stage, so make sure Home is what shows
   $('side-version').textContent = `Flingo ${s.version}`;
@@ -259,7 +260,10 @@ let dragDepth = 0;
 let targetsKey = null;
 
 function renderSendTargets(s) {
-  $('send-to-phone').hidden = s.devices.length === 0;
+  // The place to send from is there once there is a phone to send to. On stage it steps aside.
+  $('send-zone').hidden = s.devices.length === 0 || s.stage;
+  const to = s.devices.find((d) => d.id === s.sendTo);
+  $('send-title').textContent = to ? `Send to ${to.name}` : 'Send to your phone';
   // A pairing the same phone has since replaced is not a choice: files for it go to the new one anyway.
   const choices = s.devices.filter((d) => !d.replaced || d.id === s.sendTo);
   $('send-target').hidden = choices.length < 2;
@@ -448,8 +452,9 @@ const MARK_WORDS = { ok: 'Passed', warn: 'Worth a look', fail: 'Must be fixed', 
 const ACTIONS = { firewall: 'Open firewall settings', notifications: 'Open notification settings', folder: 'Open folder' };
 
 async function runPreflight() {
-  showTab('home'); // the checklist appears there
+  showTab('settings'); // the checklist appears there, under the button that starts it
   $('preflight-card').hidden = false;
+  $('preflight-card').scrollIntoView({ block: 'start' });
   $('preflight').disabled = $('preflight-again').disabled = true;
   $('preflight-summary').className = 'summary running';
   $('preflight-summary').textContent = 'Checking… a test photo will fly across the arrival screen.';
@@ -496,6 +501,7 @@ $('new-code').onclick = async () => render(await api.newCode());
 $('lock').onclick = async () => render(await api.set({ pairingLocked: true }));
 $('unlock').onclick = async () => render(await api.set({ pairingLocked: false }));
 $('stage').onchange = async (e) => render(await api.set({ stage: e.target.checked }));
+$('stage-exit').onclick = async () => render(await api.set({ stage: false }));
 $('choose-folder').onclick = async () => render(await api.chooseFolder());
 $('open-folder').onclick = () => api.openFolder();
 $('clear').onclick = async () => render(await api.clearHistory());

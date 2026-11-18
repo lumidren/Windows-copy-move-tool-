@@ -9,15 +9,10 @@
 <body>
 <header>
   <div class="brand"><span class="logo" aria-hidden="true"></span><h1>Flingo</h1><span class="badge" id="stage-badge" hidden>Stage mode</span></div>
-  <div class="status" id="status" role="status"><span class="dot" id="dot" aria-hidden="true"></span><span id="status-text">Starting…</span></div>
   <div class="row">
-    <button id="preflight" class="ghost">Pre-flight check</button>
-    <label class="toggle compact" title="For presenting: keeps the screen awake, locks pairing, and makes this window easy to read from a distance.">
-      <input type="checkbox" role="switch" id="stage" aria-describedby="stage-help">
-      <span class="switch"></span>
-      <span>Stage mode</span>
-    </label>
-    <span class="sr-only" id="stage-help">For presenting: keeps the screen awake, locks pairing, and makes this window easy to read from a distance.</span>
+    <div class="status" id="status" role="status"><span class="dot" id="dot" aria-hidden="true"></span><span id="status-text">Starting…</span></div>
+    <!-- On stage the bar of sections is hidden, so the way back out is here. -->
+    <button id="stage-exit" class="ghost" hidden>Leave stage mode</button>
   </div>
 </header>
 
@@ -47,30 +42,27 @@
 <main>
   <div class="page" data-page="home">
   <section class="col wide">
-    <div class="card" id="preflight-card" hidden>
-      <div class="row spread">
-        <h2>Pre-flight check</h2>
-        <div class="row">
-          <button id="preflight-again" class="ghost">Run again</button>
-          <button id="preflight-close" class="ghost">Close</button>
-        </div>
+    <!-- Sending the other way: drop files anywhere on the window, or choose them here. -->
+    <div class="send-zone" id="send-zone" hidden>
+      <span class="send-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V5M7.5 9.5 12 5l4.5 4.5"/><path d="M5 15.5v2A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg></span>
+      <div class="send-words">
+        <b id="send-title">Send to your phone</b>
+        <span class="muted small">Drop files anywhere on this window, or choose them.</span>
       </div>
-      <div id="preflight-summary" class="summary" role="status"></div>
-      <ul id="preflight-list" class="checks"></ul>
+      <select id="send-target" aria-label="Phone to send to" hidden></select>
+      <button id="send-to-phone">Choose files</button>
     </div>
 
     <div class="card grow">
       <div class="row spread">
         <h2>Received</h2>
         <div class="row">
-          <select id="send-target" aria-label="Phone to send to" hidden></select>
-          <button id="send-to-phone" hidden>Send to phone</button>
           <button id="open-folder" class="ghost">Open folder</button>
           <button id="clear" class="ghost">Clear list</button>
         </div>
       </div>
       <div id="transfers" class="transfers"></div>
-      <p class="muted small" id="history-hint">Click to open. Drag a tile into any app or folder.</p>
+      <p class="muted small" id="history-hint">Click a file to open it. Drag it into any app or folder.</p>
       <div id="history" class="history"></div>
       <div id="empty" class="empty">
         <div class="empty-art" aria-hidden="true"></div>
@@ -129,14 +121,19 @@
   <section class="col solo">
     <div class="card">
       <h2>Arrival effect</h2>
+      <p class="muted lead">What plays on this PC's screen when a photo lands.</p>
       <div class="effects" id="effects"></div>
+      <button id="test-arrival" class="ghost wide-btn">Play a test arrival</button>
+    </div>
+
+    <div class="card">
+      <h2>Where and how</h2>
       <div class="field" id="screen-field">Show arrivals on
         <div class="row">
           <select id="screen" aria-label="Arrival screen"></select>
           <button id="identify" class="ghost" title="Shows a number on each screen for two seconds">Identify</button>
         </div>
       </div>
-      <button id="test-arrival" class="ghost wide-btn">Play a test arrival</button>
       <label class="field" for="motion">Movement
         <select id="motion">
           <option value="system">Follow this PC's setting</option>
@@ -145,12 +142,12 @@
         </select>
         <small class="muted" id="motion-hint"></small>
       </label>
-      <label class="toggle">
+      <label class="toggle opt">
         <input type="checkbox" role="switch" id="show-overlay">
         <span class="switch"></span>
         <span>Show arrivals on this PC<br><small class="muted">Off: files save quietly with a notification.</small></span>
       </label>
-      <label class="toggle">
+      <label class="toggle opt">
         <input type="checkbox" role="switch" id="sound">
         <span class="switch"></span>
         <span>Play a sound when a photo lands</span>
@@ -172,17 +169,21 @@
           <button id="choose-folder" class="ghost">Change</button>
         </div>
       </div>
-      <label class="toggle">
+      <label class="toggle opt">
         <input type="checkbox" role="switch" id="launch">
         <span class="switch"></span>
         <span id="launch-label">Start with Windows</span>
       </label>
-      <label class="toggle" id="send-to-menu-row" hidden>
+      <label class="toggle opt" id="send-to-menu-row" hidden>
         <input type="checkbox" role="switch" id="send-to-menu">
         <span class="switch"></span>
         <span>Show in Explorer's "Send to" menu<br><small class="muted" id="send-to-menu-hint"></small></span>
       </label>
-      <label class="toggle">
+    </div>
+
+    <div class="card">
+      <h2>Updates</h2>
+      <label class="toggle opt">
         <input type="checkbox" role="switch" id="auto-update">
         <span class="switch"></span>
         <span>Check for updates<br><small class="muted">Asks GitHub which version is the newest. Nothing installs without a click.</small></span>
@@ -191,6 +192,31 @@
         <span class="muted small" id="version" role="status"></span>
         <button id="check-update" class="ghost">Check now</button>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Presenting and checking</h2>
+      <label class="toggle opt">
+        <input type="checkbox" role="switch" id="stage">
+        <span class="switch"></span>
+        <span>Stage mode<br><small class="muted">For presenting: keeps the screen awake, locks pairing, and makes this window easy to read from a distance.</small></span>
+      </label>
+      <div class="row spread opt-row">
+        <span>Pre-flight check<br><small class="muted">Tests this PC end to end: network, firewall, folder, and a photo flying across the screen.</small></span>
+        <button id="preflight" class="ghost">Run check</button>
+      </div>
+    </div>
+
+    <div class="card" id="preflight-card" hidden>
+      <div class="row spread">
+        <h2>Pre-flight check</h2>
+        <div class="row">
+          <button id="preflight-again" class="ghost">Run again</button>
+          <button id="preflight-close" class="ghost">Close</button>
+        </div>
+      </div>
+      <div id="preflight-summary" class="summary" role="status"></div>
+      <ul id="preflight-list" class="checks"></ul>
     </div>
   </section>
   </div>

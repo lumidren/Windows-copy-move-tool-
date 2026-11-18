@@ -35,7 +35,11 @@ header {
   font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px;
   padding: 3px 9px; border-radius: 10px; color: #0e1016; background: var(--warn);
 }
-.status { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+/* How things stand, in one place: a pill at the right of the top bar. */
+.status {
+  min-width: 0; display: flex; align-items: center; gap: 9px; padding: 6px 14px 6px 12px;
+  border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--text); font-size: 13px;
+}
 .status span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
 .dot.wait { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
@@ -52,7 +56,7 @@ header {
 .update-bar .row { flex: none; }
 .update-bar .track { height: 5px; border-radius: 3px; background: var(--line); margin-top: 8px; overflow: hidden; max-width: 420px; }
 .update-bar .bar { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .15s linear; }
-.version-row { margin-top: 12px; }
+.version-row { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); }
 
 .about-head { display: flex; align-items: center; gap: 12px; }
 .logo.big { flex: none; width: 40px; height: 40px; border-radius: 12px; }
@@ -169,7 +173,7 @@ select {
 
 .effects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
 .effect {
-  position: relative; height: 68px; border-radius: 10px; border: 2px solid transparent;
+  position: relative; height: 84px; border-radius: 12px; border: 2px solid transparent;
   padding: 0 8px 8px; display: flex; align-items: flex-end; text-align: left; color: #fff;
 }
 /* The name and the tick sit on their own dark patch, so they read on every picture behind them. */
@@ -193,6 +197,15 @@ select {
 
 .toggle { display: flex; align-items: center; gap: 12px; cursor: pointer; margin-top: 4px; }
 .toggle + .toggle { margin-top: 12px; }
+/* A setting is a line of words with its switch or button at the end of it, and a rule
+   between one setting and the next. */
+.toggle.opt, .opt-row { flex-direction: row-reverse; justify-content: space-between; gap: 16px; margin: 0; padding: 12px 0; }
+.opt-row { flex-direction: row; align-items: center; }
+.toggle.opt + .toggle.opt, .toggle.opt + .opt-row, .field + .toggle.opt, .opt-row + .toggle.opt { border-top: 1px solid var(--line); margin-top: 0; }
+.card > .toggle.opt:last-child, .card > .opt-row:last-child { padding-bottom: 0; }
+.card > h2 + .toggle.opt { padding-top: 0; }
+.toggle.opt > span:last-child, .opt-row > span { min-width: 0; }
+.lead { margin: -6px 0 14px; }
 .toggle.compact { margin: 0; gap: 8px; white-space: nowrap; }
 .toggle input:disabled + .switch { opacity: .5; }
 .toggle input { position: absolute; opacity: 0; }
@@ -273,7 +286,16 @@ code {
 .transfer .head button { padding: 4px 10px; font-size: 12px; }
 .transfer.sent { border-color: var(--ok); }
 .transfer.sent .bar { background: var(--ok); }
-#send-target { max-width: 160px; }
+#send-target { max-width: 180px; flex: none; }
+/* Where files go the other way. The dashed edge says "drop here"; the whole window takes a drop. */
+.send-zone {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  border: 1.5px dashed var(--edge); border-radius: 16px; background: var(--panel);
+}
+.send-icon { flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--tint); color: var(--focus); }
+.send-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.send-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.send-words b { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .transfers { display: flex; flex-direction: column; gap: 8px; }
 .transfers:not(:empty) { margin-bottom: 12px; }
 .transfer { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
@@ -327,8 +349,10 @@ body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
 @media (max-width: 720px) {
   html, body { height: auto; min-height: 100%; }
   header, .update-bar, .row { flex-wrap: wrap; }
-  .status { flex-basis: 100%; order: 3; justify-content: flex-start; }
-  .status span:last-child, .transfer .label, .tile .name, .tile .sub { white-space: normal; overflow-wrap: anywhere; }
+  .status { border-radius: 14px; }
+  .status span:last-child, .transfer .label, .tile .name, .tile .sub, .send-words b { white-space: normal; overflow-wrap: anywhere; }
+  .send-zone { flex-wrap: wrap; }
+  .toggle.opt, .opt-row { flex-wrap: nowrap; }
   .shell { flex-direction: column; }
   .side { flex-direction: row; flex-wrap: wrap; width: auto; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
   .tab { width: auto; }
@@ -336,7 +360,7 @@ body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
   main { padding: 12px; }
   .page { flex-direction: column; }
   .col, .col.wide, .col.solo, .page.first-run .col { width: 100%; flex: none; overflow: visible; padding-right: 0; }
-  .card.grow { min-height: 0; }
+  .card.grow { flex: none; min-height: 0; }
   .history { overflow: visible; }
   code { white-space: normal; overflow-wrap: anywhere; }
   #send-target { max-width: none; }
@@ -355,6 +379,8 @@ body.calm .transfer.unknown .bar { width: 100% !important; opacity: .45; }
   .dot.off { background: GrayText; }
   .tab.active, .effect.active { outline: 2px solid Highlight; outline-offset: -2px; }
   .side { background: Canvas; }
+  .send-zone { border-color: ButtonText; }
+  .send-icon { forced-color-adjust: none; background: Canvas; color: ButtonText; border: 1px solid ButtonText; }
   .check .mark { border: 1px solid ButtonText; }
 }
 
