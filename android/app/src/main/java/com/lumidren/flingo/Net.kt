@@ -81,6 +81,7 @@ data class SendOptions(
 
 /** Talks to the Flingo desktop app over the local network. All calls block; run them off the main thread. */
 object Net {
+    private const val MAX_ANSWER = 1024 * 1024
     const val HTTP_PORT = 47801
     private const val DISCOVERY_PORT = 47800
     private const val MAGIC = "FLINGO_DISCOVER"
@@ -122,14 +123,18 @@ object Net {
     }
 
     private fun encodeFp(bytes: ByteArray) = Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+    /** The 32 bytes of a fingerprint, or null for anything that is not one. */
     private fun decodeFp(fp: String): ByteArray? =
-        if (fp.isEmpty()) null else runCatching { Base64.decode(fp, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP) }.getOrNull()
+        if (!Pairing.isFingerprint(fp)) null
+        else runCatching { Base64.decode(fp, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP) }.getOrNull()?.takeIf { it.size == 32 }
 
-    /** A short form of the fingerprint that people can compare by eye, e.g. "4F2A 91C3". */
+    /**
+     * A short form of the fingerprint that people can compare by eye, e.g. "4F2A 91C3 07BE D215".
+     * Sixteen characters: with eight, someone could make keys until one had the same short form.
+     */
     fun securityCode(fp: String): String {
         val bytes = decodeFp(fp) ?: return ""
-        val hex = bytes.take(4).joinToString("") { "%02X".format(it) }
-        return hex.substring(0, 4) + " " + hex.substring(4)
+        return bytes.take(8).joinToString("") { "%02X".format(it) }.chunked(4).joinToString(" ")
     }
 
     // One TLS setup for the paired PC, kept between requests. A later connection to the same PC
@@ -161,6 +166,8 @@ object Net {
      * work that tries again by itself: a connection kept from before can turn out to be dead.
      */
     private fun open(host: String, port: Int, path: String, pin: String, connectMs: Int = 2000, reuse: Boolean = false, keep: Boolean = false): Conn {
+        // A pin that was given but cannot be read is a refusal, never "accept anything".
+        if (pin.isNotEmpty() && decodeFp(pin) == null) throw IOException("The PC's fingerprint is damaged. Pair again.")
         val kept = if (reuse && pin.isNotEmpty()) sharedFor(pin) else null
         val trust = kept?.trust ?: Pinning(decodeFp(pin))
         val factory = kept?.factory ?: SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }.socketFactory
@@ -191,8 +198,20 @@ object Net {
         disconnect()
     }
 
-    private fun HttpsURLConnection.body(): String =
-        (if (responseCode in 200..299) inputStream else errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
+    /** What the PC answered, as text. No answer of Flingo's is large, so a megabyte is where reading stops. */
+    private fun HttpsURLConnection.body(): String {
+        val stream = (if (responseCode in 200..299) inputStream else errorStream) ?: return ""
+        return stream.use { input ->
+            val out = java.io.ByteArrayOutputStream()
+            val buf = ByteArray(8192)
+            while (out.size() < MAX_ANSWER) {
+                val n = input.read(buf, 0, minOf(buf.size, MAX_ANSWER - out.size()))
+                if (n < 0) break
+                out.write(buf, 0, n)
+            }
+            out.toString("UTF-8")
+        }
+    }
 
     private fun HttpsURLConnection.error(fallback: String): String =
         runCatching { JSONObject(body()).optString("error", fallback) }.getOrDefault(fallback).ifEmpty { fallback }
@@ -284,10 +303,13 @@ object Net {
 
     // ---------- pairing ----------
     /**
-     * Pairs with [pc] at [Pc.host]. If [Pc.fp] is known (it came from a QR code) the PC must
-     * present exactly that certificate; otherwise the certificate it presents is remembered.
+     * Pairs with [pc] at [Pc.host], which must present exactly the certificate [Pc.fp] names.
+     * That fingerprint came from the QR code, or was shown to the person as a security code
+     * and confirmed. The pairing code is never sent to a computer whose certificate has not
+     * been checked one of those two ways: whoever received it could pair with the real PC.
      */
     fun pair(pc: Pc, code: String, deviceName: String, deviceId: String): Paired {
+        if (decodeFp(pc.fp) == null) throw PcRefusedException(0, "This PC has not been checked yet. Scan its QR code, or compare its security code.")
         val c = open(pc.host, pc.port, "/pair", pc.fp)
         try {
             c.http.requestMethod = "POST"
