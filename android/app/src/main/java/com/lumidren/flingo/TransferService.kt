@@ -157,7 +157,9 @@ class TransferService : Service() {
                 is ReceiveResult.NoSpace -> "Not enough space on this phone" to "A file from $pc could not be saved."
                 is ReceiveResult.Cancelled -> return
             }
-            val single = (result as? ReceiveResult.Done)?.takeIf { it.arrived == 1 }?.last
+            // An app package is never opened from here: that would start an install with Flingo's own
+            // permission to install its updates. It stays in Download/Flingo for the person to open.
+            val single = (result as? ReceiveResult.Done)?.takeIf { it.arrived == 1 }?.last?.takeIf { !Received.installs(it.name, it.mime) }
             val tap = if (single != null) {
                 Intent(Intent.ACTION_VIEW).setDataAndType(single.uri, single.mime)
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)

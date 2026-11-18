@@ -75,6 +75,11 @@ object Received {
     fun badge(name: String): String =
         name.substringAfterLast('.', "").filter { it.isLetterOrDigit() }.take(4).uppercase().ifEmpty { "FILE" }
 
+    /** True for an app package: a file Flingo never opens itself, because opening it starts an install. */
+    fun installs(name: String, mime: String): Boolean =
+        mime.equals("application/vnd.android.package-archive", ignoreCase = true) ||
+            name.substringAfterLast('.', "").lowercase() in setOf("apk", "apks", "xapk", "apkm")
+
     /** What a row of the list says under the name, and what a screen reader says after it. */
     fun detail(file: ReceivedFile, nowMs: Long): String = "${Words.size(file.size)} · ${ago(file.addedMs, nowMs)}"
 }

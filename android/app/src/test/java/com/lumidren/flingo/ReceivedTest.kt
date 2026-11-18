@@ -53,6 +53,15 @@ class ReceivedTest {
         assertEquals("7Z", Received.badge("archive.7z"))
     }
 
+    @Test fun `an app package is never opened by Flingo`() {
+        assertEquals(true, Received.installs("game.apk", "application/octet-stream"))
+        assertEquals(true, Received.installs("Game.APK", ""))
+        assertEquals(true, Received.installs("bundle.xapk", ""))
+        assertEquals(true, Received.installs("renamed.jpg", "application/vnd.android.package-archive"))
+        assertEquals(false, Received.installs("photo.jpg", "image/jpeg"))
+        assertEquals(false, Received.installs("apk-notes.txt", "text/plain"))
+    }
+
     @Test fun `a row says the size and when`() {
         assertEquals("2.4 MB · 5 min ago", Received.detail(file("u", now - 5 * minute), now))
         assertEquals("12 KB · Yesterday", Received.detail(file("u", now - 30 * hour, size = 12_800), now))

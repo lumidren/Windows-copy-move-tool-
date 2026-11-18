@@ -410,7 +410,9 @@ object Inbox {
      * Android picks a free name if that one is taken.
      */
     private fun create(resolver: ContentResolver, item: Incoming, mime: String): Uri {
-        val name = item.name.replace(Regex("""[\\/:*?"<>|\u0000-\u001f\u007f]"""), "_").trim().trimStart('.').take(180).ifEmpty { "file" }
+        // Characters that cannot be seen, or that reorder what is seen, could make "photo.apk" read as something else.
+        val name = item.name.filter { it !in Pairing.INVISIBLE }
+            .replace(Regex("""[\\/:*?"<>|\u0000-\u001f\u007f]"""), "_").trim().trimStart('.').take(180).ifEmpty { "file" }
         fun insert(collection: Uri, folder: String, type: String): Uri? = runCatching {
             resolver.insert(collection, ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, name)

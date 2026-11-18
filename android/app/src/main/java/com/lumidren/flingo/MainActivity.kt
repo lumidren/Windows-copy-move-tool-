@@ -1147,11 +1147,14 @@ class MainActivity : Activity() {
             else -> return
         }
         intent.action = Intent.ACTION_MAIN // don't resend on rotation
-        if (uris.isEmpty()) return
+        // Only content another app was able to hand over. A plain file path could name Flingo's
+        // own private files, such as the one that holds the pairing.
+        val shared = uris.filter { it.scheme == "content" }
+        if (shared.isEmpty()) return
         if (prefs.paired) {
-            send(uris, 0.5f, animateFirst = uris.size == 1)
+            send(shared, 0.5f, animateFirst = shared.size == 1)
         } else {
-            pendingShare = uris
+            pendingShare = shared
             showPairDialog()
         }
     }
@@ -1764,6 +1767,10 @@ class MainActivity : Activity() {
             addView(picture, LinearLayout.LayoutParams(side, side))
             addView(words, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { leftMargin = dpi(12f) })
             setOnClickListener {
+                if (Received.installs(file.name, file.mime)) {
+                    showStatus("Flingo does not open app packages.\nIt is saved in Download/Flingo.", holdMs = 5000)
+                    return@setOnClickListener
+                }
                 val open = Intent(Intent.ACTION_VIEW).setDataAndType(uri, file.mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 runCatching { startActivity(open) }.onFailure { showStatus("No app on this phone opens that kind of file.\nIt is saved in ${if (file.uri.contains("/downloads/")) "Download" else "Pictures"}/Flingo.", holdMs = 5000) }
             }
