@@ -55,8 +55,12 @@ android {
         debug {
             if (keystore != null) signingConfig = signingConfigs.getByName("stable")
         }
+        // What is handed to people: the same code, but not debuggable. Signed with the project's
+        // key when it is there (a release build in CI); otherwise with this machine's debug key,
+        // so that it can still be installed to try it.
         release {
             isMinifyEnabled = false
+            signingConfig = if (keystore != null) signingConfigs.getByName("stable") else signingConfigs.getByName("debug")
         }
     }
     compileOptions {
